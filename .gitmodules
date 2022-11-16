@@ -1,0 +1,3 @@
+[submodule "lib/rabbitizer"]
+	path = lib/rabbitizer
+	url = https://github.com/Decompollaborate/rabbitizer

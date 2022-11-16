@@ -1,0 +1,192 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="rabbitizer\src\common\RabbitizerConfig.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\common\RabbitizerVersion.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\common\Utils.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\analysis\RabbitizerLoPairingInfo.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\analysis\RabbitizerRegistersTracker.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\analysis\RabbitizerTrackedRegisterState.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstrCategory.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstrDescriptor.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstrId.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstrSuffix.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerRegister.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstruction\RabbitizerInstruction.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstruction\RabbitizerInstruction_Disassemble.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstruction\RabbitizerInstruction_Examination.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstruction\RabbitizerInstruction_ProcessUniqueId.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionCpu\RabbitizerInstructionCpu_OperandType.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionR5900\RabbitizerInstructionR5900.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionR5900\RabbitizerInstructionR5900_OperandType.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionR5900\RabbitizerInstructionR5900_ProcessUniqueId.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionRsp\RabbitizerInstructionRsp.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionRsp\RabbitizerInstructionRsp_OperandType.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionRsp\RabbitizerInstructionRsp_ProcessUniqueId.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\cplusplus\src\instructions\InstrId.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\cplusplus\src\instructions\InstructionBase.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\cplusplus\src\instructions\InstructionCpu.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\cplusplus\src\instructions\InstructionR5900.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\cplusplus\src\instructions\InstructionRsp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\cplusplus\src\analysis\LoPairingInfo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\cplusplus\src\analysis\RegistersTracker.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="rabbitizer\include\instructions\RabbitizerAccessType.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\include\instructions\RabbitizerInstrCategory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\include\instructions\RabbitizerInstrDescriptor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\include\instructions\RabbitizerInstrId.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\include\instructions\RabbitizerInstrSuffix.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\include\instructions\RabbitizerInstruction.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\include\instructions\RabbitizerInstructionR5900.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\include\instructions\RabbitizerInstructionRsp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\include\instructions\RabbitizerOperandType.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\include\instructions\RabbitizerRegister.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\include\common\Utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\include\common\RabbitizerConfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\include\common\RabbitizerVersion.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\include\analysis\RabbitizerTrackedRegisterState.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\include\analysis\RabbitizerRegistersTracker.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\include\analysis\RabbitizerLoPairingInfo.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\include\rabbitizer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\cplusplus\include\rabbitizer.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\cplusplus\include\instructions\Registers.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\cplusplus\include\instructions\OperandType.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\cplusplus\include\instructions\InstructionRsp.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\cplusplus\include\instructions\InstructionR5900.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\cplusplus\include\instructions\InstructionBase.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\cplusplus\include\instructions\InstructionCpu.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\cplusplus\include\instructions\InstrId.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\cplusplus\include\instructions\AccessType.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\cplusplus\include\analysis\RegistersTracker.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rabbitizer\cplusplus\include\analysis\LoPairingInfo.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
