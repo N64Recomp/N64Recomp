@@ -221,7 +221,7 @@ std::unordered_set<std::string> ignored_funcs {
     "__osSetConfig",
     "__osGetConfig",
     "__osSetWatchLo",
-    "__osGetWatchLo",
+    "__osGetWatchLo"
 };
 
 int main(int argc, char** argv) {
@@ -254,21 +254,25 @@ int main(int argc, char** argv) {
 
     // Pointer to the symbol table section
     ELFIO::section* symtab_section = nullptr;
-    // Size of the ROM as determined by the elf
-    ELFIO::Elf_Xword rom_size = 0;
     // ROM address of each section
     std::vector<ELFIO::Elf_Xword> section_rom_addrs{};
+
+    RecompPort::Context context{};
     section_rom_addrs.resize(elf_file.sections.size());
+    context.functions.reserve(1024);
+    context.rom.reserve(8 * 1024 * 1024);
 
     // Iterate over every section to record rom addresses and find the symbol table
     fmt::print("Sections\n");
     for (const std::unique_ptr<ELFIO::section>& section : elf_file.sections) {
-        fmt::print("  {}: {} @ 0x{:08X}, 0x{:08X}\n", section->get_index(), section->get_name(), section->get_address(), rom_size);
+        //fmt::print("  {}: {} @ 0x{:08X}, 0x{:08X}\n", section->get_index(), section->get_name(), section->get_address(), context.rom.size());
         // Set the rom address of this section to the current accumulated ROM size
-        section_rom_addrs[section->get_index()] = rom_size;
-        // If this section isn't bss (SHT_NOBITS) and ends up in the rom (SHF_ALLOC), increase the rom size by this section's size
+        section_rom_addrs[section->get_index()] = context.rom.size();
+        // If this section isn't bss (SHT_NOBITS) and ends up in the rom (SHF_ALLOC), copy this section into the rom
         if (section->get_type() != ELFIO::SHT_NOBITS && section->get_flags() & ELFIO::SHF_ALLOC) {
-            rom_size += section->get_size();
+            size_t cur_rom_size = context.rom.size();
+            context.rom.resize(context.rom.size() + section->get_size());
+            std::copy(section->get_data(), section->get_data() + section->get_size(), &context.rom[cur_rom_size]);
         }
         // Check if this section is the symbol table and record it if so
         if (section->get_type() == ELFIO::SHT_SYMTAB) {
@@ -278,15 +282,12 @@ int main(int argc, char** argv) {
 
     // If no symbol table was found then exit
     if (symtab_section == nullptr) {
-        exit_failure("No symbol section found\n");
+        exit_failure("No symbol table section found\n");
     }
 
     ELFIO::symbol_section_accessor symbols{ elf_file, symtab_section };
 
     fmt::print("Num symbols: {}\n", symbols.get_symbols_num());
-
-    RecompPort::Context context{};
-    context.functions.reserve(1024);
 
     for (int sym_index = 0; sym_index < symbols.get_symbols_num(); sym_index++) {
         std::string   name;
@@ -303,19 +304,30 @@ int main(int argc, char** argv) {
 
         // Check if this symbol is a function or has no type (like a regular glabel would)
         // Symbols with no type have a dummy entry created so that their symbol can be looked up for function calls
-        if (type == ELFIO::STT_FUNC || (type == ELFIO::STT_NOTYPE && section_index < section_rom_addrs.size())) {
-            auto section_rom_addr = section_rom_addrs[section_index];
-            auto section_offset = value - elf_file.sections[section_index]->get_address();
-            const uint32_t* words = reinterpret_cast<const uint32_t*>(elf_file.sections[section_index]->get_data() + section_offset);
-            uint32_t vram = static_cast<uint32_t>(value);
-            uint32_t num_instructions = type == ELFIO::STT_FUNC ? size / 4 : 0;
-            context.functions_by_vram[vram].push_back(context.functions.size());
-            context.functions.emplace_back(
-                vram,
-                static_cast<uint32_t>(section_offset + section_rom_addr),
-                std::span{ words, num_instructions },
-                std::move(name)
-            );
+        if (type == ELFIO::STT_FUNC || type == ELFIO::STT_NOTYPE) {
+            if (section_index < section_rom_addrs.size()) {
+                auto section_rom_addr = section_rom_addrs[section_index];
+                auto section_offset = value - elf_file.sections[section_index]->get_address();
+                const uint32_t* words = reinterpret_cast<const uint32_t*>(elf_file.sections[section_index]->get_data() + section_offset);
+                uint32_t vram = static_cast<uint32_t>(value);
+                uint32_t num_instructions = type == ELFIO::STT_FUNC ? size / 4 : 0;
+                context.functions_by_vram[vram].push_back(context.functions.size());
+                context.functions.emplace_back(
+                    vram,
+                    static_cast<uint32_t>(section_offset + section_rom_addr),
+                    std::span{ words, num_instructions },
+                    std::move(name)
+                );
+            } else {
+                uint32_t vram = static_cast<uint32_t>(value);
+                context.functions_by_vram[vram].push_back(context.functions.size());
+                context.functions.emplace_back(
+                    vram,
+                    0,
+                    std::span<const uint32_t>{},
+                    std::move(name)
+                );
+            }
         }
     }
 

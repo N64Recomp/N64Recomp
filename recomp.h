@@ -104,4 +104,6 @@ typedef struct {
     uint64_t hi, lo;
 } recomp_context;
 
+void switch_error(const char* func, uint32_t vram, uint32_t jtbl);
+
 #endif

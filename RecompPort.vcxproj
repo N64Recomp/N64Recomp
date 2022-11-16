@@ -137,6 +137,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\analysis.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\recompilation.cpp" />
   </ItemGroup>

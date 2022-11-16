@@ -1,5 +1,6 @@
 #include <vector>
 #include <set>
+#include <unordered_set>
 
 #include "rabbitizer.hpp"
 #include "fmt/format.h"
@@ -16,7 +17,7 @@ std::string_view ctx_gpr_prefix(int reg) {
     return "";
 }
 
-bool process_instruction(const RecompPort::Context& context, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ofstream& output_file, bool indent, bool emit_link_branch, int link_branch_index, bool& needs_link_branch, bool& is_branch_likely) {
+bool process_instruction(const RecompPort::Context& context, const RecompPort::Function& func, const RecompPort::FunctionStats& stats, const std::unordered_set<uint32_t>& skipped_insns, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ofstream& output_file, bool indent, bool emit_link_branch, int link_branch_index, bool& needs_link_branch, bool& is_branch_likely) {
     const auto& instr = instructions[instr_index];
     needs_link_branch = false;
     is_branch_likely = false;
@@ -28,6 +29,10 @@ bool process_instruction(const RecompPort::Context& context, size_t instr_index,
         fmt::print(output_file, "    // {}\n", instr.disassemble(0, fmt::format("0x{:08X}", (uint32_t)instr.getBranchVramGeneric())));
     } else {
         fmt::print(output_file, "    // {}\n", instr.disassemble(0));
+    }
+
+    if (skipped_insns.contains(instr.getVram())) {
+        return true;
     }
 
     auto print_indent = [&]() {
@@ -49,7 +54,7 @@ bool process_instruction(const RecompPort::Context& context, size_t instr_index,
         if (instr_index < instructions.size() - 1) {
             bool dummy_needs_link_branch;
             bool dummy_is_branch_likely;
-            process_instruction(context, instr_index + 1, instructions, output_file, false, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely);
+            process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely);
         }
         print_indent();
         fmt::print(output_file, fmt_str, args...);
@@ -65,7 +70,7 @@ bool process_instruction(const RecompPort::Context& context, size_t instr_index,
         if (instr_index < instructions.size() - 1) {
             bool dummy_needs_link_branch;
             bool dummy_is_branch_likely;
-            process_instruction(context, instr_index + 1, instructions, output_file, true, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely);
+            process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, true, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely);
         }
         fmt::print(output_file, "        ");
         fmt::print(output_file, fmt_str, args...);
@@ -101,6 +106,9 @@ bool process_instruction(const RecompPort::Context& context, size_t instr_index,
         break;
     case InstrId::cpu_addu:
         print_line("{}{} = ADD32({}{}, {}{})", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
+        break;
+    case InstrId::cpu_daddu:
+        print_line("{}{} = {}{} + {}{}", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_negu: // pseudo instruction for subu x, 0, y
     case InstrId::cpu_subu:
@@ -260,6 +268,13 @@ bool process_instruction(const RecompPort::Context& context, size_t instr_index,
                         nonzero_func_index = cur_func_index;
                     }
                 }
+                if (nonzero_func_index == (size_t)-1) {
+                    fmt::print(stderr, "[Warn] Potential jal resolution ambiguity\n");
+                    for (size_t cur_func_index : matching_funcs_vec) {
+                        fmt::print(stderr, "  {}\n", context.functions[cur_func_index].name);
+                    }
+                    nonzero_func_index = 0;
+                }
                 real_func_index = nonzero_func_index;
                 ambiguous = false;
             } else {
@@ -295,7 +310,28 @@ bool process_instruction(const RecompPort::Context& context, size_t instr_index,
         if (rs == (int)rabbitizer::Registers::Cpu::GprO32::GPR_O32_ra) {
             print_unconditional_branch("return");
         } else {
-            // TODO jump table handling
+            uint32_t instr_vram = instr.getVram();
+            auto find_result = std::find_if(stats.jump_tables.begin(), stats.jump_tables.end(),
+                [instr_vram](const RecompPort::JumpTable& jtbl) {
+                    return jtbl.jr_vram == instr_vram;
+                });
+            if (find_result == stats.jump_tables.end()) {
+                fmt::print(stderr, "No jump table found for jr at 0x{:08X}\n", instr_vram);
+            }
+            const RecompPort::JumpTable& cur_jtbl = *find_result;
+            bool dummy_needs_link_branch, dummy_is_branch_likely;
+            process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely);
+            print_indent();
+            // TODO this will fail if the register holding the addend is mangled, add logic to emit a temp with the addend into the code
+            fmt::print(output_file, "switch ({}{} >> 2) {{\n", ctx_gpr_prefix(cur_jtbl.addend_reg), cur_jtbl.addend_reg, cur_jtbl.vram);
+            for (size_t entry_index = 0; entry_index < cur_jtbl.entries.size(); entry_index++) {
+                print_indent();
+                print_line("case {}: goto L_{:08X}; break", entry_index, cur_jtbl.entries[entry_index]);
+            }
+            print_indent();
+            print_line("default: switch_error(__func__, 0x{:08X}, 0x{:08X})", instr_vram, cur_jtbl.vram);
+            print_indent();
+            fmt::print(output_file, "}}\n");
         }
         break;
     case InstrId::cpu_bnel:
@@ -685,7 +721,7 @@ bool process_instruction(const RecompPort::Context& context, size_t instr_index,
 }
 
 bool RecompPort::recompile_function(const RecompPort::Context& context, const RecompPort::Function& func, std::string_view output_path) {
-    fmt::print("Recompiling {}\n", func.name);
+    //fmt::print("Recompiling {}\n", func.name);
     std::vector<rabbitizer::InstructionCpu> instructions;
 
     // Open the output file and write the file header
@@ -717,6 +753,24 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
         vram += 4;
     }
 
+    // Analyze function
+    RecompPort::FunctionStats stats{};
+    if (!RecompPort::analyze_function(context, func, instructions, stats)) {
+        fmt::print(stderr, "Failed to analyze {}\n", func.name);
+        output_file.clear();
+        return false;
+    }
+
+    std::unordered_set<uint32_t> skipped_insns{};
+
+    // Add jump table labels into function
+    for (const auto& jtbl : stats.jump_tables) {
+        skipped_insns.insert(jtbl.lw_vram);
+        for (uint32_t jtbl_entry : jtbl.entries) {
+            branch_labels.insert(jtbl_entry);
+        }
+    }
+
     // Second pass, emit code for each instruction and emit labels
     auto cur_label = branch_labels.cbegin();
     vram = func.vram;
@@ -737,7 +791,7 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
             ++cur_label;
         }
         // Process the current instruction and check for errors
-        if (process_instruction(context, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, needs_link_branch, is_branch_likely) == false) {
+        if (process_instruction(context, func, stats, skipped_insns, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, needs_link_branch, is_branch_likely) == false) {
             fmt::print(stderr, "Error in recompilation, clearing {}\n", output_path);
             output_file.clear();
             return false;
