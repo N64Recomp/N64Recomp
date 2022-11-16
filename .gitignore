@@ -4,6 +4,9 @@
 # Input elf files
 *.elf
 
+# Output C files
+out/
+
 # Linux build output
 build/
 *.o
