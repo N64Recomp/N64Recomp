@@ -1,0 +1,5718 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="Funcs">
+      <UniqueIdentifier>{686e650c-616a-4d1a-84c9-f967294cc727}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\ai.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__allocParam.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__assert.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__CallBackDmaNew.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__CallBackDmaProcess.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__cmpdi2.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__cosf.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__divdi3.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__fixunssfdi.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__floatdidf.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__floatdisf.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__freeParam.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntAudManInit.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntDmaInit.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntDmaProcess.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntDmaSample.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntFifoAddCommand.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntFifoOpen.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntFifoProcess.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntFifoProcessCommand.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntFindChannel.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntFindChannelAndStart.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntFlushPending.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntGetNewNote.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntHandleSetFlag.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntInitEnvelope.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntInitialiseChannel.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntInitSweep.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntMain.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntMemGetHeapAddr.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntMemInit.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntMemMalloc.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntMemMove.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntMemRemaining.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntMemSet.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntPowerOf2.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntProcessContinuousPitchBend.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntProcessContinuousVolume.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntProcessEnvelope.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntProcessSweep.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntProcessVibrato.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntProcessWobble.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntRandom.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntRemapPtrBank.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntRemapPtrs.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntSamplesCurrent.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntSamplesInit.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntSchedInit.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntSetPitch.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntSetVolumeAndPan.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntStartEffect.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntStartSong.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__MusIntThreadProcess.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__n_allocParam.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__nextSampleTime.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__OsSchedDoTask.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__OsSchedInstall.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__OsSchedWaitFrame.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__scAppendList.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__scExec.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__scHandleRDP.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__scHandleRetrace.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__scHandleRSP.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__scMain.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__scSchedule.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__scTaskComplete.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__scTaskReady.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__scYield.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__sinf.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__udivdi3.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\__udivmoddi4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_allocatePVoice.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_collectPVoices.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_decodeChunk.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_doModFunc.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_filterBuffer.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_freePVoice.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_frexpf.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_getRate.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_getVol.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_init_lpfilter.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_ldexpf.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_loadBuffer.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_loadOutputBuffer.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_n_collectPVoices.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_n_filterBuffer.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_n_freeParam.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_n_freePVoice.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_n_loadBuffer.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_n_loadOutputBuffer.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_n_saveBuffer.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_n_timeToSamples.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_n_timeToSamplesNoRound.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_pullSubFrame.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_saveBuffer.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_sincosf.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_timeToSamples.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\_timeToSamplesNoRound.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\adjust_texture_table.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alAdpcmPull.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alAudioFrame.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alAuxBusNew.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alAuxBusParam.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alAuxBusPull.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alClose.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alCopy.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alEnvmixerNew.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alEnvmixerParam.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alEnvmixerPull.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alFilterNew.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alFxNew.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alFxParam.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alFxParamHdl.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alFxPull.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alHeapDBAlloc.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alHeapInit.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alInit.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alLink.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alLoadNew.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alLoadParam.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alloc_second_heap.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alloc_vertex_data_storage.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alMainBusNew.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alMainBusParam.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alMainBusPull.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alN_PVoiceNew.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alRaw16Pull.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alResampleNew.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alResampleParam.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alResamplePull.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alSaveNew.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alSaveParam.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alSavePull.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alSynAllocFX.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alSynDelete.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alSynNew.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\alUnlink.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\ChangeCustomEffect.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\clampf_abs.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\clear_buttons_pressed.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\clear_depth_buffer.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\clear_main_pool.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\create_scheduler.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\custom_memcpy.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\custom_memmove.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\CustomAllocFX.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\CustomFxNew.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\CustomFxSet.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\CustomInit.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\CustomSynNew.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\decompress.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\dma_read.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\do_dma_read.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fbendrange.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fchangefx.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fcutoff.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fdefa.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fdistort.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fdrums.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fdrumsoff.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fendit.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fenvelope.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fenvoff.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fenvon.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Ffor.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fgoto.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fignore.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fignore_trans.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Flength.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Flength0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fmarker.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fnext.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fpan.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fport.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fportoff.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fprint.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\FrandNote.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\FrandPan.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\FrandVolume.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Freverb.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fstartfx.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fstereo.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fstop.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fsweep.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Ftempo.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Ftrans.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Ftroff.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Ftron.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001DE00.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001DE50.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001DED0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001DFD0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001E044.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001E69C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001E198.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001E248.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001E330.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001E504.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001E824.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001E954.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001EA18.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001ECEC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001F2A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001F36C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001F128.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001F518.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001FC1C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001FDB4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001FEA0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8001FF38.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002A2E0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002A7B4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002A86C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002A564.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002A690.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002A728.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002A780.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002AA78.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002AAD0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002AC5C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002ACA0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002AD8C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002ADE4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002AF64.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002B1BC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002B2F4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002B4A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002B5A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002B7D4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002B78C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002B124.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002B384.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002B434.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002B454.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002B604.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002B734.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002BA34.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002BB84.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002BFE4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002C0A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002C0E0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002C4F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002C25C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002C63C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002C064.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002C77C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002C120.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002C154.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002C174.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002C320.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002C390.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002C468.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002CC44.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002CCCC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002CFA0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002D6AC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002D7A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002D8B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002D42C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002D050.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002D678.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002D724.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002D958.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002DA8C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002DB74.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002DD0C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002DF50.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002E0C8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002E3D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002E3EC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002E4E4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002E6F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002E8A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002E10C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002E45C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002E408.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002E424.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002E440.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002E480.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002E504.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002E790.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002E980.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002EAD8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002EB48.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002EF54.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002F0C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002F044.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002F60C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002F674.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002F690.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002F724.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002FB6C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002FB8C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002FBAC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002FC2C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002FC9C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002FDB4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002FDF8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003A468.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003AA04.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003ACD4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003ADFC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003AF94.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003B6BC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003B7D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003B068.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003B89C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003B144.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003B298.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003B358.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003B388.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003B544.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003B674.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003BA40.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003C3C8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003C8EC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003C9A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003C364.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003C434.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003C584.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003C764.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003CA8C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003CAAC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003CBD0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003CC04.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003CCE0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003CD50.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003CF04.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003CFD0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003CFEC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003D0D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003D9AC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003D9C8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003D12C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003D15C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003D064.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003D87C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003D310.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003D604.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003D770.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003D810.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003DA7C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003E404.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003E464.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003E750.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003EAE0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003ED98.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003F1D4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003F1F4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003F4C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003F39C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003F214.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003F350.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003F440.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004A4F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004AC3C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004B8BC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004B420.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004BB64.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004BBD0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004C2A8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004C44C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004C268.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004C490.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004C800.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004CC38.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004CEB8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004D0A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004D0DC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004D0FC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004D1F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004D2F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004D058.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004D87C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004D91C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004D294.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004D720.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004D980.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004DFA0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004E5A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004E10C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004E60C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004E92C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004E548.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004E574.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004E938.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004EAA0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004EC08.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004EC64.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004EC70.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004EC98.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004ED04.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004EE5C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004EE84.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004EEC4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004EF60.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004F6D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004F6F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004F8D4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004F67C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004F540.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004F730.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004F930.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004FD78.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005A0F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005A7F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005A9F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005A70C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005A130.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005AAE0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005BE4C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005BE44.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005BEF4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005C0F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005C038.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005C210.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005C338.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005C868.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005CC70.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005CF48.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005E2A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005E8A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005EA60.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005EB60.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005ECA8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005F3CC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005F26C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005F28C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005F114.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005FAD0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005FC10.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005FC44.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006A0C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006A2E4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006A004.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006A5D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006A8C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006A67C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006A394.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006A430.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006A654.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006AAE4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006ABB4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006ADDC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006AE88.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006B1BC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006B3C4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006B4B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006B7C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006B030.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006B76C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006B82C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006B178.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006B250.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006B384.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006B430.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006B460.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006B560.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006B648.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006B700.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006BA48.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006BAB4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006BBE4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006BC4C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006BDF0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006BEE4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006BF3C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006BF90.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006BFFC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006C0E4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006C1E4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006C5A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006C7F4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006C39C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006C074.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006C080.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006C090.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006C518.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006C828.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006C870.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006C968.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006C990.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006CA6C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006CAF8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006CB60.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006CBA4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006CC34.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006CEC0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006CF0C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006CF7C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006D22C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006D090.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006D438.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006D458.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006D478.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006DA84.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006DAC0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006DBCC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006DE20.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006DE40.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006DEB8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006DF4C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006E6CC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006E194.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006E370.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006E598.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006E648.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006EE9C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006EEE4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006EF34.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006EF70.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006F4A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006FD50.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006FD74.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006FE70.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006FE94.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006FFD4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007A2BC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007A5CC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007A9C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007A18C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007A23C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007A92C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007A158.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007A568.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007A660.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007A958.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007AA58.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007AB98.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007AD18.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007B7A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007B198.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007B308.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007B850.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007B884.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007BA10.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007BC24.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007BF84.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007C1C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007C2BC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007C3F4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007C52C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007C67C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007CA50.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007CB60.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007CC78.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007CCD8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007CDA0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007CDE0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007CE28.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007CFB8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007D3B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007D6E8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007D9DC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007D69C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007D154.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007D280.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007D984.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007DA04.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007DD08.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007DD98.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007DEF8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007DFDC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007E0D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007E1C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007E2A8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007E17C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007E688.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007E854.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007E904.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007EBA8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007F1D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007F1F4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007F3C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007F22C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007F55C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007F96C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007F368.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007F378.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007F404.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007F494.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007F524.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007F540.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007F580.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007F660.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007FB7C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007FFB0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008AAEC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008ABA0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008ABB4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008ABC4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008ABD4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008ABE4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008ABFC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008AC50.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008AC88.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008AE1C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008AEA0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008B3DC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008B4BC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008B24C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008B594.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008B694.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008BCE8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008BD58.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008BE8C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008BE58.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008BED0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008BF70.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008BFC4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008C0AC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008C148.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008C590.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008CA1C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008CB60.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008CB68.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008CB70.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008CBE0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008CC1C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008CC64.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008CCA0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008CCE8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008CD78.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008CE0C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008CE9C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008CEF4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008CFB4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008D0BC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008D0F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008D1AC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008D3A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008D3EC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008D5C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008D9D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008D18C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008D20C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008D260.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008D434.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008DB80.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008EF60.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008F0D4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008F9D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008F18C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008F024.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008F348.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008F690.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008FA24.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008FA88.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008FC1C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008FC14.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008FD0C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008FD18.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008FEB4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008FF30.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009A4F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009A7C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009A8C4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009A85C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009A264.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009A464.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009A674.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009AA68.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009AC68.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009AEC8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009AF20.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009AFB4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009B3B4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009B7F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009B138.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009BBB0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009BD60.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009BDAC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009BEB0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009C0E0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009C02C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009C2A8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009C2C4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009C2E0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009C4C8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009C5C8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009C6D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009C7C4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009C8DC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009C28C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009C300.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009C338.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009C730.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009CDBC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009CEF8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009CFF4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009D61C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009D64C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009D84C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009D764.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009D898.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009DA54.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009DAD0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009DC8C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009DC20.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009DC84.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009DD38.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009DE1C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009DE44.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009DEA0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009DEF8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009DF9C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009E1B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009E05C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009E5EC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009E6D4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009E7CC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009E9B4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009E13C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009E84C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009E86C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009EA40.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009EC94.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009EDC8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009EE60.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80000DD0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80020A20.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80020A84.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80020A94.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80020AF0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80020B6C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80020C20.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80020C50.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80020CC8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80020EBC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80020F88.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80021CEC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80021DCC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80021E48.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80021F10.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80021FC8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80022A1C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80022B6C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80022CE8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80022D38.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80024A7C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80024B0C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80024BF8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80024C80.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80024D74.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80024DB8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80025AFC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80025DDC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80025E98.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80026A08.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80026B58.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80026D78.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80026DD0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80026FB4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80027B38.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80027BC4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80027BFC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80027DB0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80027EF0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80028A2C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80028A84.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80028A94.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80028B3C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80028BC8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80028D34.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80029A9C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80029C28.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80029D94.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80029F9C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80030C0C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80030F48.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80031BAC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80031DC0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80031E6C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80031EEC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80031F28.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80031F60.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80031FB0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80032A20.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80032C74.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80032E24.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80033A24.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80033FFC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80034A00.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80035E08.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80035EB0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80036AEC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80036AF4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80036B80.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80036D3C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80036D84.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80037BC8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80037E60.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80037EC0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80037EC8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80037EF0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80037F14.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80038DC4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80039A40.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80039C34.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80039D98.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80039E28.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80039F80.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80040A0C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80040FDC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80040FE4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80041A30.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80041A54.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80041A88.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80041AD0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80041F08.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042A28.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042A50.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042AA0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042AC8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042BA0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042BBC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042BD8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042C04.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042C18.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042C48.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042C68.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042CA4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042D1C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80043A3C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80043B10.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80043BA4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80043C88.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80043CF0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80043EF0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80044D78.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80045A54.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80045B60.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80045B88.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80045BE0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80045C40.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80045D9C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80045D78.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80045E14.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80045ED8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80045F54.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80046A90.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80046AAC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80046B40.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80046CBC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80046D58.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80046FBC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80047B60.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80047C30.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80047DB8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80047DF8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80048DA4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80049BA8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80049D08.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80050A44.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80050AB0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80050B08.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80050B78.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80050BD8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80050C58.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80050CD0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80050D5C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80050E24.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80051B20.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80051CF0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80051F5C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80052D0C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80052E3C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80052E84.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80053F58.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80054BBC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80054F20.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80055B2C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80055B3C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80055D14.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80055ED4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80055F14.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80056AE8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80056B88.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80056BD0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80056C10.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80056D44.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80056F50.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80057AC0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80057B38.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80057BAC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80057C6C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80057D28.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80057EA4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80058EC0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80058F68.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80059BD8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80059E44.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80059F14.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80060DE4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80060E5C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80060E64.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80060EA8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80061A58.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80061B90.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80061C18.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80061CE0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80061D78.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80061ED0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80062A94.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80063A88.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80063AA8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80063B70.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80063BA4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80063C84.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80063D58.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80063E0C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80063F64.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80063FE4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80064A48.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80064A90.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80064DC8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80064E48.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80065FF0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80066A50.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80066C38.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80066CA8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80066D70.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80066E3C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80066F24.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80067D30.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80068A14.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80068A40.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80068A94.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80068C24.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80068D14.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80068E00.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80068E40.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80069CF0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80069D28.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80069D88.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80069DF8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80069E50.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80069EE0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80070A64.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80070B34.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80070BC4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80070C3C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80070C44.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80070F0C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80071A04.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80071DC0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80071E94.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80071FF4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80072A54.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80072AD8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80072CCC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80072EA4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80073CE0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80073DA8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80073EC8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80074A80.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80074ADC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80074C30.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80074C88.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80074D70.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80074DF4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80075ABC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80075BE8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80075C24.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80075CC8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80076B54.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80076C00.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80076C64.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80076E58.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80076EB0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80077A50.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80077B24.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80077BD0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80077BF8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80077C6C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80077CCC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80077F0C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80079AA4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80079B84.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80079B98.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80079CA0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80079D6C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80079EA0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80079F3C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80079F08.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80080E80.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80081B10.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80081CA0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80081D60.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80081E20.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80081E54.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80081F04.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80081FB8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80082A78.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80082DD8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80082DE0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80083A10.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80083A34.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80083A80.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084A00.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084A88.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084AC4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084E14.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80085C68.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80085D04.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80085D94.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80085E90.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80087BF8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80087D4C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80087E88.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80087F58.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80087FA0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80087FEC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80089D5C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80089F18.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091AA8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091BD4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091BE8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091BFC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091C98.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091CD8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091DD8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091F2C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091F40.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091F54.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80093DDC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80094B88.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80094C50.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80094DDC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095A08.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095A48.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095B54.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095D70.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095D78.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095DB0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095DF4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095E64.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095E84.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80096C40.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80096CE8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80096E7C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80096F84.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80097D7C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80098AE0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80098C10.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80098E68.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80098ED4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80098F28.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80098F54.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80098F94.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80099A9C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80099A34.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80099B8C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80099BCC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80099C00.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80099C40.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80099D78.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80099F18.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800200F4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800207AC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800209BC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800221F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800227FC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800229A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800233B8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800234DC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800235DC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800249EC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800251D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800260F4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800261B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800261D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800263B4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800263F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800268B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800271DC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800273D4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800273EC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800279F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800281B4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800288D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800290A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800293E8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800303FC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800305C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800306F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800307E8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800324A8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800325D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800338B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800338D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800338D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800341A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800344C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800346C8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800348E8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800352E8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800355E0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800356F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800356F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800357B8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800361C4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800362DC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800364F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800367A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800367EC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800367F4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800382B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800387E8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800390BC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800391AC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800391EC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800392B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800398E0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800402CC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800406E8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800407A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800409CC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800409EC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800410F4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800414C8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800415D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800423B4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800424B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800425B4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800429C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800432F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800433BC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800436D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800437EC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800442F4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800451D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800451F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800454B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800454D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800458E4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800462E4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800463B4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800464AC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800476A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800477D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800494C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800495D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800499B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800503B8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800505C8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800506D4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800508A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800508AC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800508B4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800508D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800508FC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800509F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800512BC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800520F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800527F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800528A8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800532C8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800536D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800561D4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800568DC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800572D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800575DC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800576E0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800577E8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800578C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800580E0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800592B4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800601A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800605A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800607B4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800611A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800611D4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800613F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800623B4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800625D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800637E0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800638CC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800638EC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800642D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800643B4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800649C8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800651F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800652F4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800654D4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800654F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800660F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800662D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800669AC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800672B4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800675B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800687D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800689F4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800693C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800699D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800701FC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800702A8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800702E4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800710B8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800710EC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800712B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800720F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800721DC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800722A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800724E4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800731CC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800736D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800737A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800739FC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800743EC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800744E8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800745A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800746D4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800748F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800750A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800751D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800753B4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800765B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800766E8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800771E4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800772D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800774DC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800775A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800777B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800782D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800783A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800789A8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800795B8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800798D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800800F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800801C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800816A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800818D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800819FC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800824A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800829B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800830C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800830D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800831C8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800833BC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800834F4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800835FC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800836F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800841C4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800841D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800842BC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800843B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800844DC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800845D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800846D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800848A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800849BC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800849E0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800849E8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800849F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800852EC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800854F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800856AC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800861A8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800864A8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800872F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800875E8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800882B8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800889B8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800901D4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800904E4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800907B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800911B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800911CC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800912A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800913F0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800914A8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800914DC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800922C4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800923E8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800926B8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800942E0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800943B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800946A4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800950B8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800951A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800951FC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800952D4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800953D4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800954FC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800958A0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800962D4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800966C8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800968FC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800970B8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800974E0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800976D0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800977A8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800977B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800987B0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800987FC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800989C0.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800992F4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800995D8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800995F8.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800997BC.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_800999D4.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8000516C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002075C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002085C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002090C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002095C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002243C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002490C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002504C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002526C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002603C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002611C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002643C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002693C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002716C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8002853C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003068C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003149C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003173C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003175C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003177C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003202C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003269C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003451C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003483C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003698C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003699C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003918C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8003920C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004133C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004178C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004296C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004303C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004328C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004345C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004354C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004371C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004388C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004396C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004570C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004612C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004632C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004667C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8004797C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005098C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005159C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005163C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005498C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005759C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005809C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005863C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8005908C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006096C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006238C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006409C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006424C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006432C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006459C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006477C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006589C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006625C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006712C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006730C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8006871C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007038C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007060C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007125C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007242C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007272C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007295C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007529C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007668C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007679C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007844C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007855C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007982C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8007985C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008080C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008151C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008208C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008302C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008388C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008392C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008405C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008408C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008428C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008443C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008444C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008445C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008455C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008489C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008530C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008532C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008546C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8008561C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009018C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009067C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009099C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009452C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009476C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009532C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009631C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009701C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009778C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009904C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009911C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009913C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_8009990C.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80001248.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80005180.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80020050.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80020134.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80020714.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80020730.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80020738.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80020780.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80021080.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80021110.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80021138.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80021174.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80022080.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80022138.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80022928.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80023008.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80023084.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80023418.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80023554.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80024314.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80024410.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80024508.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80024938.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80026050.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80026334.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80026450.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80026484.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80026504.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80026588.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80026644.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80026720.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80026900.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80026978.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80027090.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80027124.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80027308.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80028048.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80028460.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80029188.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80029784.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80029898.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80030804.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80030874.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80030944.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80031340.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80032454.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80032564.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80032974.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80033468.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80033958.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80034124.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80034144.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80034164.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80034184.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80034294.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80034664.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80034774.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80034808.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80035370.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80035540.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80035680.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80035714.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80035870.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80036300.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80036328.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80036520.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80037844.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80038104.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80038468.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80038630.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80039260.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80039360.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80039378.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80039490.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80039590.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80040220.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80040744.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80041264.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80041298.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80041414.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80041444.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80041638.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80041698.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80041890.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80041908.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042188.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042348.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042474.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042640.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80042710.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80043190.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80044190.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80045250.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80045370.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80045580.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80045628.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80045810.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80045834.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80046198.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80046200.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80046268.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80046318.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80046340.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80046354.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80046370.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80046500.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80046578.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80047844.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80047908.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80048340.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80049130.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80049934.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80050318.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80050728.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80050840.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80050860.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80050868.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80050948.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80051150.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80051310.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80051770.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80051938.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80052124.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80052374.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80052500.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80052770.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80052810.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80052830.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80052938.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80053020.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80053104.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80053584.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80054700.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80054844.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80055460.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80055594.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80055690.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80057280.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80057708.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80057778.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80057970.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80058050.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80058488.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80058504.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80059204.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80060794.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80061038.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80061300.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80061440.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80062160.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80062408.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80062550.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80063840.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80063934.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80064294.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80064758.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80064848.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80064958.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80065110.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80065170.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80065194.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80065544.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80065620.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80065754.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80065808.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80066038.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80066068.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80066118.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80066154.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80066430.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80066594.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80066614.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80066884.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80066988.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80067108.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80067230.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80067894.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80068654.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80068758.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80068818.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80068858.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80069380.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80069658.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80069678.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80070190.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80070254.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80070438.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80070950.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80071080.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80071120.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80071518.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80072118.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80072374.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80072604.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80072648.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80072884.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80073020.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80073228.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80073320.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80073460.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80073578.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80073940.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80074348.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80075040.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80075100.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80075348.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80075458.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80075884.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80075940.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80076708.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80076734.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80076754.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80076944.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80077498.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80077514.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80077714.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80077774.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80078170.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80078244.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80078790.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80080038.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80080144.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80080438.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80080500.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80080684.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80081334.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80081370.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80081494.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80081634.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80081728.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80082414.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80082838.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80083224.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80083734.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084030.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084048.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084110.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084140.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084208.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084340.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084350.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084410.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084424.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084470.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084658.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084704.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084794.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084820.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084894.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80084998.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80085028.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80085094.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80085220.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80085530.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80085584.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80085978.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80086310.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80086370.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80086400.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80086428.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80086468.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80087374.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80087418.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80087554.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80088150.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80088524.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80088934.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80088980.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80088988.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80090134.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80090494.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80090538.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091024.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091054.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091060.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091068.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091070.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091220.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091304.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091410.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80091474.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80092050.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80092094.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80094380.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80094404.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80094574.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095038.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095138.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095154.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095170.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095240.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095364.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095440.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80095930.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80096058.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80096290.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80096388.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80096444.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80096820.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80097010.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80097134.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80097404.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80097438.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80098808.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80098900.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80099264.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\func_80099408.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fvelocity.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fveloff.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fvelon.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fvibdown.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fviboff.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fvibup.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fvolume.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fwave.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fwobble.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\Fwobbleoff.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\game_init.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\get_controller_data.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\GetFxLongest.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\GetFxMostSections.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\guMtxCatF.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\guMtxCatL.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\guMtxF2L.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\guMtxIdent.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\guMtxIdentF.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\guMtxL2F.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\guMtxXFMF.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\guMtxXFML.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\guPerspective.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\guPerspectiveF.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\guRandom.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\guScale.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\guScaleF.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\guTranslate.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\guTranslateF.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\load_texture.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\load_textured_material.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\load_translation_mtx.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\main_alloc_bzero.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\main_alloc_copy.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\main_alloc_nozero.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\mtx3f_axis_angle.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\mtx3f_concat.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\mtx3f_rotate_axis.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\mtx3f_transpose.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\mtx4f_compose.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\mtx4f_concat.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\mtx4f_decompose.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\mtxf_to_mtx.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusAsk.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusFxBankGetCurrent.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusFxBankGetPtrBank.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusFxBankInitialize.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusFxBankNumberOfEffects.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusFxBankSetCurrent.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusFxBankSetPtrBank.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusFxBankSetSingle.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusHandleAsk.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusHandleGetPtrBank.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusHandlePause.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusHandleSetFreqOffset.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusHandleSetPan.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusHandleSetReverb.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusHandleSetTempo.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusHandleSetVolume.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusHandleStop.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusHandleUnPause.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusHandleWaveAddress.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusHandleWaveCount.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusInitialize.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusPtrBankGetCurrent.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusPtrBankInitialize.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusPtrBankSetCurrent.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusPtrBankSetSingle.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusSetFxType.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusSetMarkerCallback.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusSetMasterVolume.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusSetScheduler.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusSetSongFxChange.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusStartEffect.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusStartEffect2.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusStartSong.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusStartSongFromMarker.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\MusStop.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alAdpcmPull.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alAudioFrame.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alAuxBusPull.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alClose.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alEnvmixerParam.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alEnvmixerPull.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alFxNew.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alFxParamHdl.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alFxPull.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alInit.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alLoadParam.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alMainBusPull.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alResampleParam.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alResamplePull.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alSavePull.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alSynAddPlayer.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alSynAllocFX.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alSynAllocVoice.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alSynDelete.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alSynNew.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alSynSetFXMix.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alSynSetPan.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alSynSetPitch.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alSynSetVol.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alSynStartVoice.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\n_alSynStopVoice.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\obj_rotate_axis_angle.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\obj_rotate_axis_angle_xyz.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\obj_rotate_matrix.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\obj_set_angular_velocity_xyz.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\obj_set_position_xyz.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\obj_set_rotation_axis_angle.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\obj_set_rotation_axis_angle_xyz.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\obj_set_velocity_xyz.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\obj_setter_angular_velocity.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\obj_setter_position.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\obj_setter_rotation.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\obj_setter_velocity.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\obj_translate.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\obj_translate_xyz.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\obj_update_sleeping.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\osCreateScheduler.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\osDriveRomInit.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\osGetTime.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\osScAddClient.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\osScGetCmdQ.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\osScRemoveClient.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\play_sound.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\pop_matrix.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\pop_second_heap_state.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\positive_fmodf.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\push_second_heap_state.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\read_controller_block.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\read_controller_noblock.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\read_vec3f.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\reset_texture_table.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\schedule_gfx_task.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\set_text_scissor.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\set_vec3f_components.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\set_vec3f_scalar.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\set_vec3f_zero.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\SetForCustom.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\setup_si_mesg_queue.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\start_dma_read.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\texture_handler_copy.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\texture_handler_decompress.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\thread1_idle.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\thread6_unk.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\update_gfx_context.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\vec2f_magnitude.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\vec3f_cross_product.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\vec3f_dist.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\vec3f_dist_sq.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\vec3f_lerp.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\vec3f_magnitude.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\vec3f_normalize.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\vec3f_rotate.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\vec3f_safe_normalize.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\vec3f_scale.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\vec3f_scale_add.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\vec3f_transform.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\vec3f_transpose_rotate.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\vec3f_xy_dist.c">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\cont.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\eep.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="portultra\init.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="portultra\mesgqueue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\misc_ultra.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pi.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\portultra_translation.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\recomp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="portultra\scheduler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="portultra\task_pthreads.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="portultra\task_win32.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="portultra\threads.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vi.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="portultra\main.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="funcs\lookup.cpp">
+      <Filter>Funcs</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="portultra\platform_specific.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="portultra\ultra64.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="portultra\multilibultra.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\recomp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

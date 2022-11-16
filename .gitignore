@@ -1,11 +1,12 @@
 # VSCode file settings
 .vscode/settings.json
 
-# Input elf files
+# Input elf and rom files
 *.elf
+*.z64
 
 # Output C files
-out/
+test/funcs
 
 # Linux build output
 build/
