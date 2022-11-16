@@ -4,6 +4,8 @@
 #include <span>
 #include <string_view>
 #include <cstdint>
+#include <vector>
+#include <unordered_map>
 
 #ifdef _MSC_VER
 inline uint32_t byteswap(uint32_t val) {
@@ -24,8 +26,12 @@ namespace RecompPort {
         std::string name;
     };
 
+    struct Context {
+        std::vector<RecompPort::Function> functions;
+        std::unordered_map<uint32_t, std::vector<size_t>> functions_by_vram;
+    };
 
-    bool recompile_function(const Function& func, std::string_view output_path);
+    bool recompile_function(const Context& context, const Function& func, std::string_view output_path);
 }
 
 #endif

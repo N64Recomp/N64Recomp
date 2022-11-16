@@ -16,7 +16,7 @@ std::string_view ctx_gpr_prefix(int reg) {
     return "";
 }
 
-bool process_instruction(size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ofstream& output_file, bool indent, bool emit_link_branch, int link_branch_index, bool& needs_link_branch, bool& is_branch_likely) {
+bool process_instruction(const RecompPort::Context& context, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ofstream& output_file, bool indent, bool emit_link_branch, int link_branch_index, bool& needs_link_branch, bool& is_branch_likely) {
     const auto& instr = instructions[instr_index];
     needs_link_branch = false;
     is_branch_likely = false;
@@ -25,7 +25,7 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
     if (instr.isBranch() || instr.getUniqueId() == InstrId::cpu_j) {
         fmt::print(output_file, "    // {}\n", instr.disassemble(0, fmt::format("L_{:08X}", (uint32_t)instr.getBranchVramGeneric())));
     } else if (instr.getUniqueId() == InstrId::cpu_jal) {
-        fmt::print(output_file, "    // {}\n", instr.disassemble(0, "func"));
+        fmt::print(output_file, "    // {}\n", instr.disassemble(0, fmt::format("0x{:08X}", (uint32_t)instr.getBranchVramGeneric())));
     } else {
         fmt::print(output_file, "    // {}\n", instr.disassemble(0));
     }
@@ -45,12 +45,27 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
         fmt::print(output_file, " ");
     };
 
+    auto print_unconditional_branch = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts ...args) {
+        if (instr_index < instructions.size() - 1) {
+            bool dummy_needs_link_branch;
+            bool dummy_is_branch_likely;
+            process_instruction(context, instr_index + 1, instructions, output_file, false, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely);
+        }
+        print_indent();
+        fmt::print(output_file, fmt_str, args...);
+        if (needs_link_branch) {
+            fmt::print(output_file, ";\n    goto after_{};\n", link_branch_index);
+        } else {
+            fmt::print(output_file, ";\n");
+        }
+    };
+
     auto print_branch = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts ...args) {
         fmt::print(output_file, "{{\n    ");
         if (instr_index < instructions.size() - 1) {
             bool dummy_needs_link_branch;
             bool dummy_is_branch_likely;
-            process_instruction(instr_index + 1, instructions, output_file, true, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely);
+            process_instruction(context, instr_index + 1, instructions, output_file, true, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely);
         }
         fmt::print(output_file, "        ");
         fmt::print(output_file, fmt_str, args...);
@@ -122,37 +137,38 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
         print_line("{}{} = S32({}{}) << ({}{} & 31)", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs);
         break;
     case InstrId::cpu_sra:
-        print_line("{}{} = S32(S64({}{}) >> {})", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, sa);
+        print_line("{}{} = S32(SIGNED({}{}) >> {})", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, sa);
         break;
     case InstrId::cpu_srav:
-        print_line("{}{} = S32(S64({}{}) >> ({}{} & 31)", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs);
+        print_line("{}{} = S32(SIGNED({}{}) >> ({}{} & 31))", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs);
         break;
     case InstrId::cpu_srl:
         print_line("{}{} = S32(U32({}{}) >> {})", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, sa);
         break;
     case InstrId::cpu_srlv:
-        print_line("{}{} = S32(U32({}{}) >> ({}{} & 31)", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs);
+        print_line("{}{} = S32(U32({}{}) >> ({}{} & 31))", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs);
         break;
     case InstrId::cpu_slt:
-        print_line("{}{} = S64({}{}) < S64({}{}) ? 1 : 0", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
+        print_line("{}{} = SIGNED({}{}) < SIGNED({}{}) ? 1 : 0", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_slti:
-        print_line("{}{} = S64({}{}) < {:#X} ? 1 : 0", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, (int16_t)imm);
+        print_line("{}{} = SIGNED({}{}) < {:#X} ? 1 : 0", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, (int16_t)imm);
         break;
     case InstrId::cpu_sltu:
-        print_line("{}{} = U64({}{}) < U64({}{}) ? 1 : 0", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
+        print_line("{}{} = {}{} < {}{} ? 1 : 0", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_sltiu:
-        print_line("{}{} = U64({}{}) < {:#X} ? 1 : 0", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, (int16_t)imm);
+        print_line("{}{} = {}{} < {:#X} ? 1 : 0", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, (int16_t)imm);
         break;
     case InstrId::cpu_mult:
         print_line("uint64_t result = S64({}{}) * S64({}{}); lo = S32(result >> 0); hi = S32(result >> 32)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_multu:
-        print_line("uint64_t result = {}{} * {}{}; lo = S32(result >> 0); hi = S32(result >> 32)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
+        print_line("uint64_t result = U64({}{}) * U64({}{}); lo = S32(result >> 0); hi = S32(result >> 32)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_div:
-        print_line("lo = S32(S64({}{}) / S64({}{})); hi = S32(S64({}{}) % S64({}{}))", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
+        // Cast to 64-bits before division to prevent artihmetic exception for s32(0x80000000) / -1
+        print_line("lo = S32(S64(S32({}{})) / S64(S32({}{}))); hi = S32(S64(S32({}{})) % S64(S32({}{})))", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_divu:
         print_line("lo = S32(U32({}{}) / U32({}{})); hi = S32(U32({}{}) % U32({}{}))", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
@@ -219,26 +235,65 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
         
     // Branches
     case InstrId::cpu_jal:
-        needs_link_branch = true;
-        print_indent();
-        // TODO lookup function name
-        print_branch("{}(rdram, ctx)", "func");
-        break;
+        {
+            uint32_t target_func_vram = instr.getBranchVramGeneric();
+            const auto matching_funcs_find = context.functions_by_vram.find(target_func_vram);
+            if (matching_funcs_find == context.functions_by_vram.end()) {
+                fmt::print(stderr, "No function found for jal target: 0x{:08X}\n", target_func_vram);
+                return false;
+            }
+            const auto& matching_funcs_vec = matching_funcs_find->second;
+            size_t real_func_index;
+            bool ambiguous;
+            // If there is more than one corresponding function, look for any that have a nonzero size
+            if (matching_funcs_vec.size() > 1) {
+                size_t nonzero_func_index = (size_t)-1;
+                bool found_nonzero_func = false;
+                for (size_t cur_func_index : matching_funcs_vec) {
+                    const auto& cur_func = context.functions[cur_func_index];
+                    if (cur_func.words.size() != 0) {
+                        if (found_nonzero_func) {
+                            ambiguous = true;
+                            break;
+                        }
+                        found_nonzero_func = true;
+                        nonzero_func_index = cur_func_index;
+                    }
+                }
+                real_func_index = nonzero_func_index;
+                ambiguous = false;
+            } else {
+                real_func_index = matching_funcs_vec.front();
+                ambiguous = false;
+            }
+            if (ambiguous) {
+                fmt::print(stderr, "Ambiguous jal target: 0x{:08X}\n", target_func_vram);
+                for (size_t cur_func_index : matching_funcs_vec) {
+                    const auto& cur_func = context.functions[cur_func_index];
+                    fmt::print(stderr, "  {}\n", cur_func.name);
+                }
+                return false;
+            }
+            needs_link_branch = true;
+            print_unconditional_branch("{}(rdram, ctx)", context.functions[real_func_index].name);
+            break;
+        }
     case InstrId::cpu_jalr:
+        // jalr can only be handled with $ra as the return address register
+        if (rd != (int)rabbitizer::Registers::Cpu::GprO32::GPR_O32_ra) {
+            fmt::print(stderr, "Invalid return address reg for jalr: f{}\n", rd);
+            return false;
+        }
         needs_link_branch = true;
-        print_indent();
-        // TODO index global function table
-        print_branch("{}(rdram, ctx)", "func_reg");
+        print_unconditional_branch("LOOKUP_FUNC({}{})(rdram, ctx)", ctx_gpr_prefix(rs), rs);
         break;
     case InstrId::cpu_j:
     case InstrId::cpu_b:
-        print_indent();
-        print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
+        print_unconditional_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
         break;
     case InstrId::cpu_jr:
-        print_indent();
         if (rs == (int)rabbitizer::Registers::Cpu::GprO32::GPR_O32_ra) {
-            print_branch("return");
+            print_unconditional_branch("return");
         } else {
             // TODO jump table handling
         }
@@ -248,7 +303,7 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
         [[fallthrough]];
     case InstrId::cpu_bne:
         print_indent();
-        print_branch_condition("if (S32({}{}) != S32({}{}))", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
+        print_branch_condition("if ({}{} != {}{})", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
         break;
     case InstrId::cpu_beql:
@@ -256,17 +311,7 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
         [[fallthrough]];
     case InstrId::cpu_beq:
         print_indent();
-        print_branch_condition("if (S32({}{}) == S32({}{}))", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
-        break;
-    case InstrId::cpu_bnez:
-        print_indent();
-        print_branch_condition("if (S32({}{}) != 0)", ctx_gpr_prefix(rs), rs);
-        print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
-        break;
-    case InstrId::cpu_beqz:
-        print_indent();
-        print_branch_condition("if (S32({}{}) == 0)", ctx_gpr_prefix(rs), rs);
+        print_branch_condition("if ({}{} == {}{})", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
         break;
     case InstrId::cpu_bgezl:
@@ -274,7 +319,7 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
         [[fallthrough]];
     case InstrId::cpu_bgez:
         print_indent();
-        print_branch_condition("if (S32({}{}) >= 0)", ctx_gpr_prefix(rs), rs);
+        print_branch_condition("if (SIGNED({}{}) >= 0)", ctx_gpr_prefix(rs), rs);
         print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
         break;
     case InstrId::cpu_bgtzl:
@@ -282,7 +327,7 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
         [[fallthrough]];
     case InstrId::cpu_bgtz:
         print_indent();
-        print_branch_condition("if (S32({}{}) > 0)", ctx_gpr_prefix(rs), rs);
+        print_branch_condition("if (SIGNED({}{}) > 0)", ctx_gpr_prefix(rs), rs);
         print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
         break;
     case InstrId::cpu_blezl:
@@ -290,7 +335,7 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
         [[fallthrough]];
     case InstrId::cpu_blez:
         print_indent();
-        print_branch_condition("if (S32({}{}) <= 0)", ctx_gpr_prefix(rs), rs);
+        print_branch_condition("if (SIGNED({}{}) <= 0)", ctx_gpr_prefix(rs), rs);
         print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
         break;
     case InstrId::cpu_bltzl:
@@ -298,7 +343,7 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
         [[fallthrough]];
     case InstrId::cpu_bltz:
         print_indent();
-        print_branch_condition("if (S32({}{}) < 0)", ctx_gpr_prefix(rs), rs);
+        print_branch_condition("if (SIGNED({}{}) < 0)", ctx_gpr_prefix(rs), rs);
         print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
         break;
     case InstrId::cpu_break:
@@ -639,7 +684,7 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
     return true;
 }
 
-bool RecompPort::recompile_function(const RecompPort::Function& func, std::string_view output_path) {
+bool RecompPort::recompile_function(const RecompPort::Context& context, const RecompPort::Function& func, std::string_view output_path) {
     fmt::print("Recompiling {}\n", func.name);
     std::vector<rabbitizer::InstructionCpu> instructions;
 
@@ -692,7 +737,7 @@ bool RecompPort::recompile_function(const RecompPort::Function& func, std::strin
             ++cur_label;
         }
         // Process the current instruction and check for errors
-        if (process_instruction(instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, needs_link_branch, is_branch_likely) == false) {
+        if (process_instruction(context, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, needs_link_branch, is_branch_likely) == false) {
             fmt::print(stderr, "Error in recompilation, clearing {}\n", output_path);
             output_file.clear();
             return false;

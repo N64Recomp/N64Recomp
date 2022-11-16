@@ -3,11 +3,23 @@
 
 #include <stdint.h>
 
+#if 0 // treat GPRs as 32-bit, should be better codegen
+typedef uint32_t gpr;
+
+#define SIGNED(val) \
+    ((int32_t)(val))
+#else
+typedef uint64_t gpr;
+
+#define SIGNED(val) \
+    ((int64_t)(val))
+#endif
+
 #define ADD32(a, b) \
-    ((uint64_t)(int32_t)((a) + (b)))
+    ((gpr)(int32_t)((a) + (b)))
 
 #define SUB32(a, b) \
-    ((uint64_t)(int32_t)((a) - (b)))
+    ((gpr)(int32_t)((a) - (b)))
 
 #define MEM_D(offset, reg) \
     (*(int64_t*)((rdram) + (((reg) + (offset)) ^ 3)))
@@ -35,6 +47,9 @@
 
 #define S64(val) \
     ((int64_t)(val))
+
+#define U64(val) \
+    ((uint64_t)(val))
 
 #define MUL_S(val1, val2) \
     ((val1) * (val2))
@@ -65,8 +80,6 @@
 
 #define TRUNC_W_D(val) \
     ((int32_t)(val))
-
-typedef uint64_t gpr;
 
 typedef union {
     double d;

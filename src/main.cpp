@@ -231,6 +231,9 @@ int main(int argc, char** argv) {
     }
 
     ELFIO::elfio elf_file;
+    RabbitizerConfig_Cfg.pseudos.pseudoMove = false;
+    RabbitizerConfig_Cfg.pseudos.pseudoBeqz = false;
+    RabbitizerConfig_Cfg.pseudos.pseudoBnez = false;
 
     auto exit_failure = [] (const std::string& error_str) {
         fmt::print(stderr, error_str);
@@ -282,8 +285,8 @@ int main(int argc, char** argv) {
 
     fmt::print("Num symbols: {}\n", symbols.get_symbols_num());
 
-    std::vector<RecompPort::Function> functions{};
-    functions.reserve(1024);
+    RecompPort::Context context{};
+    context.functions.reserve(1024);
 
     for (int sym_index = 0; sym_index < symbols.get_symbols_num(); sym_index++) {
         std::string   name;
@@ -298,33 +301,36 @@ int main(int argc, char** argv) {
         symbols.get_symbol(sym_index, name, value, size, bind, type,
             section_index, other);
 
-        // Check if this symbol is a function
-        if (type == ELFIO::STT_FUNC) {
+        // Check if this symbol is a function or has no type (like a regular glabel would)
+        // Symbols with no type have a dummy entry created so that their symbol can be looked up for function calls
+        if (type == ELFIO::STT_FUNC || (type == ELFIO::STT_NOTYPE && section_index < section_rom_addrs.size())) {
             auto section_rom_addr = section_rom_addrs[section_index];
             auto section_offset = value - elf_file.sections[section_index]->get_address();
             const uint32_t* words = reinterpret_cast<const uint32_t*>(elf_file.sections[section_index]->get_data() + section_offset);
-            functions.emplace_back(
-                static_cast<uint32_t>(value),
+            uint32_t vram = static_cast<uint32_t>(value);
+            uint32_t num_instructions = type == ELFIO::STT_FUNC ? size / 4 : 0;
+            context.functions_by_vram[vram].push_back(context.functions.size());
+            context.functions.emplace_back(
+                vram,
                 static_cast<uint32_t>(section_offset + section_rom_addr),
-                std::span{ reinterpret_cast<const uint32_t*>(words), size / 4 },
+                std::span{ words, num_instructions },
                 std::move(name)
             );
         }
     }
 
-    fmt::print("Function count: {}\n", functions.size());
+    fmt::print("Function count: {}\n", context.functions.size());
 
     //#pragma omp parallel for
-    for (size_t i = 0; i < functions.size(); i++) {
-        const auto& func = functions[i];
-        if (!ignored_funcs.contains(func.name)) {
-            if (RecompPort::recompile_function(func, "out/" + func.name + ".c") == false) {
+    for (size_t i = 0; i < context.functions.size(); i++) {
+        const auto& func = context.functions[i];
+        if (!ignored_funcs.contains(func.name) && func.words.size() != 0) {
+            if (RecompPort::recompile_function(context, func, "out/" + func.name + ".c") == false) {
                 fmt::print(stderr, "Error recompiling {}\n", func.name);
                 std::exit(EXIT_FAILURE);
             }
         }
     }
-    //RecompPort::recompile_function(functions.back(), "test.c");
 
     return 0;
 }
