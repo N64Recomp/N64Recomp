@@ -1,6 +1,9 @@
 # VSCode file settings
 .vscode/settings.json
 
+# Input elf files
+*.elf
+
 # Linux build output
 build/
 *.o

@@ -1,4 +1,6 @@
 #include "rabbitizer.hpp"
+#include "elfio/elfio.hpp"
+#include "fmt/format.h"
 
 #include <cstdio>
 
@@ -8,7 +10,8 @@ int main(int argc, char** argv) {
     int extraLJust = 5;
     rabbitizer::InstructionCpu instr(word, vram);
 
-    printf("%08X: %s\n", word, instr.disassemble(extraLJust).c_str());
+    fmt::print("{}\n", instr.isBranch());
+    fmt::print("{:08X}: {}\n", word, instr.disassemble(extraLJust));
 
     return 0;
 }

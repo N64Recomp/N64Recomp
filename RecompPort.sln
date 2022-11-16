@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RecompPort", "RecompPort.vc
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Rabbitizer", "lib\Rabbitizer.vcxproj", "{17BE354C-2B15-4175-8535-7D0D046217A6}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fmtlib", "lib\fmtlib.vcxproj", "{B56D9DB2-FB5D-4241-848A-159D17120F35}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -31,6 +33,14 @@ Global
 		{17BE354C-2B15-4175-8535-7D0D046217A6}.Release|x64.Build.0 = Release|x64
 		{17BE354C-2B15-4175-8535-7D0D046217A6}.Release|x86.ActiveCfg = Release|Win32
 		{17BE354C-2B15-4175-8535-7D0D046217A6}.Release|x86.Build.0 = Release|Win32
+		{B56D9DB2-FB5D-4241-848A-159D17120F35}.Debug|x64.ActiveCfg = Debug|x64
+		{B56D9DB2-FB5D-4241-848A-159D17120F35}.Debug|x64.Build.0 = Debug|x64
+		{B56D9DB2-FB5D-4241-848A-159D17120F35}.Debug|x86.ActiveCfg = Debug|Win32
+		{B56D9DB2-FB5D-4241-848A-159D17120F35}.Debug|x86.Build.0 = Debug|Win32
+		{B56D9DB2-FB5D-4241-848A-159D17120F35}.Release|x64.ActiveCfg = Release|x64
+		{B56D9DB2-FB5D-4241-848A-159D17120F35}.Release|x64.Build.0 = Release|x64
+		{B56D9DB2-FB5D-4241-848A-159D17120F35}.Release|x86.ActiveCfg = Release|Win32
+		{B56D9DB2-FB5D-4241-848A-159D17120F35}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
