@@ -31,7 +31,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         fmt::print(output_file, "    // {}\n", instr.disassemble(0));
     }
 
-    if (skipped_insns.contains(instr.getVram())) {
+    uint32_t instr_vram = instr.getVram();
+
+    if (skipped_insns.contains(instr_vram)) {
         return true;
     }
 
@@ -105,6 +107,18 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         print_line("{}{} = {:#X} << 16", ctx_gpr_prefix(rt), rt, imm);
         break;
     case InstrId::cpu_addu:
+        {
+            // Check if this addu belongs to a jump table load
+            auto find_result = std::find_if(stats.jump_tables.begin(), stats.jump_tables.end(),
+                [instr_vram](const RecompPort::JumpTable& jtbl) {
+                return jtbl.addu_vram == instr_vram;
+            });
+            // If so, create a temp to preserve the addend register's value
+            if (find_result != stats.jump_tables.end()) {
+                const RecompPort::JumpTable& cur_jtbl = *find_result;
+                print_line("gpr jr_addend_{:08X} = {}{}", cur_jtbl.jr_vram, ctx_gpr_prefix(cur_jtbl.addend_reg), cur_jtbl.addend_reg);
+            }
+        }
         print_line("{}{} = ADD32({}{}, {}{})", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_daddu:
@@ -169,10 +183,10 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         print_line("{}{} = {}{} < {:#X} ? 1 : 0", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, (int16_t)imm);
         break;
     case InstrId::cpu_mult:
-        print_line("uint64_t result = S64({}{}) * S64({}{}); lo = S32(result >> 0); hi = S32(result >> 32)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
+        print_line("result = S64({}{}) * S64({}{}); lo = S32(result >> 0); hi = S32(result >> 32)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_multu:
-        print_line("uint64_t result = U64({}{}) * U64({}{}); lo = S32(result >> 0); hi = S32(result >> 32)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
+        print_line("result = U64({}{}) * U64({}{}); lo = S32(result >> 0); hi = S32(result >> 32)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_div:
         // Cast to 64-bits before division to prevent artihmetic exception for s32(0x80000000) / -1
@@ -232,13 +246,13 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         print_line("{}{} = MEM_WL({:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
         break;
     case InstrId::cpu_lwr:
-        print_line("{}{} = MEM_WR({:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
+        print_line("//{}{} = MEM_WR({:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
         break;
     case InstrId::cpu_swl:
         print_line("MEM_WL({:#X}, {}{}) = {}{}", (int16_t)imm, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_swr:
-        print_line("MEM_WR({:#X}, {}{}) = {}{}", (int16_t)imm, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
+        print_line("//MEM_WR({:#X}, {}{}) = {}{}", (int16_t)imm, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
         break;
         
     // Branches
@@ -310,7 +324,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         if (rs == (int)rabbitizer::Registers::Cpu::GprO32::GPR_O32_ra) {
             print_unconditional_branch("return");
         } else {
-            uint32_t instr_vram = instr.getVram();
             auto find_result = std::find_if(stats.jump_tables.begin(), stats.jump_tables.end(),
                 [instr_vram](const RecompPort::JumpTable& jtbl) {
                     return jtbl.jr_vram == instr_vram;
@@ -322,8 +335,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
             bool dummy_needs_link_branch, dummy_is_branch_likely;
             process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely);
             print_indent();
-            // TODO this will fail if the register holding the addend is mangled, add logic to emit a temp with the addend into the code
-            fmt::print(output_file, "switch ({}{} >> 2) {{\n", ctx_gpr_prefix(cur_jtbl.addend_reg), cur_jtbl.addend_reg, cur_jtbl.vram);
+            fmt::print(output_file, "switch (jr_addend_{:08X} >> 2) {{\n", cur_jtbl.jr_vram);
             for (size_t entry_index = 0; entry_index < cur_jtbl.entries.size(); entry_index++) {
                 print_indent();
                 print_line("case {}: goto L_{:08X}; break", entry_index, cur_jtbl.entries[entry_index]);
@@ -383,7 +395,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
         break;
     case InstrId::cpu_break:
-        print_line("do_break();");
+        print_line("do_break({})", instr_vram);
         break;
 
     // Cop1 loads/stores
@@ -731,7 +743,7 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
         "\n"
         "void {}(uint8_t* restrict rdram, recomp_context* restrict ctx) {{\n"
         // these variables shouldn't need to be preserved across function boundaries, so make them local for more efficient output
-        "    uint64_t hi = 0, lo = 0;\n"
+        "    uint64_t hi = 0, lo = 0, result = 0;\n"
         "    int c1cs = 0; \n", // cop1 conditional signal
         func.name);
 

@@ -24,6 +24,7 @@ namespace RecompPort {
         uint32_t addend_reg;
         uint32_t rom;
         uint32_t lw_vram;
+        uint32_t addu_vram;
         uint32_t jr_vram;
         std::vector<uint32_t> entries;
     };
@@ -33,6 +34,7 @@ namespace RecompPort {
         uint32_t rom;
         const std::span<const uint32_t> words;
         std::string name;
+        bool ignored;
     };
 
     struct FunctionStats {

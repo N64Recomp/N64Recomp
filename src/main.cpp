@@ -6,6 +6,7 @@
 #include "rabbitizer.hpp"
 #include "elfio/elfio.hpp"
 #include "fmt/format.h"
+#include "fmt/ostream.h"
 
 #include "recomp_port.h"
 
@@ -221,7 +222,16 @@ std::unordered_set<std::string> ignored_funcs {
     "__osSetConfig",
     "__osGetConfig",
     "__osSetWatchLo",
-    "__osGetWatchLo"
+    "__osGetWatchLo",
+    // Cache funcs
+    "osInvalDCache",
+    "osInvalICache",
+    "osWritebackDCache",
+    "osWritebackDCacheAll"
+};
+
+std::unordered_set<std::string> renamed_funcs{
+    "sincosf"
 };
 
 int main(int argc, char** argv) {
@@ -305,6 +315,14 @@ int main(int argc, char** argv) {
         // Check if this symbol is a function or has no type (like a regular glabel would)
         // Symbols with no type have a dummy entry created so that their symbol can be looked up for function calls
         if (type == ELFIO::STT_FUNC || type == ELFIO::STT_NOTYPE) {
+            bool ignored = false;
+            if (renamed_funcs.contains(name)) {
+                name = "_" + name;
+            }
+            if (ignored_funcs.contains(name)) {
+                name = name + "_recomp";
+                ignored = true;
+            }
             if (section_index < section_rom_addrs.size()) {
                 auto section_rom_addr = section_rom_addrs[section_index];
                 auto section_offset = value - elf_file.sections[section_index]->get_address();
@@ -316,7 +334,8 @@ int main(int argc, char** argv) {
                     vram,
                     static_cast<uint32_t>(section_offset + section_rom_addr),
                     std::span{ words, num_instructions },
-                    std::move(name)
+                    std::move(name),
+                    ignored
                 );
             } else {
                 uint32_t vram = static_cast<uint32_t>(value);
@@ -325,7 +344,8 @@ int main(int argc, char** argv) {
                     vram,
                     0,
                     std::span<const uint32_t>{},
-                    std::move(name)
+                    std::move(name),
+                    ignored
                 );
             }
         }
@@ -333,16 +353,52 @@ int main(int argc, char** argv) {
 
     fmt::print("Function count: {}\n", context.functions.size());
 
+    std::ofstream func_lookup_file{ "out/funcs/lookup.cpp" };
+    std::ofstream func_header_file{ "out/funcs/funcs.h" };
+
+    fmt::print(func_lookup_file,
+        "#include <utility>\n"
+        "#include \"recomp.h\"\n"
+        "#include \"funcs.h\"\n"
+        "\n"
+        "std::pair<uint32_t, recomp_func_t*> funcs[] {{\n"
+    );
+
+    fmt::print(func_header_file,
+        "#include \"recomp.h\"\n"
+        "\n"
+        "#ifdef __cplusplus\n"
+        "extern \"C\" {{\n"
+        "#endif\n"
+        "\n"
+    );
+
     //#pragma omp parallel for
     for (size_t i = 0; i < context.functions.size(); i++) {
         const auto& func = context.functions[i];
-        if (!ignored_funcs.contains(func.name) && func.words.size() != 0) {
-            if (RecompPort::recompile_function(context, func, "out/" + func.name + ".c") == false) {
+        if (!func.ignored && func.words.size() != 0) {
+            fmt::print(func_header_file,
+                "void {}(uint8_t* restrict rdram, recomp_context* restrict ctx);\n", func.name);
+            fmt::print(func_lookup_file,
+                "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
+            if (RecompPort::recompile_function(context, func, "out/funcs/" + func.name + ".c") == false) {
+                func_lookup_file.clear();
                 fmt::print(stderr, "Error recompiling {}\n", func.name);
                 std::exit(EXIT_FAILURE);
             }
         }
     }
+    fmt::print(func_lookup_file,
+        "}};\n"
+        "extern const size_t num_funcs = sizeof(funcs) / sizeof(funcs[0]);\n"
+    );
+
+    fmt::print(func_header_file,
+        "\n"
+        "#ifdef __cplusplus\n"
+        "}}\n"
+        "#endif\n"
+    );
 
     return 0;
 }

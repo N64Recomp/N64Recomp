@@ -2,6 +2,7 @@
 #define __RECOMP_H__
 
 #include <stdint.h>
+#include <math.h>
 
 #if 0 // treat GPRs as 32-bit, should be better codegen
 typedef uint32_t gpr;
@@ -22,22 +23,26 @@ typedef uint64_t gpr;
     ((gpr)(int32_t)((a) - (b)))
 
 #define MEM_D(offset, reg) \
-    (*(int64_t*)((rdram) + (((reg) + (offset)) ^ 3)))
+    (*(int64_t*)(rdram + ((((reg) + (offset))) & 0x3FFFFFF)))
 
 #define MEM_W(offset, reg) \
-    (*(int32_t*)((rdram) + (((reg) + (offset)) ^ 3)))
+    (*(int32_t*)(rdram + ((((reg) + (offset))) & 0x3FFFFFF)))
 
 #define MEM_H(offset, reg) \
-    (*(int16_t*)((rdram) + (((reg) + (offset)) ^ 3)))
+    (*(int16_t*)(rdram + ((((reg) + (offset)) ^ 2) & 0x3FFFFFF)))
 
 #define MEM_B(offset, reg) \
-    (*(int8_t*)((rdram) + (((reg) + (offset)) ^ 3)))
+    (*(int8_t*)(rdram + ((((reg) + (offset)) ^ 3) & 0x3FFFFFF)))
 
 #define MEM_HU(offset, reg) \
-    (*(uint16_t*)((rdram) + (((reg) + (offset)) ^ 3)))
+    (*(uint16_t*)(rdram + ((((reg) + (offset)) ^ 2) & 0x3FFFFFF)))
 
 #define MEM_BU(offset, reg) \
-    (*(uint8_t*)((rdram) + (((reg) + (offset)) ^ 3)))
+    (*(uint8_t*)(rdram + ((((reg) + (offset)) ^ 3) & 0x3FFFFFF)))
+
+// TODO proper lwl/lwr/swl/swr
+#define MEM_WL(offset, reg) \
+    (*(int32_t*)(rdram + ((((reg) + (offset))) & 0x3FFFFFF)))
 
 #define S32(val) \
     ((int32_t)(val))
@@ -104,6 +109,23 @@ typedef struct {
     uint64_t hi, lo;
 } recomp_context;
 
+#ifdef __cplusplus
+#define restrict __restrict
+extern "C" {
+#endif
+
 void switch_error(const char* func, uint32_t vram, uint32_t jtbl);
+void do_break(uint32_t vram);
+
+typedef void (recomp_func_t)(uint8_t* restrict rdram, recomp_context* restrict ctx);
+
+recomp_func_t* get_function(uint32_t vram);
+
+#define LOOKUP_FUNC(val) \
+    get_function(val)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -12,14 +12,16 @@ extern "C" const char* RabbitizerRegister_getNameGpr(uint8_t regValue);
 struct RegState {
 	// For tracking a register that will be used to load from RAM
 	uint32_t prev_lui;
-	uint32_t prev_addiu;
+	uint32_t prev_addiu_vram;
+	uint32_t prev_addu_vram;
 	uint8_t prev_addend_reg;
 	bool valid_lui;
 	bool valid_addiu;
 	bool valid_addend;
 	// For tracking a register that has been loaded from RAM
-	uint32_t loaded_lw_addr;
-	uint32_t loaded_addr;
+	uint32_t loaded_lw_vram;
+	uint32_t loaded_addu_vram;
+	uint32_t loaded_address;
 	uint8_t loaded_addend_reg;
 	bool valid_loaded;
 
@@ -27,15 +29,17 @@ struct RegState {
 
 	void invalidate() {
 		prev_lui = 0;
-		prev_addiu = 0;
+		prev_addiu_vram = 0;
+		prev_addu_vram = 0;
 		prev_addend_reg = 0;
 
 		valid_lui = false;
 		valid_addiu = false;
 		valid_addend = false;
 
-		loaded_lw_addr = 0;
-		loaded_addr = 0;
+		loaded_lw_vram = 0;
+		loaded_addu_vram = 0;
+		loaded_address = 0;
 		loaded_addend_reg = 0;
 
 		valid_loaded = false;
@@ -82,7 +86,7 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const RecompPo
 		reg_states[rt] = reg_states[rs];
 		// Set the addiu state if and only if there hasn't been an addiu already
 		if (!reg_states[rt].valid_addiu) {
-			reg_states[rt].prev_addiu = (int16_t)imm;
+			reg_states[rt].prev_addiu_vram = (int16_t)imm;
 			reg_states[rt].valid_addiu = true;
 		} else {
 			// Otherwise, there have been 2 or more consecutive addius so invalidate the whole register
@@ -102,6 +106,7 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const RecompPo
 			temp = reg_states[valid_lui_reg];
 			temp.valid_addend = true;
 			temp.prev_addend_reg = addend_reg;
+			temp.prev_addu_vram = instr.getVram();
 		} else {
 			// Check if this is a move
 			check_move();
@@ -124,14 +129,15 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const RecompPo
 				if (nonzero_immediate) {
 					lo16 = (int16_t)imm;
 				} else {
-					lo16 = reg_states[base].prev_addiu;
+					lo16 = reg_states[base].prev_addiu_vram;
 				}
 
 				uint32_t address = reg_states[base].prev_lui + lo16;
 				temp.valid_loaded = true;
-				temp.loaded_lw_addr = instr.getVram();
-				temp.loaded_addr = address;
+				temp.loaded_lw_vram = instr.getVram();
+				temp.loaded_address = address;
 				temp.loaded_addend_reg = reg_states[base].prev_addend_reg;
+				temp.loaded_addu_vram = reg_states[base].prev_addu_vram;
 			}
 		}
 		reg_states[rt] = temp;
@@ -144,10 +150,11 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const RecompPo
 		// Check if the source reg has a valid loaded state and if so record that as a jump table
 		if (reg_states[rs].valid_loaded) {
 			stats.jump_tables.emplace_back(
-				reg_states[rs].loaded_addr,
+				reg_states[rs].loaded_address,
 				reg_states[rs].loaded_addend_reg,
 				0,
-				reg_states[rs].loaded_lw_addr,
+				reg_states[rs].loaded_lw_vram,
+				reg_states[rs].loaded_addu_vram,
 				instr.getVram(),
 				std::vector<uint32_t>{}
 			);
