@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <math.h>
+#include <assert.h>
 
 #if 0 // treat GPRs as 32-bit, should be better codegen
 typedef uint32_t gpr;
@@ -22,9 +23,6 @@ typedef uint64_t gpr;
 #define SUB32(a, b) \
     ((gpr)(int32_t)((a) - (b)))
 
-#define MEM_D(offset, reg) \
-    (*(int64_t*)(rdram + ((((reg) + (offset))) & 0x3FFFFFF)))
-
 #define MEM_W(offset, reg) \
     (*(int32_t*)(rdram + ((((reg) + (offset))) & 0x3FFFFFF)))
 
@@ -39,6 +37,22 @@ typedef uint64_t gpr;
 
 #define MEM_BU(offset, reg) \
     (*(uint8_t*)(rdram + ((((reg) + (offset)) ^ 3) & 0x3FFFFFF)))
+
+#define SD(val, offset, reg) { \
+    *(uint32_t*)(rdram + ((((reg) + (offset) + 4)) & 0x3FFFFFF)) = (uint32_t)((val) >> 32); \
+    *(uint32_t*)(rdram + ((((reg) + (offset) + 0)) & 0x3FFFFFF)) = (uint32_t)((val) >> 0); \
+}
+
+static inline uint64_t load_doubleword(uint8_t* rdram, gpr reg, gpr offset) {
+    uint64_t ret = 0;
+    uint64_t lo = (uint64_t)(uint32_t)MEM_W(reg, offset + 4);
+    uint64_t hi = (uint64_t)(uint32_t)MEM_W(reg, offset + 0);
+    ret = (lo << 0) | (hi << 32);
+    return ret;
+}
+
+#define LD(offset, reg) \
+    load_doubleword(rdram, offset, reg)
 
 // TODO proper lwl/lwr/swl/swr
 #define MEM_WL(offset, reg) \
@@ -85,6 +99,9 @@ typedef uint64_t gpr;
 
 #define TRUNC_W_D(val) \
     ((int32_t)(val))
+
+#define NAN_CHECK(val) \
+    assert(val == val)
 
 typedef union {
     double d;

@@ -1861,7 +1861,6 @@
     <ClCompile Include="funcs\obj_update_sleeping.c" />
     <ClCompile Include="funcs\osCreateScheduler.c" />
     <ClCompile Include="funcs\osDriveRomInit.c" />
-    <ClCompile Include="funcs\osGetTime.c" />
     <ClCompile Include="funcs\osScAddClient.c" />
     <ClCompile Include="funcs\osScGetCmdQ.c" />
     <ClCompile Include="funcs\osScRemoveClient.c" />
@@ -1998,6 +1997,7 @@
     <ClCompile Include="funcs\__sinf.c" />
     <ClCompile Include="funcs\__udivdi3.c" />
     <ClCompile Include="funcs\__udivmoddi4.c" />
+    <ClCompile Include="portultra\events.cpp" />
     <ClCompile Include="portultra\init.cpp" />
     <ClCompile Include="portultra\main.c" />
     <ClCompile Include="portultra\mesgqueue.cpp" />

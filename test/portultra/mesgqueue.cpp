@@ -49,6 +49,12 @@ bool thread_queue_empty(RDRAM_ARG PTR(OSThread)* queue) {
 
 extern "C" s32 osSendMesg(RDRAM_ARG PTR(OSMesgQueue) mq_, OSMesg msg, s32 flags) {
     OSMesgQueue *mq = TO_PTR(OSMesgQueue, mq_);
+    
+    // Prevent accidentally blocking anything that isn't a game thread
+    if (!Multilibultra::is_game_thread()) {
+        flags = OS_MESG_NOBLOCK;
+    }
+
     Multilibultra::disable_preemption();
 
     if (flags == OS_MESG_NOBLOCK) {
@@ -81,9 +87,13 @@ extern "C" s32 osSendMesg(RDRAM_ARG PTR(OSMesgQueue) mq_, OSMesg msg, s32 flags)
     Multilibultra::enable_preemption();
     if (to_run) {
         debug_printf("[Message Queue] Thread %d is unblocked\n", to_run->id);
-        OSThread* self = TO_PTR(OSThread, Multilibultra::this_thread());
-        if (to_run->priority > self->priority) {
-            Multilibultra::swap_to_thread(PASS_RDRAM to_run);
+        if (Multilibultra::is_game_thread()) {
+            OSThread* self = TO_PTR(OSThread, Multilibultra::this_thread());
+            if (to_run->priority > self->priority) {
+                Multilibultra::swap_to_thread(PASS_RDRAM to_run);
+            } else {
+                Multilibultra::schedule_running_thread(to_run);
+            }
         } else {
             Multilibultra::schedule_running_thread(to_run);
         }
@@ -181,8 +191,4 @@ extern "C" s32 osRecvMesg(RDRAM_ARG PTR(OSMesgQueue) mq_, PTR(OSMesg) msg_, s32 
         }
     }
     return 0;
-}
-
-extern "C" void osSetEventMesg(RDRAM_ARG OSEvent, PTR(OSMesgQueue), OSMesg) {
-
 }

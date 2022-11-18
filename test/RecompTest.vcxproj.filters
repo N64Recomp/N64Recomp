@@ -5529,9 +5529,6 @@
     <ClCompile Include="funcs\osDriveRomInit.c">
       <Filter>Funcs</Filter>
     </ClCompile>
-    <ClCompile Include="funcs\osGetTime.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
     <ClCompile Include="funcs\osScAddClient.c">
       <Filter>Funcs</Filter>
     </ClCompile>
@@ -5699,6 +5696,9 @@
     </ClCompile>
     <ClCompile Include="funcs\lookup.cpp">
       <Filter>Funcs</Filter>
+    </ClCompile>
+    <ClCompile Include="portultra\events.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -27,7 +27,3 @@ extern "C" void osViSwapBuffer_recomp(uint8_t* restrict rdram, recomp_context* r
 extern "C" void osViSetMode_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
     ;
 }
-
-extern "C" void osViSetEvent_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
-    ;
-}

@@ -173,6 +173,7 @@ std::unordered_set<std::string> ignored_funcs {
     "osStartTimer",
     "osSetTimer",
     "osStopTimer",
+    "osGetTime",
     "__osInsertTimer",
     "__osTimerInterrupt",
     "__osTimerServicesInit",
@@ -353,8 +354,8 @@ int main(int argc, char** argv) {
 
     fmt::print("Function count: {}\n", context.functions.size());
 
-    std::ofstream func_lookup_file{ "out/funcs/lookup.cpp" };
-    std::ofstream func_header_file{ "out/funcs/funcs.h" };
+    std::ofstream func_lookup_file{ "test/funcs/lookup.cpp" };
+    std::ofstream func_header_file{ "test/funcs/funcs.h" };
 
     fmt::print(func_lookup_file,
         "#include <utility>\n"
@@ -381,7 +382,7 @@ int main(int argc, char** argv) {
                 "void {}(uint8_t* restrict rdram, recomp_context* restrict ctx);\n", func.name);
             fmt::print(func_lookup_file,
                 "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
-            if (RecompPort::recompile_function(context, func, "out/funcs/" + func.name + ".c") == false) {
+            if (RecompPort::recompile_function(context, func, "test/funcs/" + func.name + ".c") == false) {
                 func_lookup_file.clear();
                 fmt::print(stderr, "Error recompiling {}\n", func.name);
                 std::exit(EXIT_FAILURE);

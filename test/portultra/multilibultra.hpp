@@ -4,6 +4,7 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <algorithm>
 
 #include "ultra64.h"
 #include "platform_specific.h"
@@ -16,8 +17,10 @@ struct UltraThreadContext {
 
 namespace Multilibultra {
 
+void preinit(uint8_t* rdram);
 void native_init();
 void init_scheduler();
+void init_events(uint8_t* rdram);
 void native_thread_init(OSThread *t);
 void set_self_paused(RDRAM_ARG1);
 void wait_for_resumed(RDRAM_ARG1);
@@ -36,6 +39,9 @@ void enable_preemption();
 void notify_scheduler();
 void reprioritize_thread(OSThread *t, OSPri pri);
 void set_main_thread();
+bool is_game_thread();
+void submit_rsp_task(RDRAM_ARG PTR(OSTask) task);
+void send_si_message();
 
 class preemption_guard {
 public:
@@ -47,7 +53,9 @@ private:
 
 } // namespace Multilibultra
 
-#define debug_printf(...) printf(__VA_ARGS__);
-//#define debug_printf(...)
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
+#define debug_printf(...)
+//#define debug_printf(...) printf(__VA_ARGS__);
 
 #endif

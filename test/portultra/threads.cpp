@@ -7,10 +7,17 @@
 extern "C" void bootproc();
 
 thread_local bool is_main_thread = false;
+// Whether this thread is part of the game (i.e. the start thread or one spawned by osCreateThread)
+thread_local bool is_game_thread = false;
 thread_local PTR(OSThread) thread_self = NULLPTR;
 
 void Multilibultra::set_main_thread() {
+    ::is_game_thread = true;
     is_main_thread = true;
+}
+
+bool Multilibultra::is_game_thread() {
+    return ::is_game_thread;
 }
 
 #if 0
@@ -31,6 +38,7 @@ static void _thread_func(RDRAM_ARG PTR(OSThread) self_, PTR(thread_func_t) entry
     OSThread *self = TO_PTR(OSThread, self_);
     debug_printf("[Thread] Thread created: %d\n", self->id);
     thread_self = self_;
+    is_game_thread = true;
 
     // Perform any necessary native thread initialization.
     Multilibultra::native_thread_init(self);
@@ -54,23 +62,24 @@ static void _thread_func(RDRAM_ARG PTR(OSThread) self_, PTR(thread_func_t) entry
     Multilibultra::cleanup_thread(self);
 }
 
-extern "C" void osStartThread(RDRAM_ARG PTR(OSThread) t) {
-    debug_printf("[os] Start Thread %d\n", TO_PTR(OSThread, t)->id);
+extern "C" void osStartThread(RDRAM_ARG PTR(OSThread) t_) {
+    OSThread* t = TO_PTR(OSThread, t_);
+    debug_printf("[os] Start Thread %d\n", t->id);
 
-    // Wait until the thread is initialized to indicate that it's ready to be started.
-    TO_PTR(OSThread, t)->context->initialized.wait(false);
+    // Wait until the thread is initialized to indicate that it's task_queued to be started.
+    t->context->initialized.wait(false);
 
-    debug_printf("[os] Thread %d is ready to be started\n", TO_PTR(OSThread, t)->id);
+    debug_printf("[os] Thread %d is ready to be started\n", t->id);
 
-    if (thread_self && (TO_PTR(OSThread, t)->priority > TO_PTR(OSThread, thread_self)->priority)) {
-        Multilibultra::swap_to_thread(PASS_RDRAM TO_PTR(OSThread, t));
+    if (thread_self && (t->priority > TO_PTR(OSThread, thread_self)->priority)) {
+        Multilibultra::swap_to_thread(PASS_RDRAM t);
     } else {
-        Multilibultra::schedule_running_thread(TO_PTR(OSThread, t));
+        Multilibultra::schedule_running_thread(t);
     }
 
     // The main thread "becomes" the first thread started, so join on it and exit after it completes.
     if (is_main_thread) {
-        TO_PTR(OSThread, t)->context->host_thread.join();
+        t->context->host_thread.join();
         std::exit(EXIT_SUCCESS);
     }
 }
@@ -132,10 +141,12 @@ void Multilibultra::pause_thread_impl(OSThread* t) {
 }
 
 void Multilibultra::resume_thread_impl(OSThread *t) {
+    if (t->state == OSThreadState::PREEMPTED) {
+        Multilibultra::resume_thread_native_impl(t);
+    }
     t->state = OSThreadState::RUNNING;
     t->context->running.store(true);
     t->context->running.notify_all();
-    Multilibultra::resume_thread_native_impl(t);
 }
 
 PTR(OSThread) Multilibultra::this_thread() {

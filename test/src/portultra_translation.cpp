@@ -6,13 +6,11 @@ extern "C" void osInitialize_recomp(uint8_t * restrict rdram, recomp_context * r
 }
 
 extern "C" void osCreateThread_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
-    //printf("Creating thread 0x%08X\n", (uint32_t)ctx->r4);
     osCreateThread(rdram, (uint32_t)ctx->r4, (OSId)ctx->r5, (uint32_t)ctx->r6, (uint32_t)ctx->r7,
         (uint32_t)MEM_W(0x10, ctx->r29), (OSPri)MEM_W(0x14, ctx->r29));
 }
 
 extern "C" void osStartThread_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
-    //printf("Starting thread 0x%08X\n", (uint32_t)ctx->r4);
     osStartThread(rdram, (uint32_t)ctx->r4);
 }
 
@@ -38,4 +36,18 @@ extern "C" void osJamMesg_recomp(uint8_t* restrict rdram, recomp_context* restri
 
 extern "C" void osSetEventMesg_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
     osSetEventMesg(rdram, (OSEvent)ctx->r4, (uint32_t)ctx->r5, (OSMesg)ctx->r6);
+}
+
+extern "C" void osViSetEvent_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    osViSetEvent(rdram, (uint32_t)ctx->r4, (OSMesg)ctx->r5, (u32)ctx->r6);
+}
+
+extern "C" void osGetCount_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    ctx->r2 = osGetCount();
+}
+
+extern "C" void osGetTime_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    uint64_t total_count = osGetTime();
+    ctx->r2 = (uint32_t)(total_count >> 32);
+    ctx->r3 =  (int32_t)(total_count >> 0);
 }

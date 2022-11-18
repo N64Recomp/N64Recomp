@@ -20,11 +20,6 @@ constexpr uint32_t byteswap(uint32_t val) {
 }
 #endif
 
-void test_func(uint8_t* restrict rdram, recomp_context* restrict ctx) {
-    printf("in test_func\n");
-    exit(EXIT_FAILURE);
-}
-
 extern std::pair<uint32_t, recomp_func_t*> funcs[];
 extern const size_t num_funcs;
 
@@ -61,11 +56,13 @@ extern "C" void do_break(uint32_t vram) {
 void run_thread_function(uint8_t* rdram, uint32_t addr, uint32_t sp, uint32_t arg) {
     recomp_context ctx{};
     ctx.r29 = sp;
+    ctx.r4 = arg;
     recomp_func_t* func = get_function(addr);
     func(rdram, &ctx);
 }
 
 extern "C" void game_init(uint8_t* restrict rdram, recomp_context* restrict ctx);
+void do_rom_read(uint8_t* rdram, uint32_t ram_address, uint32_t dev_address, size_t num_bytes);
 
 std::unique_ptr<uint8_t[]> rom;
 size_t rom_size;
@@ -100,15 +97,15 @@ int main(int argc, char **argv) {
     }
 
     // Byteswap the rom
-    for (size_t rom_addr = 0; rom_addr < rom_size; rom_addr += 4) {
-        uint32_t word = *reinterpret_cast<uint32_t*>(rom.get() + rom_addr);
-        word = byteswap(word);
-        *reinterpret_cast<uint32_t*>(rom.get() + rom_addr) = word;
-    }
+    //for (size_t rom_addr = 0; rom_addr < rom_size; rom_addr += 4) {
+    //    uint32_t word = *reinterpret_cast<uint32_t*>(rom.get() + rom_addr);
+    //    word = byteswap(word);
+    //    *reinterpret_cast<uint32_t*>(rom.get() + rom_addr) = word;
+    //}
 
     // Get entrypoint from ROM
     // TODO fix this for other IPL3 versions
-    uint32_t entrypoint = *reinterpret_cast<uint32_t*>(rom.get() + 0x8);
+    uint32_t entrypoint = byteswap(*reinterpret_cast<uint32_t*>(rom.get() + 0x8));
 
     // Allocate rdram_buffer
     std::unique_ptr<uint8_t[]> rdram_buffer = std::make_unique<uint8_t[]>(8 * 1024 * 1024);
@@ -116,7 +113,8 @@ int main(int argc, char **argv) {
     recomp_context context{};
 
     // Initial 1MB DMA
-    std::copy_n(rom.get() + 0x1000, 0x100000, rdram_buffer.get() + entrypoint - 0x80000000);
+    do_rom_read(rdram_buffer.get(), entrypoint, 0x1000, 0x100000);
+    //std::copy_n(rom.get() + 0x1000, 0x100000, rdram_buffer.get() + entrypoint - 0x80000000);
 
     // Initialize function address map
     for (size_t i = 0; i < num_funcs; i++) {
@@ -157,13 +155,13 @@ int main(int argc, char **argv) {
     // TODO run the entrypoint instead
     memset(rdram_buffer.get() + 0XAF860, 0, 0xC00A0u - 0XAF860);
 
-    printf("[Recomp] Starting\n");
+    debug_printf("[Recomp] Starting\n");
 
-    Multilibultra::set_main_thread();
+    Multilibultra::preinit(rdram_buffer.get());
 
     game_init(rdram_buffer.get(), &context);
 
-    printf("[Recomp] Quitting\n");
+    debug_printf("[Recomp] Quitting\n");
 
     return EXIT_SUCCESS;
 }

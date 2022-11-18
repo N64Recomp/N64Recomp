@@ -318,7 +318,13 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         break;
     case InstrId::cpu_j:
     case InstrId::cpu_b:
-        print_unconditional_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
+        {
+            uint32_t branch_target = instr.getBranchVramGeneric();
+            if (branch_target == instr_vram) {
+                print_line("void pause_self(uint8_t *rdram); pause_self(rdram)");
+            }
+            print_unconditional_branch("goto L_{:08X}", branch_target);
+        }
         break;
     case InstrId::cpu_jr:
         if (rs == (int)rabbitizer::Registers::Cpu::GprO32::GPR_O32_ra) {
@@ -422,6 +428,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         if ((ft & 1) == 0) {
             // even fpr
             print_line("ctx->f{}.u32l = MEM_W({:#X}, {}{})", ft, (int16_t)imm, ctx_gpr_prefix(base), base);
+            print_line("NAN_CHECK(ctx->f{}.fl)", ft);
         } else {
             // odd fpr
             print_line("ctx->f{}.u32h = MEM_W({:#X}, {}{})", ft - 1, (int16_t)imm, ctx_gpr_prefix(base), base);
@@ -429,7 +436,8 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         break;
     case InstrId::cpu_ldc1:
         if ((ft & 1) == 0) {
-            print_line("ctx->f{}.u64 = MEM_D({:#X}, {}{})", ft, (int16_t)imm, ctx_gpr_prefix(base), base);
+            print_line("ctx->f{}.u64 = LD({:#X}, {}{})", ft, (int16_t)imm, ctx_gpr_prefix(base), base);
+            print_line("NAN_CHECK(ctx->f{}.d)", ft);
         } else {
             fmt::print(stderr, "Invalid operand for ldc1: f{}\n", ft);
             return false;
@@ -446,7 +454,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         break;
     case InstrId::cpu_sdc1:
         if ((ft & 1) == 0) {
-            print_line("MEM_D({:#X}, {}{}) = ctx->f{}.u64", (int16_t)imm, ctx_gpr_prefix(base), base, ft);
+            print_line("SD(ctx->f{}.u64, {:#X}, {}{})", ft, (int16_t)imm, ctx_gpr_prefix(base), base);
         } else {
             fmt::print(stderr, "Invalid operand for sdc1: f{}\n", ft);
             return false;
@@ -525,6 +533,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_mov_s:
         if ((fd & 1) == 0 && (fs & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.fl)", fs);
             print_line("ctx->f{}.fl = ctx->f{}.fl", fd, fs);
         } else {
             fmt::print(stderr, "Invalid operand(s) for mov.s: f{} f{}\n", fd, fs);
@@ -534,6 +543,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_mov_d:
         if ((fd & 1) == 0 && (fs & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.d)", fs);
             print_line("ctx->f{}.d = ctx->f{}.d", fd, fs);
         } else {
             fmt::print(stderr, "Invalid operand(s) for mov.d: f{} f{}\n", fd, fs);
@@ -543,6 +553,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_neg_s:
         if ((fd & 1) == 0 && (fs & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.fl)", fs);
             print_line("ctx->f{}.fl = -ctx->f{}.fl", fd, fs);
         } else {
             fmt::print(stderr, "Invalid operand(s) for neg.s: f{} f{}\n", fd, fs);
@@ -552,6 +563,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_neg_d:
         if ((fd & 1) == 0 && (fs & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.d)", fs);
             print_line("ctx->f{}.d = -ctx->f{}.d", fd, fs);
         } else {
             fmt::print(stderr, "Invalid operand(s) for neg.d: f{} f{}\n", fd, fs);
@@ -561,6 +573,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_abs_s:
         if ((fd & 1) == 0 && (fs & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.fl)", fs);
             print_line("ctx->f{}.fl = fabsf(ctx->f{}.fl)", fd, fs);
         } else {
             fmt::print(stderr, "Invalid operand(s) for abs.s: f{} f{}\n", fd, fs);
@@ -570,6 +583,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_abs_d:
         if ((fd & 1) == 0 && (fs & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.d)", fs);
             print_line("ctx->f{}.d = fabs(ctx->f{}.d)", fd, fs);
         } else {
             fmt::print(stderr, "Invalid operand(s) for abs.d: f{} f{}\n", fd, fs);
@@ -579,6 +593,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_sqrt_s:
         if ((fd & 1) == 0 && (fs & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.fl)", fs);
             print_line("ctx->f{}.fl = sqrtf(ctx->f{}.fl)", fd, fs);
         } else {
             fmt::print(stderr, "Invalid operand(s) for sqrt.s: f{} f{}\n", fd, fs);
@@ -588,6 +603,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_sqrt_d:
         if ((fd & 1) == 0 && (fs & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.d)", fs);
             print_line("ctx->f{}.d = sqrt(ctx->f{}.d)", fd, fs);
         } else {
             fmt::print(stderr, "Invalid operand(s) for sqrt.d: f{} f{}\n", fd, fs);
@@ -597,6 +613,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_add_s:
         if ((fd & 1) == 0 && (fs & 1) == 0 && (ft & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.fl); NAN_CHECK(ctx->f{}.fl)", fs, ft);
             print_line("ctx->f{}.fl = ctx->f{}.fl + ctx->f{}.fl", fd, fs, ft);
         } else {
             fmt::print(stderr, "Invalid operand(s) for add.s: f{} f{} f{}\n", fd, fs, ft);
@@ -606,6 +623,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_add_d:
         if ((fd & 1) == 0 && (fs & 1) == 0 && (ft & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.d); NAN_CHECK(ctx->f{}.d)", fs, ft);
             print_line("ctx->f{}.d = ctx->f{}.d + ctx->f{}.d", fd, fs, ft);
         } else {
             fmt::print(stderr, "Invalid operand(s) for add.d: f{} f{} f{}\n", fd, fs, ft);
@@ -615,6 +633,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_sub_s:
         if ((fd & 1) == 0 && (fs & 1) == 0 && (ft & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.fl); NAN_CHECK(ctx->f{}.fl)", fs, ft);
             print_line("ctx->f{}.fl = ctx->f{}.fl - ctx->f{}.fl", fd, fs, ft);
         } else {
             fmt::print(stderr, "Invalid operand(s) for sub.s: f{} f{} f{}\n", fd, fs, ft);
@@ -624,6 +643,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_sub_d:
         if ((fd & 1) == 0 && (fs & 1) == 0 && (ft & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.d); NAN_CHECK(ctx->f{}.d)", fs, ft);
             print_line("ctx->f{}.d = ctx->f{}.d - ctx->f{}.d", fd, fs, ft);
         } else {
             fmt::print(stderr, "Invalid operand(s) for sub.d: f{} f{} f{}\n", fd, fs, ft);
@@ -633,6 +653,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_mul_s:
         if ((fd & 1) == 0 && (fs & 1) == 0 && (ft & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.fl); NAN_CHECK(ctx->f{}.fl)", fs, ft);
             print_line("ctx->f{}.fl = MUL_S(ctx->f{}.fl, ctx->f{}.fl)", fd, fs, ft);
         } else {
             fmt::print(stderr, "Invalid operand(s) for mul.s: f{} f{} f{}\n", fd, fs, ft);
@@ -642,6 +663,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_mul_d:
         if ((fd & 1) == 0 && (fs & 1) == 0 && (ft & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.d); NAN_CHECK(ctx->f{}.d)", fs, ft);
             print_line("ctx->f{}.d = MUL_D(ctx->f{}.d, ctx->f{}.d)", fd, fs, ft);
         } else {
             fmt::print(stderr, "Invalid operand(s) for mul.d: f{} f{} f{}\n", fd, fs, ft);
@@ -651,6 +673,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_div_s:
         if ((fd & 1) == 0 && (fs & 1) == 0 && (ft & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.fl); NAN_CHECK(ctx->f{}.fl)", fs, ft);
             print_line("ctx->f{}.fl = DIV_S(ctx->f{}.fl, ctx->f{}.fl)", fd, fs, ft);
         } else {
             fmt::print(stderr, "Invalid operand(s) for div.s: f{} f{} f{}\n", fd, fs, ft);
@@ -660,6 +683,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_div_d:
         if ((fd & 1) == 0 && (fs & 1) == 0 && (ft & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.d); NAN_CHECK(ctx->f{}.d)", fs, ft);
             print_line("ctx->f{}.d = DIV_D(ctx->f{}.d, ctx->f{}.d)", fd, fs, ft);
         } else {
             fmt::print(stderr, "Invalid operand(s) for div.d: f{} f{} f{}\n", fd, fs, ft);
@@ -687,6 +711,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_cvt_d_s:
         if ((fd & 1) == 0 && (fs & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.fl)", fs);
             print_line("ctx->f{}.d = CVT_D_S(ctx->f{}.fl)", fd, fs);
         } else {
             fmt::print(stderr, "Invalid operand(s) for cvt.d.s: f{} f{}\n", fd, fs);
@@ -696,6 +721,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_cvt_s_d:
         if ((fd & 1) == 0 && (fs & 1) == 0) {
             // even fpr
+            print_line("NAN_CHECK(ctx->f{}.d)", fs);
             print_line("ctx->f{}.fl = CVT_S_D(ctx->f{}.d)", fd, fs);
         } else {
             fmt::print(stderr, "Invalid operand(s) for cvt.s.d: f{} f{}\n", fd, fs);

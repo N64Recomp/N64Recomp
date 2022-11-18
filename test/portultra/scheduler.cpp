@@ -113,20 +113,26 @@ void handle_scheduler_notifications() {
 }
 
 void swap_running_thread(thread_queue_t& running_thread_queue, OSThread*& cur_running_thread) {
-    OSThread* new_running_thread = running_thread_queue.top();
-    if (cur_running_thread != new_running_thread) {
-        if (cur_running_thread && cur_running_thread->state == OSThreadState::RUNNING) {
-            debug_printf("[Scheduler] Switching execution from thread %d (%d) to thread %d (%d)\n",
-                cur_running_thread->id, cur_running_thread->priority,
-                new_running_thread->id, new_running_thread->priority);
-            Multilibultra::pause_thread_impl(cur_running_thread);
-        } else {
-            debug_printf("[Scheduler] Switching execution to thread %d (%d)\n", new_running_thread->id, new_running_thread->priority);
+    if (running_thread_queue.size() > 0) {
+        OSThread* new_running_thread = running_thread_queue.top();
+        if (cur_running_thread != new_running_thread) {
+            if (cur_running_thread && cur_running_thread->state == OSThreadState::RUNNING) {
+                debug_printf("[Scheduler] Need to wait for thread %d to pause itself\n", cur_running_thread->id);
+                return;
+                //debug_printf("[Scheduler] Switching execution from thread %d (%d) to thread %d (%d)\n",
+                //    cur_running_thread->id, cur_running_thread->priority,
+                //    new_running_thread->id, new_running_thread->priority);
+                //Multilibultra::pause_thread_impl(cur_running_thread);
+            } else {
+                debug_printf("[Scheduler] Switching execution to thread %d (%d)\n", new_running_thread->id, new_running_thread->priority);
+            }
+            Multilibultra::resume_thread_impl(new_running_thread);
+            cur_running_thread = new_running_thread;
+        } else if (cur_running_thread && cur_running_thread->state != OSThreadState::RUNNING) {
+            Multilibultra::resume_thread_impl(cur_running_thread);
         }
-        Multilibultra::resume_thread_impl(new_running_thread);
-        cur_running_thread = new_running_thread;
-    } else if (cur_running_thread && cur_running_thread->state != OSThreadState::RUNNING) {
-        Multilibultra::resume_thread_impl(cur_running_thread);
+    } else {
+        cur_running_thread = nullptr;
     }
 }
 
@@ -240,12 +246,19 @@ void cleanup_thread(OSThread *t) {
 
 void disable_preemption() {
     scheduler_context.premption_mutex.lock();
-    scheduler_context.can_preempt = false;
+    if (Multilibultra::is_game_thread()) {
+        scheduler_context.can_preempt = false;
+    }
 }
 
 void enable_preemption() {
-    scheduler_context.can_preempt = true;
+    if (Multilibultra::is_game_thread()) {
+        scheduler_context.can_preempt = true;
+    }
+#pragma warning(push)
+#pragma warning( disable : 26110)
     scheduler_context.premption_mutex.unlock();
+#pragma warning( pop ) 
 }
 
 // lock's constructor is called first, so can_preempt is set after locking
@@ -266,3 +279,8 @@ void notify_scheduler() {
 }
 
 }
+
+extern "C" void pause_self(uint8_t* rdram) {
+    Multilibultra::pause_self(rdram);
+}
+

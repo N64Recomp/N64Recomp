@@ -21,7 +21,7 @@ void Multilibultra::pause_thread_native_impl(OSThread *t) {
     SuspendThread(t->context->host_thread.native_handle());
     // Perform a synchronous action to ensure that the thread is suspended
     // see: https://devblogs.microsoft.com/oldnewthing/20150205-00/?p=44743
-    CONTEXT threadContext;
+    CONTEXT threadContext{};
     GetThreadContext(t->context->host_thread.native_handle(), &threadContext);
 }
 

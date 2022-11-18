@@ -45,6 +45,28 @@ typedef uint8_t u8;
 typedef s32 OSPri;
 typedef s32 OSId;
 
+typedef u64	OSTime;
+
+#define OS_EVENT_SW1              0     /* CPU SW1 interrupt */
+#define OS_EVENT_SW2              1     /* CPU SW2 interrupt */
+#define OS_EVENT_CART             2     /* Cartridge interrupt: used by rmon */
+#define OS_EVENT_COUNTER          3     /* Counter int: used by VI/Timer Mgr */
+#define OS_EVENT_SP               4     /* SP task done interrupt */
+#define OS_EVENT_SI               5     /* SI (controller) interrupt */
+#define OS_EVENT_AI               6     /* AI interrupt */
+#define OS_EVENT_VI               7     /* VI interrupt: used by VI/Timer Mgr */
+#define OS_EVENT_PI               8     /* PI interrupt: used by PI Manager */
+#define OS_EVENT_DP               9     /* DP full sync interrupt */
+#define OS_EVENT_CPU_BREAK        10    /* CPU breakpoint: used by rmon */
+#define OS_EVENT_SP_BREAK         11    /* SP breakpoint:  used by rmon */
+#define OS_EVENT_FAULT            12    /* CPU fault event: used by rmon */
+#define OS_EVENT_THREADSTATUS     13    /* CPU thread status: used by rmon */
+#define OS_EVENT_PRENMI           14    /* Pre NMI interrupt */
+
+#define	M_GFXTASK	1
+#define	M_AUDTASK	2
+#define	M_VIDTASK	3
+
 /////////////
 // Structs //
 /////////////
@@ -73,24 +95,6 @@ typedef struct OSThread_t {
 typedef u32 OSEvent;
 typedef PTR(void) OSMesg;
 
-// This union holds C++ members along with a padding array. Those members are guarded by an ifdef for C++
-// so that they don't cause compilation errors in C. The padding array reserves the necessary space to
-// hold the atomic members in C and a static assert is used to ensure that the union is large enough.
-// typedef union UltraQueueContext {
-//     u64 pad[1];
-// #ifdef __cplusplus
-//     struct {
-//     } atomics;
-//     // Construct pad instead of the atomics, which get constructed in-place in osCreateMesgQueue
-//     UltraQueueContext() : pad{} {}
-// #endif
-// } UltraQueueContext;
-
-// #ifdef __cplusplus
-// static_assert(sizeof(UltraQueueContext::pad) == sizeof(UltraQueueContext),
-//     "UltraQueueContext does not have enough padding to hold C++ members!");
-// #endif
-
 typedef struct OSMesgQueue {
     PTR(OSThread) blocked_on_recv; /* Linked list of threads blocked on receiving from this queue */
     PTR(OSThread) blocked_on_send; /* Linked list of threads blocked on sending to this queue */ 
@@ -99,6 +103,37 @@ typedef struct OSMesgQueue {
     s32 msgCount;              /* Size of message buffer */
     PTR(OSMesg) msg;               /* Pointer to circular buffer to store messages */
 } OSMesgQueue;
+
+typedef struct {
+    u32	type;
+    u32	flags;
+
+    PTR(u64) ucode_boot;
+    u32	ucode_boot_size;
+
+    PTR(u64) ucode;
+    u32	ucode_size;
+
+    PTR(u64) ucode_data;
+    u32	ucode_data_size;
+
+    PTR(u64) dram_stack;
+    u32	dram_stack_size;
+
+    PTR(u64) output_buff;
+    PTR(u64) output_buff_size;
+
+    PTR(u64) data_ptr;
+    u32	data_size;
+
+    PTR(u64) yield_data_ptr;
+    u32	yield_data_size;
+} OSTask_t;
+
+typedef union {
+    OSTask_t t;
+    int64_t force_structure_alignment;
+} OSTask;
 
 ///////////////
 // Functions //
@@ -125,6 +160,9 @@ s32 osSendMesg(RDRAM_ARG PTR(OSMesgQueue), OSMesg, s32);
 s32 osJamMesg(RDRAM_ARG PTR(OSMesgQueue), OSMesg, s32);
 s32 osRecvMesg(RDRAM_ARG PTR(OSMesgQueue), PTR(OSMesg), s32);
 void osSetEventMesg(RDRAM_ARG OSEvent, PTR(OSMesgQueue), OSMesg);
+void osViSetEvent(RDRAM_ARG PTR(OSMesgQueue), OSMesg, u32);
+u32 osGetCount();
+OSTime osGetTime();
 
 #ifdef __cplusplus
 } // extern "C"
