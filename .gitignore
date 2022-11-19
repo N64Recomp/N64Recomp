@@ -39,3 +39,6 @@ bld/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
+
+# RT64 (since it's not public yet)
+test/RT64

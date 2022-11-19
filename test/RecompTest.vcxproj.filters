@@ -5700,6 +5700,9 @@
     <ClCompile Include="portultra\events.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="RT64\rt64_layer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="portultra\platform_specific.h">
@@ -5712,6 +5715,18 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\recomp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RT64\rt64_layer.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\blockingconcurrentqueue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\concurrentqueue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\lightweightsemaphore.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

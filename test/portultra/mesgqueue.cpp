@@ -167,7 +167,7 @@ extern "C" s32 osRecvMesg(RDRAM_ARG PTR(OSMesgQueue) mq_, PTR(OSMesg) msg_, s32 
         }
     }
 
-    if (msg != nullptr) {
+    if (msg_ != NULLPTR) {
         *msg = TO_PTR(OSMesg, mq->msg)[mq->first];
     }
     

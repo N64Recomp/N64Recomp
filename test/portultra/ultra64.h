@@ -25,12 +25,12 @@ typedef uint16_t u16;
 typedef int8_t s8;
 typedef uint8_t u8;
 
-#define PTR(x) uint32_t
+#define PTR(x) int32_t
 #define RDRAM_ARG uint8_t *rdram, 
 #define RDRAM_ARG1 uint8_t *rdram
 #define PASS_RDRAM rdram, 
 #define PASS_RDRAM1 rdram
-#define TO_PTR(type, var) ((type*)(&rdram[var & 0x3FFFFFF]))
+#define TO_PTR(type, var) ((type*)(&rdram[(uint64_t)var - 0xFFFFFFFF80000000]))
 #ifdef __cplusplus
 #define NULLPTR (PTR(void))0
 #endif
@@ -89,7 +89,7 @@ typedef struct OSThread_t {
     OSId id;
     int32_t pad3;
     UltraThreadContext* context; // An actual pointer regardless of platform
-    uint32_t sp;
+    int32_t sp;
 } OSThread;
 
 typedef u32 OSEvent;
@@ -161,6 +161,7 @@ s32 osJamMesg(RDRAM_ARG PTR(OSMesgQueue), OSMesg, s32);
 s32 osRecvMesg(RDRAM_ARG PTR(OSMesgQueue), PTR(OSMesg), s32);
 void osSetEventMesg(RDRAM_ARG OSEvent, PTR(OSMesgQueue), OSMesg);
 void osViSetEvent(RDRAM_ARG PTR(OSMesgQueue), OSMesg, u32);
+void osViSwapBuffer(RDRAM_ARG PTR(void) frameBufPtr);
 u32 osGetCount();
 OSTime osGetTime();
 

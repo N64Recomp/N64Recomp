@@ -35,8 +35,8 @@ extern "C" recomp_func_t* get_function(uint32_t addr) {
 }
 
 extern "C" void bzero(uint8_t* restrict rdram, recomp_context* restrict ctx) {
-    uint32_t start_addr = ctx->r4;
-    uint32_t size = ctx->r5;
+    gpr start_addr = ctx->r4;
+    gpr size = ctx->r5;
 
     for (uint32_t i = 0; i < size; i++) {
         MEM_B(start_addr, i) = 0;
@@ -53,7 +53,7 @@ extern "C" void do_break(uint32_t vram) {
     exit(EXIT_FAILURE);
 }
 
-void run_thread_function(uint8_t* rdram, uint32_t addr, uint32_t sp, uint32_t arg) {
+void run_thread_function(uint8_t* rdram, uint64_t addr, uint64_t sp, uint64_t arg) {
     recomp_context ctx{};
     ctx.r29 = sp;
     ctx.r4 = arg;
@@ -62,7 +62,7 @@ void run_thread_function(uint8_t* rdram, uint32_t addr, uint32_t sp, uint32_t ar
 }
 
 extern "C" void game_init(uint8_t* restrict rdram, recomp_context* restrict ctx);
-void do_rom_read(uint8_t* rdram, uint32_t ram_address, uint32_t dev_address, size_t num_bytes);
+void do_rom_read(uint8_t* rdram, int32_t ram_address, uint32_t dev_address, size_t num_bytes);
 
 std::unique_ptr<uint8_t[]> rom;
 size_t rom_size;
@@ -105,7 +105,7 @@ int main(int argc, char **argv) {
 
     // Get entrypoint from ROM
     // TODO fix this for other IPL3 versions
-    uint32_t entrypoint = byteswap(*reinterpret_cast<uint32_t*>(rom.get() + 0x8));
+    int32_t entrypoint = byteswap(*reinterpret_cast<uint32_t*>(rom.get() + 0x8));
 
     // Allocate rdram_buffer
     std::unique_ptr<uint8_t[]> rdram_buffer = std::make_unique<uint8_t[]>(8 * 1024 * 1024);
@@ -134,17 +134,17 @@ int main(int argc, char **argv) {
 #endif
 
     // Set up stack pointer
-    context.r29 = 0x803FFFF0u;
+    context.r29 = 0xFFFFFFFF803FFFF0u;
 
     // Initialize variables normally set by IPL3
-    constexpr uint32_t osTvType = 0x80000300;
-    constexpr uint32_t osRomType = 0x80000304;
-    constexpr uint32_t osRomBase = 0x80000308;
-    constexpr uint32_t osResetType = 0x8000030c;
-    constexpr uint32_t osCicId = 0x80000310;
-    constexpr uint32_t osVersion = 0x80000314;
-    constexpr uint32_t osMemSize = 0x80000318;
-    constexpr uint32_t osAppNMIBuffer = 0x8000031c;
+    constexpr int32_t osTvType = 0x80000300;
+    constexpr int32_t osRomType = 0x80000304;
+    constexpr int32_t osRomBase = 0x80000308;
+    constexpr int32_t osResetType = 0x8000030c;
+    constexpr int32_t osCicId = 0x80000310;
+    constexpr int32_t osVersion = 0x80000314;
+    constexpr int32_t osMemSize = 0x80000318;
+    constexpr int32_t osAppNMIBuffer = 0x8000031c;
     uint8_t *rdram = rdram_buffer.get();
     MEM_W(osTvType, 0) = 1; // NTSC
     MEM_W(osRomBase, 0) = 0xB0000000u; // standard rom base
@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
 
     debug_printf("[Recomp] Starting\n");
 
-    Multilibultra::preinit(rdram_buffer.get());
+    Multilibultra::preinit(rdram_buffer.get(), rom.get());
 
     game_init(rdram_buffer.get(), &context);
 

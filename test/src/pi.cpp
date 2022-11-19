@@ -16,7 +16,7 @@ extern "C" void osCreatePiManager_recomp(uint8_t* restrict rdram, recomp_context
 
 constexpr uint32_t rom_base = 0xB0000000;
 
-void do_rom_read(uint8_t* rdram, uint32_t ram_address, uint32_t dev_address, size_t num_bytes) {
+void do_rom_read(uint8_t* rdram, int32_t ram_address, uint32_t dev_address, size_t num_bytes) {
     // TODO use word copies when possible
     uint8_t* rom_addr = rom.get() + (dev_address | rom_base) - rom_base;
     for (size_t i = 0; i < num_bytes; i++) {
@@ -30,7 +30,7 @@ extern "C" void osPiStartDma_recomp(uint8_t* restrict rdram, recomp_context* res
     uint32_t pri = ctx->r5;
     uint32_t direction = ctx->r6;
     uint32_t devAddr = ctx->r7;
-    uint32_t dramAddr = MEM_W(0x10, ctx->r29);
+    int32_t dramAddr = MEM_W(0x10, ctx->r29);
     uint32_t size = MEM_W(0x14, ctx->r29);
     uint32_t mq_ = MEM_W(0x18, ctx->r29);
     OSMesgQueue* mq = TO_PTR(OSMesgQueue, mq_);

@@ -104,7 +104,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         break;
     // Arithmetic
     case InstrId::cpu_lui:
-        print_line("{}{} = {:#X} << 16", ctx_gpr_prefix(rt), rt, imm);
+        print_line("{}{} = S32({:#X} << 16)", ctx_gpr_prefix(rt), rt, imm);
         break;
     case InstrId::cpu_addu:
         {

@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
 #endif
 
 #if 1
-void run_thread_function(uint8_t* rdram, uint32_t addr, uint32_t sp, uint32_t arg);
+void run_thread_function(uint8_t* rdram, uint64_t addr, uint64_t sp, uint64_t arg);
 #else
 #define run_thread_function(func, sp, arg) func(arg)
 #endif
@@ -66,7 +66,7 @@ extern "C" void osStartThread(RDRAM_ARG PTR(OSThread) t_) {
     OSThread* t = TO_PTR(OSThread, t_);
     debug_printf("[os] Start Thread %d\n", t->id);
 
-    // Wait until the thread is initialized to indicate that it's task_queued to be started.
+    // Wait until the thread is initialized to indicate that it's action_queued to be started.
     t->context->initialized.wait(false);
 
     debug_printf("[os] Thread %d is ready to be started\n", t->id);
