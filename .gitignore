@@ -13,6 +13,7 @@ build/
 *.o
 
 # Windows build output
+*.exe
 
 # User-specific files
 *.rsuser
@@ -40,5 +41,12 @@ bld/
 # Visual Studio 2015/2017 cache/options directory
 .vs/
 
+# Libraries (binaries that aren't in the repo)
+test/Lib
+
 # RT64 (since it's not public yet)
 test/RT64
+
+# Runtime files
+imgui.ini
+rt64.log

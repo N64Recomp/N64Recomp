@@ -16,15 +16,27 @@ struct OSContPad {
     u8 errno_;
 };
 
+int button = 0;
+int stick_x = 0;
+int stick_y = 0;
+
+void press_button(int button) {
+
+}
+
+void release_button(int button) {
+
+}
+
 extern "C" void osContGetReadData_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
     int32_t pad = (uint32_t)ctx->r4;
 
     // button
-    MEM_H(0, pad) = 0;
+    MEM_H(0, pad) = button;
     // stick_x
-    MEM_B(2, pad) = 0;
+    MEM_B(2, pad) = stick_x;
     // stick_y
-    MEM_B(3, pad) = 0;
+    MEM_B(3, pad) = stick_y;
     // errno
     MEM_B(4, pad) = 0;
 }

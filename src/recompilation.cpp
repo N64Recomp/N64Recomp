@@ -128,6 +128,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_subu:
         print_line("{}{} = SUB32({}{}, {}{})", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
+    case InstrId::cpu_addi:
     case InstrId::cpu_addiu:
         print_line("{}{} = ADD32({}{}, {:#X})", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, (int16_t)imm);
         break;
@@ -464,7 +465,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     // Cop1 compares
     case InstrId::cpu_c_lt_s:
         if ((fs & 1) == 0 && (ft & 1) == 0) {
-            print_line("c1cs = ctx->f{}.fl <= ctx->f{}.fl", fs, ft);
+            print_line("c1cs = ctx->f{}.fl < ctx->f{}.fl", fs, ft);
         } else {
             fmt::print(stderr, "Invalid operand for c.lt.s: f{} f{}\n", fs, ft);
             return false;
@@ -472,7 +473,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         break;
     case InstrId::cpu_c_lt_d:
         if ((fs & 1) == 0 && (ft & 1) == 0) {
-            print_line("c1cs = ctx->f{}.d <= ctx->f{}.d", fs, ft);
+            print_line("c1cs = ctx->f{}.d < ctx->f{}.d", fs, ft);
         } else {
             fmt::print(stderr, "Invalid operand for c.lt.d: f{} f{}\n", fs, ft);
             return false;

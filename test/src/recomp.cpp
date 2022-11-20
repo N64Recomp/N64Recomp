@@ -61,8 +61,12 @@ void run_thread_function(uint8_t* rdram, uint64_t addr, uint64_t sp, uint64_t ar
     func(rdram, &ctx);
 }
 
-extern "C" void game_init(uint8_t* restrict rdram, recomp_context* restrict ctx);
-void do_rom_read(uint8_t* rdram, int32_t ram_address, uint32_t dev_address, size_t num_bytes);
+extern "C" void init(uint8_t * restrict rdram, recomp_context * restrict ctx);
+
+// rocket robot
+//extern "C" void game_init(uint8_t* restrict rdram, recomp_context* restrict ctx);
+// test rom
+void do_rom_read(uint8_t* rdram, gpr ram_address, uint32_t dev_address, size_t num_bytes);
 
 std::unique_ptr<uint8_t[]> rom;
 size_t rom_size;
@@ -105,7 +109,7 @@ int main(int argc, char **argv) {
 
     // Get entrypoint from ROM
     // TODO fix this for other IPL3 versions
-    int32_t entrypoint = byteswap(*reinterpret_cast<uint32_t*>(rom.get() + 0x8));
+    gpr entrypoint = (int32_t)byteswap(*reinterpret_cast<uint32_t*>(rom.get() + 0x8));
 
     // Allocate rdram_buffer
     std::unique_ptr<uint8_t[]> rdram_buffer = std::make_unique<uint8_t[]>(8 * 1024 * 1024);
@@ -153,13 +157,19 @@ int main(int argc, char **argv) {
 
     // Clear bss
     // TODO run the entrypoint instead
-    memset(rdram_buffer.get() + 0XAF860, 0, 0xC00A0u - 0XAF860);
+    // rocket robot
+    //memset(rdram_buffer.get() + 0xAF860, 0, 0xC00A0u - 0XAF860);
+    // test rom
+    memset(rdram_buffer.get() + 0x18670, 0, 0x20D120);
 
     debug_printf("[Recomp] Starting\n");
 
     Multilibultra::preinit(rdram_buffer.get(), rom.get());
 
-    game_init(rdram_buffer.get(), &context);
+    // rocket robot
+    // game_init(rdram_buffer.get(), &context);
+    // test rom
+    init(rdram_buffer.get(), &context);
 
     debug_printf("[Recomp] Quitting\n");
 

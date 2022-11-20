@@ -5,6 +5,10 @@ extern "C" void osInitialize_recomp(uint8_t * restrict rdram, recomp_context * r
     osInitialize();
 }
 
+extern "C" void __osInitialize_common_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    osInitialize();
+}
+
 extern "C" void osCreateThread_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
     osCreateThread(rdram, (uint32_t)ctx->r4, (OSId)ctx->r5, (uint32_t)ctx->r6, (uint32_t)ctx->r7,
         (uint32_t)MEM_W(0x10, ctx->r29), (OSPri)MEM_W(0x14, ctx->r29));

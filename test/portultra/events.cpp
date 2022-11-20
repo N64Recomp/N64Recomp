@@ -3,8 +3,10 @@
 #include <chrono>
 #include <cinttypes>
 #include <variant>
+#include <unordered_map>
 
 #include <Windows.h>
+#include "SDL.h"
 #include "blockingconcurrentqueue.h"
 
 #include "ultra64.h"
@@ -85,7 +87,7 @@ extern "C" void osViSetEvent(RDRAM_ARG PTR(OSMesgQueue) mq_, OSMesg msg, u32 ret
     events_context.vi.retrace_count = retrace_count;
 }
 
-constexpr uint32_t speed_multiplier = 10;
+constexpr uint32_t speed_multiplier = 1;
 
 // N64 CPU counter ticks per millisecond
 constexpr uint32_t counter_per_ms = 46'875 * speed_multiplier;
@@ -176,11 +178,57 @@ void dp_complete() {
 void RT64Init(uint8_t* rom, uint8_t* rdram);
 void RT64SendDL(uint8_t* rdram, const OSTask* task);
 void RT64UpdateScreen(uint32_t vi_origin);
-void RT64PumpEvents();
+
+std::unordered_map<SDL_Scancode, int> button_map{
+    { SDL_Scancode::SDL_SCANCODE_LEFT,  0x0002 },
+    { SDL_Scancode::SDL_SCANCODE_RIGHT, 0x0001 },
+    { SDL_Scancode::SDL_SCANCODE_UP,    0x0008 },
+    { SDL_Scancode::SDL_SCANCODE_DOWN,  0x0004 }
+};
+
+extern int button;
+extern int stick_x;
+extern int stick_y;
+
+int sdl_event_filter(void* userdata, SDL_Event* event) {
+    switch (event->type) {
+    case SDL_EventType::SDL_KEYUP:
+    case SDL_EventType::SDL_KEYDOWN:
+        {
+            const Uint8* key_states = SDL_GetKeyboardState(nullptr);
+            int new_button = 0;
+
+            for (const auto& mapping : button_map) {
+                if (key_states[mapping.first]) {
+                    new_button |= mapping.second;
+                }
+            }
+
+            button = new_button;
+
+            stick_x = 127 * (key_states[SDL_Scancode::SDL_SCANCODE_D] - key_states[SDL_Scancode::SDL_SCANCODE_A]);
+            stick_y = 127 * (key_states[SDL_Scancode::SDL_SCANCODE_W] - key_states[SDL_Scancode::SDL_SCANCODE_S]);
+        }
+        break;
+    case SDL_EventType::SDL_QUIT:
+        std::quick_exit(ERROR_SUCCESS);
+        break;
+    }
+    return 1;
+}
 
 void gfx_thread_func(uint8_t* rdram, uint8_t* rom) {
     using namespace std::chrono_literals;
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0) {
+        fprintf(stderr, "Failed to initialize SDL2: %s\n", SDL_GetError());
+        std::quick_exit(EXIT_FAILURE);
+    }
     RT64Init(rom, rdram);
+    SDL_Window* window = SDL_GetWindowFromID(1);
+    // TODO set this window title in RT64, create the window here and send it to RT64, or something else entirely
+    // as the current window name visibly changes as RT64 is initialized
+    SDL_SetWindowTitle(window, "Recomp");
+    SDL_SetEventFilter(sdl_event_filter, nullptr);
 
     while (true) {
         // Try to pull an action from the queue
@@ -205,7 +253,7 @@ void gfx_thread_func(uint8_t* rdram, uint8_t* rom) {
         }
 
         // Handle events
-        RT64PumpEvents();
+        SDL_PumpEvents();
     }
 }
 

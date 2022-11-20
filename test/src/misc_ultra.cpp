@@ -41,3 +41,7 @@ extern "C" void __osDisableInt_recomp(uint8_t* restrict rdram, recomp_context* r
 extern "C" void __osRestoreInt_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
     ;
 }
+
+extern "C" void __osSetFpcCsr_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    ctx->r2 = 0;
+}

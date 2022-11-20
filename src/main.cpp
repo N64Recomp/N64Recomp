@@ -211,7 +211,7 @@ std::unordered_set<std::string> ignored_funcs {
     "__osGetTLBPageMask",
     "__osGetTLBASID",
     "__osProbeTLB",
-    // Coprocessor 0 functions
+    // Coprocessor 0/1 functions
     "__osSetCount",
     "osGetCount",
     "__osSetSR",
@@ -224,15 +224,35 @@ std::unordered_set<std::string> ignored_funcs {
     "__osGetConfig",
     "__osSetWatchLo",
     "__osGetWatchLo",
+    "__osSetFpcCsr",
     // Cache funcs
     "osInvalDCache",
     "osInvalICache",
     "osWritebackDCache",
-    "osWritebackDCacheAll"
+    "osWritebackDCacheAll",
+    // Microcodes
+    "rspbootTextStart",
+    "gspF3DEX2_fifoTextStart",
+    "gspS2DEX2_fifoTextStart",
+    "gspL3DEX2_fifoTextStart",
 };
 
 std::unordered_set<std::string> renamed_funcs{
-    "sincosf"
+    "sincosf",
+    "sqrtf",
+    "memcpy",
+    "memset",
+    "strchr",
+};
+
+// Functions that weren't declared properly and thus have no size in the elf
+std::unordered_map<std::string, size_t> unsized_funcs{
+    { "guMtxF2L", 0x64 },
+    { "guScaleF", 0x48 },
+    { "guTranslateF", 0x48 },
+    { "guMtxIdentF", 0x48 },
+    { "sqrtf", 0x8 },
+    { "guMtxIdent", 0x4C },
 };
 
 int main(int argc, char** argv) {
@@ -308,21 +328,32 @@ int main(int argc, char** argv) {
         unsigned char type;
         ELFIO::Elf_Half      section_index;
         unsigned char other;
+        bool ignored = false;
 
         // Read symbol properties
         symbols.get_symbol(sym_index, name, value, size, bind, type,
             section_index, other);
 
+        // Check if this symbol is unsized and if so populate its size from the unsized_funcs map
+        if (size == 0) {
+            auto size_find = unsized_funcs.find(name);
+            if (size_find != unsized_funcs.end()) {
+                size = size_find->second;
+                type = ELFIO::STT_FUNC;
+            }
+        }
+
+        if (ignored_funcs.contains(name)) {
+            name = name + "_recomp";
+            ignored = true;
+        }
+
         // Check if this symbol is a function or has no type (like a regular glabel would)
         // Symbols with no type have a dummy entry created so that their symbol can be looked up for function calls
-        if (type == ELFIO::STT_FUNC || type == ELFIO::STT_NOTYPE) {
-            bool ignored = false;
+        if (ignored || type == ELFIO::STT_FUNC || type == ELFIO::STT_NOTYPE || type == ELFIO::STT_OBJECT) {
             if (renamed_funcs.contains(name)) {
                 name = "_" + name;
-            }
-            if (ignored_funcs.contains(name)) {
-                name = name + "_recomp";
-                ignored = true;
+                ignored = false;
             }
             if (section_index < section_rom_addrs.size()) {
                 auto section_rom_addr = section_rom_addrs[section_index];
@@ -377,6 +408,7 @@ int main(int argc, char** argv) {
     //#pragma omp parallel for
     for (size_t i = 0; i < context.functions.size(); i++) {
         const auto& func = context.functions[i];
+
         if (!func.ignored && func.words.size() != 0) {
             fmt::print(func_header_file,
                 "void {}(uint8_t* restrict rdram, recomp_context* restrict ctx);\n", func.name);
