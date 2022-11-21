@@ -244,16 +244,20 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     // LWR x + 2 -> 00000000 0189ABCD
     // LWR x + 3 -> FFFFFFFF 89ABCDEF
     case InstrId::cpu_lwl:
-        print_line("{}{} = MEM_WL({:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
+        print_line("{}{} = do_lwl(rdram, {:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
+        //print_line("{}{} = MEM_WL({:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
         break;
     case InstrId::cpu_lwr:
-        print_line("//{}{} = MEM_WR({:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
+        //print_line("{}{} = do_lwr(rdram, {:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
+        //print_line("//{}{} = MEM_WR({:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
         break;
     case InstrId::cpu_swl:
-        print_line("MEM_WL({:#X}, {}{}) = {}{}", (int16_t)imm, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
+        print_line("do_swl(rdram, {:#X}, {}{}, {}{})", (int16_t)imm, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
+        //print_line("MEM_WL({:#X}, {}{}) = {}{}", (int16_t)imm, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_swr:
-        print_line("//MEM_WR({:#X}, {}{}) = {}{}", (int16_t)imm, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
+        //print_line("do_swr(rdram, {:#X}, {}{}, {}{})", (int16_t)imm, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
+        //print_line("//MEM_WR({:#X}, {}{}) = {}{}", (int16_t)imm, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
         break;
         
     // Branches

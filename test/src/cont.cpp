@@ -2,7 +2,20 @@
 #include "recomp.h"
 
 extern "C" void osContInit_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
-    ;
+    gpr bitpattern = ctx->r5;
+    gpr status = ctx->r6;
+    MEM_B(0, bitpattern) = 0x01;
+
+    MEM_H(0, status) = 0x0005; // CONT_TYPE_NORMAL
+    MEM_B(2, status) = 0; // controller status
+    MEM_B(3, status) = 0; // controller errno
+
+    // Write CHNL_ERR_NORESP for the other controllers
+    for (size_t controller = 1; controller < 4; controller++) {
+        MEM_B(4 * controller + 3, status) = 0x80;
+    }
+
+    ctx->r2 = 0;
 }
 
 extern "C" void osContStartReadData_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {

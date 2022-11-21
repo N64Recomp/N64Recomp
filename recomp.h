@@ -65,9 +65,27 @@ static inline uint64_t load_doubleword(uint8_t* rdram, gpr reg, gpr offset) {
     load_doubleword(rdram, offset, reg)
 
 // TODO proper lwl/lwr/swl/swr
-#define MEM_WL(offset, reg) \
-    (*(int32_t*)(rdram + ((((reg) + (offset))) - 0xFFFFFFFF80000000)))
-    //(*(int32_t*)(rdram + ((((reg) + (offset))) & 0x3FFFFFF)))
+static inline void do_swl(uint8_t* rdram, gpr offset, gpr reg, gpr val) {
+    uint8_t byte0 = val >> 24;
+    uint8_t byte1 = val >> 16;
+    uint8_t byte2 = val >> 8;
+    uint8_t byte3 = val >> 0;
+
+    MEM_B(offset + 0, reg) = byte0;
+    MEM_B(offset + 1, reg) = byte1;
+    MEM_B(offset + 2, reg) = byte2;
+    MEM_B(offset + 3, reg) = byte3;
+}
+
+static inline gpr do_lwl(uint8_t* rdram, gpr offset, gpr reg) {
+    uint8_t byte0 = MEM_B(offset + 0, reg);
+    uint8_t byte1 = MEM_B(offset + 1, reg);
+    uint8_t byte2 = MEM_B(offset + 2, reg);
+    uint8_t byte3 = MEM_B(offset + 3, reg);
+
+    // Cast to int32_t to sign extend first
+    return (gpr)(int32_t)((byte0 << 24) | (byte1 << 16) | (byte2 << 8) | (byte3 << 0));
+}
 
 #define S32(val) \
     ((int32_t)(val))

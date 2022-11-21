@@ -64,8 +64,10 @@ void run_thread_function(uint8_t* rdram, uint64_t addr, uint64_t sp, uint64_t ar
 extern "C" void init(uint8_t * restrict rdram, recomp_context * restrict ctx);
 
 // rocket robot
-//extern "C" void game_init(uint8_t* restrict rdram, recomp_context* restrict ctx);
+extern "C" void game_init(uint8_t* restrict rdram, recomp_context* restrict ctx);
 // test rom
+//extern "C" void init(uint8_t * restrict rdram, recomp_context * restrict ctx);
+
 void do_rom_read(uint8_t* rdram, gpr ram_address, uint32_t dev_address, size_t num_bytes);
 
 std::unique_ptr<uint8_t[]> rom;
@@ -158,18 +160,18 @@ int main(int argc, char **argv) {
     // Clear bss
     // TODO run the entrypoint instead
     // rocket robot
-    //memset(rdram_buffer.get() + 0xAF860, 0, 0xC00A0u - 0XAF860);
+    memset(rdram_buffer.get() + 0xAF860, 0, 0xC00A0u - 0XAF860);
     // test rom
-    memset(rdram_buffer.get() + 0x18670, 0, 0x20D120);
+    //memset(rdram_buffer.get() + 0x18670, 0, 0x20D120);
 
     debug_printf("[Recomp] Starting\n");
 
     Multilibultra::preinit(rdram_buffer.get(), rom.get());
 
     // rocket robot
-    // game_init(rdram_buffer.get(), &context);
+    game_init(rdram_buffer.get(), &context);
     // test rom
-    init(rdram_buffer.get(), &context);
+    //init(rdram_buffer.get(), &context);
 
     debug_printf("[Recomp] Quitting\n");
 

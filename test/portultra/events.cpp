@@ -180,10 +180,14 @@ void RT64SendDL(uint8_t* rdram, const OSTask* task);
 void RT64UpdateScreen(uint32_t vi_origin);
 
 std::unordered_map<SDL_Scancode, int> button_map{
-    { SDL_Scancode::SDL_SCANCODE_LEFT,  0x0002 },
-    { SDL_Scancode::SDL_SCANCODE_RIGHT, 0x0001 },
-    { SDL_Scancode::SDL_SCANCODE_UP,    0x0008 },
-    { SDL_Scancode::SDL_SCANCODE_DOWN,  0x0004 }
+    { SDL_Scancode::SDL_SCANCODE_LEFT,   0x0002 }, // c left
+    { SDL_Scancode::SDL_SCANCODE_RIGHT,  0x0001 }, // c right
+    { SDL_Scancode::SDL_SCANCODE_UP,     0x0008 }, // c up
+    { SDL_Scancode::SDL_SCANCODE_DOWN,   0x0004 }, // c down
+    { SDL_Scancode::SDL_SCANCODE_RETURN, 0x1000 }, // start
+    { SDL_Scancode::SDL_SCANCODE_SPACE,  0x8000 }, // a
+    { SDL_Scancode::SDL_SCANCODE_LSHIFT, 0x4000 }, // b
+    { SDL_Scancode::SDL_SCANCODE_Q,      0x2000 }, // z
 };
 
 extern int button;

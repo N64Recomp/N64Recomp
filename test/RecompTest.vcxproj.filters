@@ -75,505 +75,1218 @@
     <ClCompile Include="RT64\rt64_layer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="funcs\__cosf.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\__popcountsi2.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\__scAppendList.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\__scExec.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\__scHandleRDP.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\__scHandleRetrace.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\__scHandleRSP.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\__scMain.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\__scSchedule.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\__scTaskComplete.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\__scTaskReady.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\__scYield.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\__sinf.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\addGfxToDrawLayer.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\addMtxToDrawLayer.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\allocChunks.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\allocEntities.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\allocGfx.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\allocRegion.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\applyGravityCallback.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\applyHoldableGravityCallback.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\applyHoldableVelocityCallback.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\applyVelocityCallback.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\approachFloatLinear.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\atan2_lookup.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\atan2s.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\audioInit.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\audioThreadFunc.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\beginInputPolling.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\bounceflowerResizeCallback.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\createEntities.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\createEntitiesCallback.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\createEntity.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\createPlayer.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\createPlayerCallback.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\deleteAllEntities.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\deleteEntity.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\deleteEntityIndex.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\drawAABB.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\drawAllEntities.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\drawAnimatedModels.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\drawColTris.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\drawGfx.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\drawLine.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\drawModel.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\drawModels.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\drawResizableAnimatedModels.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\drawResizableModels.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\endFrame.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\fastAtan2f.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\fastAtanf.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\fillAudioBuffer.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\findClosestCallback.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\findClosestEntity.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\findEntity.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\findEntityFromComponent.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\findNextGap.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\freeAlloc.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\freeIntroSegment.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\getArchetypeIndex.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\getEntityComponents.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\getSegment.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\gfxCbAfterBillboard.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\gfxCbBeforeBillboard.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\gfxSetEnvColor.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\guLookAt.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\guLookAtF.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\guOrtho.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\guOrthoF.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\guPerspective.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\guPerspectiveF.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\handleFloorInAir.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\handleFloorOnGround.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\handleWalls.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\idle.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\indexOfSorted_size_t.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\init.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\initGfx.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\initInput.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\initMemAllocator.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\initScheduler.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\iterateOverEntities.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\iterateOverEntitiesAllComponents.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\levelCreateEntitiesCallback.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\lillypadResizeCallback.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\loadCreditsSegment.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\loadIntroSegment.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
+    <ClCompile Include="@(_WildCardClCompile)" />
     <ClCompile Include="funcs\lookup.cpp">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\lowest_bit.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\mainThreadFunc.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\mtxf_align_camera.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\mtxfEulerXYZ.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\mtxfEulerXYZInverse.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\mtxfMul.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\mtxfRotateVec.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\multiarraylist_alloccount.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\multiarraylist_delete.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\multiarraylist_get_component_offset.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\multiarraylist_init.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\numberOfSetBits.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\osCreateScheduler.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\osScAddClient.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\osScGetCmdQ.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\osScRemoveClient.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\physicsTick.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\playerCallback.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\playSound.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\processAir.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\processBehaviorEntities.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\processGround.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\processLevelHeader.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\raycast.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\raycastIterator.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\raycastPositionIterator.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\raycastPositionRotationIterator.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\raycastPositionRotationVerticalIterator.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\raycastPositionVerticalIterator.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\raycastVertical.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\raycastVerticalIterator.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\rayVsAABB.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\rayVsBvh.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\rayVsTri.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\readInput.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\registerArchetype.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\removeDrawLayerSlot.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\resetGfxFrame.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\resizableCallback.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\resolveCollisionsCallback.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\resolveHoldableCollisionsCallback.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\rspUcodeLoadInit.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\scheduleGfxTask.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\scrollTextures.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\segmentedToVirtual.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\sendGfxTask.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\setAnim.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\setCollision.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\setLightDirection.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\setLogoCollision.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\setSegment.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\setupCameraMatrices.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\setupDrawLayers.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\sinsf.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\startCreditsLoad.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\startDMA.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\startFrame.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\testRayVsAABB.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\testVerticalRayVsAABB.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\tickResizables.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\treevineleafResizeCallback.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\updateAir.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\updateFirstFreeChunk.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\updateGround.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\verticalRayVsAABB.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\verticalRayVsBvh.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\verticalRayVsTri.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\waitForDMA.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\_memcpy.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\_memset.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\_strchr.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\guMtxF2L.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\guScaleF.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\guTranslateF.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\guMtxIdentF.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\_sqrtf.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\guMtxIdent.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\guLookAtReflect.c">
-      <Filter>Funcs</Filter>
-    </ClCompile>
-    <ClCompile Include="funcs\guLookAtReflectF.c">
       <Filter>Funcs</Filter>
     </ClCompile>
   </ItemGroup>
@@ -601,9 +1314,6 @@
     </ClInclude>
     <ClInclude Include="thirdparty\lightweightsemaphore.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="funcs\funcs.h">
-      <Filter>Funcs</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
