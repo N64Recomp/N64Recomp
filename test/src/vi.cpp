@@ -22,7 +22,7 @@ extern "C" void osViGetNextFramebuffer_recomp(uint8_t* restrict rdram, recomp_co
 }
 
 extern "C" void osViSwapBuffer_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
-    osViSwapBuffer(rdram, ctx->r4);
+    osViSwapBuffer(rdram, (int32_t)ctx->r4);
 }
 
 extern "C" void osViSetMode_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {

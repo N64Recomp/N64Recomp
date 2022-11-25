@@ -164,6 +164,7 @@ void osViSetEvent(RDRAM_ARG PTR(OSMesgQueue), OSMesg, u32);
 void osViSwapBuffer(RDRAM_ARG PTR(void) frameBufPtr);
 u32 osGetCount();
 OSTime osGetTime();
+u32 osVirtualToPhysical(PTR(void) addr);
 
 #ifdef __cplusplus
 } // extern "C"

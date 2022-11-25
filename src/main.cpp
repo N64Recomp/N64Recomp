@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <unordered_set>
 #include <span>
+#include <filesystem>
 
 #include "rabbitizer.hpp"
 #include "elfio/elfio.hpp"
@@ -243,6 +244,7 @@ std::unordered_set<std::string> renamed_funcs{
     "memcpy",
     "memset",
     "strchr",
+    "bzero",
 };
 
 // Functions that weren't declared properly and thus have no size in the elf
@@ -256,8 +258,8 @@ std::unordered_map<std::string, size_t> unsized_funcs{
 };
 
 int main(int argc, char** argv) {
-    if (argc != 2) {
-        fmt::print("Usage: {} [input elf file]\n", argv[0]);
+    if (argc != 3) {
+        fmt::print("Usage: {} [input elf file] [entrypoint RAM address]\n", argv[0]);
         std::exit(EXIT_SUCCESS);
     }
 
@@ -271,8 +273,16 @@ int main(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     };
 
-    if (!elf_file.load(argv[1])) {
+    std::string elf_name{ argv[1] };
+
+    if (!elf_file.load(elf_name)) {
         exit_failure("Failed to load provided elf file\n");
+    }
+
+    char* end;
+    const uint32_t entrypoint = (uint32_t)strtoul(argv[2], &end, 0);
+    if (argv[2] == end) {
+        exit_failure("Invalid entrypoint value: " + std::string(argv[2]) + "\n");
     }
 
     if (elf_file.get_class() != ELFIO::ELFCLASS32) {
@@ -320,6 +330,8 @@ int main(int argc, char** argv) {
 
     fmt::print("Num symbols: {}\n", symbols.get_symbols_num());
 
+    bool found_entrypoint_func = false;
+
     for (int sym_index = 0; sym_index < symbols.get_symbols_num(); sym_index++) {
         std::string   name;
         ELFIO::Elf64_Addr    value;
@@ -336,10 +348,16 @@ int main(int argc, char** argv) {
 
         // Check if this symbol is unsized and if so populate its size from the unsized_funcs map
         if (size == 0) {
-            auto size_find = unsized_funcs.find(name);
-            if (size_find != unsized_funcs.end()) {
-                size = size_find->second;
-                type = ELFIO::STT_FUNC;
+            if (value == entrypoint && type == ELFIO::STT_FUNC) {
+                found_entrypoint_func = true;
+                size = 0x50; // dummy size for entrypoints, should cover them all
+                name = "recomp_entrypoint";
+            } else {
+                auto size_find = unsized_funcs.find(name);
+                if (size_find != unsized_funcs.end()) {
+                    size = size_find->second;
+                    type = ELFIO::STT_FUNC;
+                }
             }
         }
 
@@ -383,6 +401,10 @@ int main(int argc, char** argv) {
         }
     }
 
+    if (!found_entrypoint_func) {
+        exit_failure("Could not find entrypoint function\n");
+    }
+
     fmt::print("Function count: {}\n", context.functions.size());
 
     std::ofstream func_lookup_file{ "test/funcs/lookup.cpp" };
@@ -421,9 +443,17 @@ int main(int argc, char** argv) {
             }
         }
     }
+
     fmt::print(func_lookup_file,
         "}};\n"
         "extern const size_t num_funcs = sizeof(funcs) / sizeof(funcs[0]);\n"
+        "\n"
+        "gpr get_entrypoint_address() {{ return (gpr)(int32_t)0x{:08X}u; }}\n"
+        "\n"
+        "const char* get_rom_name() {{ return \"{}\"; }}\n"
+        "\n",
+        entrypoint,
+        std::filesystem::path{ elf_name }.replace_extension(".z64").string()
     );
 
     fmt::print(func_header_file,

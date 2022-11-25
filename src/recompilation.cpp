@@ -771,6 +771,7 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
     std::ofstream output_file{ output_path.data() };
     fmt::print(output_file,
         "#include \"recomp.h\"\n"
+        "#include \"disable_warnings.h\"\n"
         "\n"
         "void {}(uint8_t* restrict rdram, recomp_context* restrict ctx) {{\n"
         // these variables shouldn't need to be preserved across function boundaries, so make them local for more efficient output

@@ -4,6 +4,8 @@
 #include <cinttypes>
 #include <variant>
 #include <unordered_map>
+#include <utility>
+#include <mutex>
 
 #include <Windows.h>
 #include "SDL.h"
@@ -18,7 +20,7 @@ struct SpTaskAction {
 };
 
 struct SwapBuffersAction {
-    int32_t origin;
+    uint32_t origin;
 };
 
 using Action = std::variant<SpTaskAction, SwapBuffersAction>;
@@ -262,7 +264,7 @@ void gfx_thread_func(uint8_t* rdram, uint8_t* rom) {
 }
 
 extern "C" void osViSwapBuffer(RDRAM_ARG PTR(void) frameBufPtr) {
-    events_context.action_queue.enqueue(SwapBuffersAction{ frameBufPtr + 640 });
+    events_context.action_queue.enqueue(SwapBuffersAction{ osVirtualToPhysical(frameBufPtr) + 640 });
 }
 
 void Multilibultra::submit_rsp_task(RDRAM_ARG PTR(OSTask) task_) {

@@ -34,7 +34,7 @@ extern "C" recomp_func_t* get_function(uint32_t addr) {
     return func_find->second;
 }
 
-extern "C" void bzero(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void _bzero(uint8_t* restrict rdram, recomp_context* restrict ctx) {
     gpr start_addr = ctx->r4;
     gpr size = ctx->r5;
 
@@ -61,13 +61,6 @@ void run_thread_function(uint8_t* rdram, uint64_t addr, uint64_t sp, uint64_t ar
     func(rdram, &ctx);
 }
 
-extern "C" void init(uint8_t * restrict rdram, recomp_context * restrict ctx);
-
-// rocket robot
-extern "C" void game_init(uint8_t* restrict rdram, recomp_context* restrict ctx);
-// test rom
-//extern "C" void init(uint8_t * restrict rdram, recomp_context * restrict ctx);
-
 void do_rom_read(uint8_t* rdram, gpr ram_address, uint32_t dev_address, size_t num_bytes);
 
 std::unique_ptr<uint8_t[]> rom;
@@ -75,21 +68,26 @@ size_t rom_size;
 
 uint64_t start_time;
 
+// Recomp generation functions
+extern "C" void recomp_entrypoint(uint8_t * restrict rdram, recomp_context * restrict ctx);
+gpr get_entrypoint_address();
+const char* get_rom_name();
+
 int main(int argc, char **argv) {
-    if (argc != 2) {
-        printf("Usage: %s [baserom]\n", argv[0]);
-        exit(EXIT_SUCCESS);
-    }
+    //if (argc != 2) {
+    //    printf("Usage: %s [baserom]\n", argv[0]);
+    //    exit(EXIT_SUCCESS);
+    //}
 
     {
-        std::basic_ifstream<uint8_t> rom_file{ argv[1], std::ios::binary };
+        std::basic_ifstream<uint8_t> rom_file{ get_rom_name(), std::ios::binary };
 
         size_t iobuf_size = 0x100000;
         std::unique_ptr<uint8_t[]> iobuf = std::make_unique<uint8_t[]>(iobuf_size);
         rom_file.rdbuf()->pubsetbuf(iobuf.get(), iobuf_size);
 
         if (!rom_file) {
-            fprintf(stderr, "Failed to open rom: %s\n", argv[1]);
+            fprintf(stderr, "Failed to open rom: %s\n", get_rom_name());
             exit(EXIT_FAILURE);
         }
 
@@ -102,16 +100,8 @@ int main(int argc, char **argv) {
         rom_file.read(rom.get(), rom_size);
     }
 
-    // Byteswap the rom
-    //for (size_t rom_addr = 0; rom_addr < rom_size; rom_addr += 4) {
-    //    uint32_t word = *reinterpret_cast<uint32_t*>(rom.get() + rom_addr);
-    //    word = byteswap(word);
-    //    *reinterpret_cast<uint32_t*>(rom.get() + rom_addr) = word;
-    //}
-
-    // Get entrypoint from ROM
-    // TODO fix this for other IPL3 versions
-    gpr entrypoint = (int32_t)byteswap(*reinterpret_cast<uint32_t*>(rom.get() + 0x8));
+    // Get entrypoint from recomp function
+    gpr entrypoint = get_entrypoint_address();
 
     // Allocate rdram_buffer
     std::unique_ptr<uint8_t[]> rdram_buffer = std::make_unique<uint8_t[]>(8 * 1024 * 1024);
@@ -157,21 +147,11 @@ int main(int argc, char **argv) {
     MEM_W(osResetType, 0) = 0; // cold reset
     MEM_W(osMemSize, 0) = 8 * 1024 * 1024; // 8MB
 
-    // Clear bss
-    // TODO run the entrypoint instead
-    // rocket robot
-    memset(rdram_buffer.get() + 0xAF860, 0, 0xC00A0u - 0XAF860);
-    // test rom
-    //memset(rdram_buffer.get() + 0x18670, 0, 0x20D120);
-
     debug_printf("[Recomp] Starting\n");
 
     Multilibultra::preinit(rdram_buffer.get(), rom.get());
 
-    // rocket robot
-    game_init(rdram_buffer.get(), &context);
-    // test rom
-    //init(rdram_buffer.get(), &context);
+    recomp_entrypoint(rdram_buffer.get(), &context);
 
     debug_printf("[Recomp] Quitting\n");
 

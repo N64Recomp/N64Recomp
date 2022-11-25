@@ -55,3 +55,39 @@ extern "C" void osGetTime_recomp(uint8_t * restrict rdram, recomp_context * rest
     ctx->r2 = (uint32_t)(total_count >> 32);
     ctx->r3 =  (int32_t)(total_count >> 0);
 }
+
+extern "C" void osVirtualToPhysical_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    ctx->r2 = osVirtualToPhysical((int32_t)ctx->r2);
+}
+
+extern "C" void osInvalDCache_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    ;
+}
+
+extern "C" void osInvalICache_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    ;
+}
+
+extern "C" void osWritebackDCache_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    ;
+}
+
+extern "C" void osWritebackDCacheAll_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    ;
+}
+
+extern "C" void osSetIntMask_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    ;
+}
+
+extern "C" void __osDisableInt_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    ;
+}
+
+extern "C" void __osRestoreInt_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    ;
+}
+
+extern "C" void __osSetFpcCsr_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    ctx->r2 = 0;
+}
