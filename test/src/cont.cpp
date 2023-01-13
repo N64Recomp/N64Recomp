@@ -54,6 +54,14 @@ extern "C" void osContGetReadData_recomp(uint8_t* restrict rdram, recomp_context
     MEM_B(4, pad) = 0;
 }
 
+extern "C" void osContSetCh_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+    ctx->r2 = 0;
+}
+
+extern "C" void __osMotorAccess_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+
+}
+
 extern "C" void osMotorInit_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
     ;
 }

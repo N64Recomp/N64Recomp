@@ -1,6 +1,10 @@
 #include "../portultra/multilibultra.hpp"
 #include "recomp.h"
 
+extern "C" void osViSetYScale_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    ;
+}
+
 extern "C" void osCreateViManager_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
     ;
 }

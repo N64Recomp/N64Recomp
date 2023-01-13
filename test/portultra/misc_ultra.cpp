@@ -1,7 +1,5 @@
 #include "ultra64.h"
 
-extern uint64_t start_time;
-
 #define	K0BASE		0x80000000
 #define	K1BASE		0xA0000000
 #define	K2BASE		0xC0000000

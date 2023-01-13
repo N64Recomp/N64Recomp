@@ -149,7 +149,11 @@ typedef void (thread_func_t)(PTR(void));
 
 void osCreateThread(RDRAM_ARG PTR(OSThread) t, OSId id, PTR(thread_func_t) entry, PTR(void) arg, PTR(void) sp, OSPri p);
 void osStartThread(RDRAM_ARG PTR(OSThread) t);
+void osStopThread(RDRAM_ARG PTR(OSThread) t);
+void osDestroyThread(RDRAM_ARG PTR(OSThread) t);
 void osSetThreadPri(RDRAM_ARG PTR(OSThread) t, OSPri pri);
+OSPri osGetThreadPri(RDRAM_ARG PTR(OSThread) thread);
+OSId osGetThreadId(RDRAM_ARG PTR(OSThread) t);
 
 s32 MQ_GET_COUNT(RDRAM_ARG PTR(OSMesgQueue));
 s32 MQ_IS_EMPTY(RDRAM_ARG PTR(OSMesgQueue));

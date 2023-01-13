@@ -10,12 +10,114 @@
 #include "fmt/ostream.h"
 
 #include "recomp_port.h"
+#include "main.h"
+#include <set>
+
+std::unordered_set<std::string> reimplemented_funcs{
+    // OS initialize functions
+    "__osInitialize_common",
+    "osInitialize",
+    // Audio interface functions
+    "osAiGetLength",
+    "osAiGetStatus",
+    "osAiSetFrequency",
+    "osAiSetNextBuffer",
+    // Video interface functions
+    "osViSetYScale",
+    "osCreateViManager",
+    "osViBlack",
+    "osViSetSpecialFeatures",
+    "osViGetCurrentFramebuffer",
+    "osViGetNextFramebuffer",
+    "osViSwapBuffer",
+    "osViSetMode",
+    "osViSetEvent",
+    // RDP functions
+    "osDpSetNextBuffer",
+    // RSP functions
+    "osSpTaskLoad",
+    "osSpTaskStartGo",
+    "osSpTaskYield",
+    "osSpTaskYielded",
+    "__osSpSetPc",
+    // Controller functions
+    "osContInit",
+    "osContStartReadData",
+    "osContGetReadData",
+    "osContSetCh",
+    // EEPROM functions
+    "osEepromProbe",
+    "osEepromWrite",
+    "osEepromLongWrite",
+    "osEepromRead",
+    "osEepromLongRead",
+    // Rumble functions
+    "__osMotorAccess",
+    "osMotorInit",
+    "osMotorStart",
+    "osMotorStop",
+    // Parallel interface (cartridge, DMA, etc.) functions
+    "osCartRomInit",
+    "osCreatePiManager",
+    "osPiStartDma",
+    "osEPiStartDma",
+    "osPiGetStatus",
+    "osEPiRawStartDma",
+    // Threading functions
+    "osCreateThread",
+    "osStartThread",
+    "osStopThread",
+    "osDestroyThread",
+    "osSetThreadPri",
+    "osGetThreadPri",
+    "osGetThreadId",
+    // Message Queue functions
+    "osCreateMesgQueue",
+    "osRecvMesg",
+    "osSendMesg",
+    "osJamMesg",
+    "osSetEventMesg",
+    // Timer functions
+    "osGetTime",
+    // interrupt functions
+    "osSetIntMask",
+    "__osDisableInt",
+    "__osRestoreInt",
+    // TLB functions
+    "osVirtualToPhysical",
+    // Coprocessor 0/1 functions
+    "osGetCount",
+    "__osSetFpcCsr",
+    // Cache funcs
+    "osInvalDCache",
+    "osInvalICache",
+    "osWritebackDCache",
+    "osWritebackDCacheAll",
+    // Debug functions
+    "__checkHardware_msp",
+    "__checkHardware_kmc",
+    "__checkHardware_isv",
+    "__osInitialize_msp",
+    "__osInitialize_kmc",
+    "__osInitialize_isv",
+    "__osRdbSend",
+    // libgcc math routines (these throw off the recompiler)
+    "__udivdi3",
+    "__divdi3",
+    "__umoddi3",
+    // ido math routines
+    "__ull_div",
+    "__ll_div",
+    "__ll_mul",
+    "__ull_rem",
+    "__ull_to_d",
+    "__ull_to_f",
+};
 
 std::unordered_set<std::string> ignored_funcs {
     // OS initialize functions
     "__createSpeedParam",
     "__osInitialize_common",
-    "__osInitialize_autodetect",
     "osInitialize",
     // Audio interface functions
     "osAiGetLength",
@@ -86,6 +188,17 @@ std::unordered_set<std::string> ignored_funcs {
     "osMotorInit",
     "osMotorStart",
     "osMotorStop",
+    "__osMotorAccess",
+    "_MakeMotorData",
+    // Pack functions
+    "__osCheckId",
+    "__osCheckPackId",
+    "__osGetId",
+    "__osPfsRWInode",
+    "__osRepairPackId",
+    "__osPfsSelectBank",
+    "__osCheckPackId",
+    "ramromMain",
     // PFS functions
     "osPfsAllocateFile",
     "osPfsChecker",
@@ -112,6 +225,8 @@ std::unordered_set<std::string> ignored_funcs {
     "__osPfsRequestData",
     "__osPfsRequestOneChannel",
     "__osPfsCreateAccessQueue",
+    "__osPfsCheckRamArea",
+    "__osPfsGetNextPage",
     // Low level serial interface functions
     "__osSiDeviceBusy",
     "__osSiGetStatus",
@@ -236,15 +351,148 @@ std::unordered_set<std::string> ignored_funcs {
     "gspF3DEX2_fifoTextStart",
     "gspS2DEX2_fifoTextStart",
     "gspL3DEX2_fifoTextStart",
+    // Debug functions
+    "msp_proutSyncPrintf",
+    "__osInitialize_msp",
+    "__checkHardware_msp",
+    "kmc_proutSyncPrintf",
+    "__osInitialize_kmc",
+    "__checkHardware_kmc",
+    "isPrintfInit",
+    "is_proutSyncPrintf",
+    "__osInitialize_isv",
+    "__checkHardware_isv",
+    "__isExpJP",
+    "__isExp",
+    "__osRdbSend",
+    "__rmonSendData",
+    "__rmonWriteMem",
+    "__rmonReadWordAt",
+    "__rmonWriteWordTo",
+    "__rmonWriteMem",
+    "__rmonSetSRegs",
+    "__rmonSetVRegs",
+    "__rmonStopThread",
+    "__rmonGetThreadStatus",
+    "__rmonGetVRegs",
+    "__rmonHitSpBreak",
+    "__rmonRunThread",
+    "__rmonClearBreak",
+    "__rmonGetBranchTarget",
+    "__rmonGetSRegs",
+    "__rmonSetBreak",
+    "__rmonReadMem",
+    "__rmonRunThread",
+    "__rmonCopyWords",
+    "__rmonExecute",
+    "__rmonGetExceptionStatus",
+    "__rmonGetExeName",
+    "__rmonGetFRegisters",
+    "__rmonGetGRegisters",
+    "__rmonGetRegionCount",
+    "__rmonGetRegions",
+    "__rmonGetRegisterContents",
+    "__rmonGetTCB",
+    "__rmonHitBreak",
+    "__rmonHitCpuFault",
+    "__rmonIdleRCP",
+    "__rmonInit",
+    "__rmonIOflush",
+    "__rmonIOhandler",
+    "__rmonIOputw",
+    "__rmonListBreak",
+    "__rmonListProcesses",
+    "__rmonListThreads",
+    "__rmonLoadProgram",
+    "__rmonMaskIdleThreadInts",
+    "__rmonMemcpy",
+    "__rmonPanic",
+    "__rmonRCPrunning",
+    "__rmonRunRCP",
+    "__rmonSendFault",
+    "__rmonSendHeader",
+    "__rmonSendReply",
+    "__rmonSetComm",
+    "__rmonSetFault",
+    "__rmonSetFRegisters",
+    "__rmonSetGRegisters",
+    "__rmonSetSingleStep",
+    "__rmonStepRCP",
+    "__rmonStopUserThreads",
+    "__rmonThreadStatus",
+    "__rmon",
+    "__rmonRunThread",
+    "rmonFindFaultedThreads",
+    "rmonMain",
+    "rmonPrintf",
+    "rmonGetRcpRegister",
+    "kdebugserver",
+    "send",
+    // libgcc math routines (these throw off the recompiler)
+    "__muldi3",
+    "__divdi3",
+    "__udivdi3",
+    "__umoddi3",
+    // ido math routines
+    "__ll_div",
+    "__ll_lshift",
+    "__ll_mod",
+    "__ll_mul",
+    "__ll_rem",
+    "__ll_rshift",
+    "__ull_div",
+    "__ull_divremi",
+    "__ull_rem",
+    "__ull_rshift",
+    "__d_to_ll",
+    "__f_to_ll",
+    "__d_to_ull",
+    "__f_to_ull",
+    "__ll_to_d",
+    "__ll_to_f",
+    "__ull_to_d",
+    "__ull_to_f",
+    // Setjmp/longjmp for mario party
+    "setjmp",
+    "longjmp"
+    // 64-bit functions for banjo
+    "func_8025C29C",
+    "func_8025C240",
+    "func_8025C288",
 };
 
 std::unordered_set<std::string> renamed_funcs{
     "sincosf",
+    "sinf",
+    "cosf",
+    "sqrt",
     "sqrtf",
     "memcpy",
     "memset",
     "strchr",
+    "strlen",
+    "sprintf",
     "bzero",
+    "bcopy",
+    "bcmp",
+    "setjmp",
+    "longjmp",
+    "ldiv",
+    "lldiv",
+    "ceil",
+    "ceilf",
+    "floor",
+    "floorf",
+    "fmodf",
+    "lround",
+    "lroundf",
+    "nearbyint",
+    "nearbyintf",
+    "round",
+    "roundf",
+    "trunc",
+    "truncf",
+    "vsprintf"
 };
 
 // Functions that weren't declared properly and thus have no size in the elf
@@ -257,6 +505,177 @@ std::unordered_map<std::string, size_t> unsized_funcs{
     { "guMtxIdent", 0x4C },
 };
 
+bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint) {
+    bool found_entrypoint_func = false;
+    ELFIO::symbol_section_accessor symbols{ elf_file, symtab_section };
+    fmt::print("Num symbols: {}\n", symbols.get_symbols_num());
+
+    for (int sym_index = 0; sym_index < symbols.get_symbols_num(); sym_index++) {
+        std::string   name;
+        ELFIO::Elf64_Addr    value;
+        ELFIO::Elf_Xword     size;
+        unsigned char bind;
+        unsigned char type;
+        ELFIO::Elf_Half      section_index;
+        unsigned char other;
+        bool ignored = false;
+        bool reimplemented = false;
+
+        // Read symbol properties
+        symbols.get_symbol(sym_index, name, value, size, bind, type,
+            section_index, other);
+
+        if (section_index >= context.sections.size()) {
+            continue;
+        }
+        
+        // Check if this symbol is the entrypoint
+        if (value == entrypoint && type == ELFIO::STT_FUNC) {
+            found_entrypoint_func = true;
+            size = 0x50; // dummy size for entrypoints, should cover them all
+            name = "recomp_entrypoint";
+        }
+
+        // Check if this symbol is unsized and if so populate its size from the unsized_funcs map
+        if (size == 0) {
+            auto size_find = unsized_funcs.find(name);
+            if (size_find != unsized_funcs.end()) {
+                size = size_find->second;
+                type = ELFIO::STT_FUNC;
+            }
+        }
+
+        if (reimplemented_funcs.contains(name)) {
+            reimplemented = true;
+            name = name + "_recomp";
+            ignored = true;
+        } else if (ignored_funcs.contains(name)) {
+            name = name + "_recomp";
+            ignored = true;
+        }
+
+        auto& section = context.sections[section_index];
+
+        // Check if this symbol is a function or has no type (like a regular glabel would)
+        // Symbols with no type have a dummy entry created so that their symbol can be looked up for function calls
+        if (ignored || type == ELFIO::STT_FUNC || type == ELFIO::STT_NOTYPE || type == ELFIO::STT_OBJECT) {
+            if (renamed_funcs.contains(name)) {
+                name = name + "_recomp";
+                ignored = false;
+            }
+            if (section_index < context.sections.size()) {
+                auto section_offset = value - elf_file.sections[section_index]->get_address();
+                const uint32_t* words = reinterpret_cast<const uint32_t*>(elf_file.sections[section_index]->get_data() + section_offset);
+                uint32_t vram = static_cast<uint32_t>(value);
+                uint32_t num_instructions = type == ELFIO::STT_FUNC ? size / 4 : 0;
+                uint32_t rom_address = static_cast<uint32_t>(section_offset + section.rom_addr);
+
+                section.function_addrs.push_back(vram);
+                context.functions_by_vram[vram].push_back(context.functions.size());
+
+                // Find the entrypoint by rom address in case it doesn't have vram as its value
+                if (rom_address == 0x1000) {
+                    vram = entrypoint;
+                    found_entrypoint_func = true;
+                    name = "recomp_entrypoint";
+                    if (size == 0) {
+                        num_instructions = 0x50 / 4;
+                    }
+                }
+                
+                if (num_instructions > 0) {
+                    context.section_functions[section_index].push_back(context.functions.size());
+                }
+                context.functions.emplace_back(
+                    vram,
+                    rom_address,
+                    std::span{ words, num_instructions },
+                    std::move(name),
+                    section_index,
+                    ignored,
+                    reimplemented
+                );
+            } else {
+                uint32_t vram = static_cast<uint32_t>(value);
+                section.function_addrs.push_back(vram);
+                context.functions_by_vram[vram].push_back(context.functions.size());
+                context.functions.emplace_back(
+                    vram,
+                    0,
+                    std::span<const uint32_t>{},
+                    std::move(name),
+                    section_index,
+                    ignored,
+                    reimplemented
+                );
+            }
+        }
+    }
+
+    return found_entrypoint_func;
+}
+
+ELFIO::section* read_sections(RecompPort::Context& context, const ELFIO::elfio& elf_file) {
+    ELFIO::section* symtab_section = nullptr;
+    // Iterate over every section to record rom addresses and find the symbol table
+    fmt::print("Sections\n");
+    for (const std::unique_ptr<ELFIO::section>& section : elf_file.sections) {
+        auto& section_out = context.sections[section->get_index()];
+        //fmt::print("  {}: {} @ 0x{:08X}, 0x{:08X}\n", section->get_index(), section->get_name(), section->get_address(), context.rom.size());
+        // Set the rom address of this section to the current accumulated ROM size
+        section_out.rom_addr = context.rom.size();
+        section_out.ram_addr = section->get_address();
+        section_out.size = section->get_size();
+        // If this section isn't bss (SHT_NOBITS) and ends up in the rom (SHF_ALLOC), copy this section into the rom
+        if (section->get_type() != ELFIO::SHT_NOBITS && section->get_flags() & ELFIO::SHF_ALLOC) {
+            size_t cur_rom_size = context.rom.size();
+            context.rom.resize(context.rom.size() + section->get_size());
+            std::copy(section->get_data(), section->get_data() + section->get_size(), &context.rom[cur_rom_size]);
+        }
+        // Check if this section is the symbol table and record it if so
+        if (section->get_type() == ELFIO::SHT_SYMTAB) {
+            symtab_section = section.get();
+        }
+        // Check if this section is marked as executable, which means it has code in it
+        if (section->get_flags() & ELFIO::SHF_EXECINSTR) {
+            section_out.executable = true;
+            context.executable_section_count++;
+        }
+        section_out.name = section->get_name();
+    }
+    return symtab_section;
+}
+
+template<typename Iterator, typename Pred, typename Operation> void
+for_each_if(Iterator begin, Iterator end, Pred p, Operation op) {
+    for (; begin != end; begin++) {
+        if (p(*begin)) {
+            op(*begin);
+        }
+    }
+}
+
+void analyze_sections(RecompPort::Context& context, const ELFIO::elfio& elf_file) {
+    std::vector<RecompPort::Section*> executable_sections{};
+    
+    executable_sections.reserve(context.executable_section_count);
+
+    for_each_if(context.sections.begin(), context.sections.end(),
+        [](const RecompPort::Section& section) {
+            return section.executable && section.rom_addr >= 0x1000;
+        },
+        [&](RecompPort::Section& section) {
+            executable_sections.push_back(&section);
+        }
+    );
+
+    std::sort(executable_sections.begin(), executable_sections.end(),
+        [](const RecompPort::Section* a, const RecompPort::Section* b) {
+            return a->ram_addr < b->ram_addr;
+        }
+    );
+}
+
 int main(int argc, char** argv) {
     if (argc != 3) {
         fmt::print("Usage: {} [input elf file] [entrypoint RAM address]\n", argv[0]);
@@ -267,6 +686,7 @@ int main(int argc, char** argv) {
     RabbitizerConfig_Cfg.pseudos.pseudoMove = false;
     RabbitizerConfig_Cfg.pseudos.pseudoBeqz = false;
     RabbitizerConfig_Cfg.pseudos.pseudoBnez = false;
+    RabbitizerConfig_Cfg.pseudos.pseudoNot = false;
 
     auto exit_failure = [] (const std::string& error_str) {
         fmt::print(stderr, error_str);
@@ -293,113 +713,21 @@ int main(int argc, char** argv) {
         exit_failure("Incorrect endianness\n");
     }
 
-    // Pointer to the symbol table section
-    ELFIO::section* symtab_section = nullptr;
-    // ROM address of each section
-    std::vector<ELFIO::Elf_Xword> section_rom_addrs{};
+    RecompPort::Context context{ elf_file };
 
-    RecompPort::Context context{};
-    section_rom_addrs.resize(elf_file.sections.size());
-    context.functions.reserve(1024);
-    context.rom.reserve(8 * 1024 * 1024);
+    // Read all of the sections in the elf and look for the symbol table section
+    ELFIO::section* symtab_section = read_sections(context, elf_file);
 
-    // Iterate over every section to record rom addresses and find the symbol table
-    fmt::print("Sections\n");
-    for (const std::unique_ptr<ELFIO::section>& section : elf_file.sections) {
-        //fmt::print("  {}: {} @ 0x{:08X}, 0x{:08X}\n", section->get_index(), section->get_name(), section->get_address(), context.rom.size());
-        // Set the rom address of this section to the current accumulated ROM size
-        section_rom_addrs[section->get_index()] = context.rom.size();
-        // If this section isn't bss (SHT_NOBITS) and ends up in the rom (SHF_ALLOC), copy this section into the rom
-        if (section->get_type() != ELFIO::SHT_NOBITS && section->get_flags() & ELFIO::SHF_ALLOC) {
-            size_t cur_rom_size = context.rom.size();
-            context.rom.resize(context.rom.size() + section->get_size());
-            std::copy(section->get_data(), section->get_data() + section->get_size(), &context.rom[cur_rom_size]);
-        }
-        // Check if this section is the symbol table and record it if so
-        if (section->get_type() == ELFIO::SHT_SYMTAB) {
-            symtab_section = section.get();
-        }
-    }
+    // Search the sections to see if any are overlays or TLB-mapped
+    analyze_sections(context, elf_file);
 
     // If no symbol table was found then exit
     if (symtab_section == nullptr) {
         exit_failure("No symbol table section found\n");
     }
 
-    ELFIO::symbol_section_accessor symbols{ elf_file, symtab_section };
-
-    fmt::print("Num symbols: {}\n", symbols.get_symbols_num());
-
-    bool found_entrypoint_func = false;
-
-    for (int sym_index = 0; sym_index < symbols.get_symbols_num(); sym_index++) {
-        std::string   name;
-        ELFIO::Elf64_Addr    value;
-        ELFIO::Elf_Xword     size;
-        unsigned char bind;
-        unsigned char type;
-        ELFIO::Elf_Half      section_index;
-        unsigned char other;
-        bool ignored = false;
-
-        // Read symbol properties
-        symbols.get_symbol(sym_index, name, value, size, bind, type,
-            section_index, other);
-
-        // Check if this symbol is unsized and if so populate its size from the unsized_funcs map
-        if (size == 0) {
-            if (value == entrypoint && type == ELFIO::STT_FUNC) {
-                found_entrypoint_func = true;
-                size = 0x50; // dummy size for entrypoints, should cover them all
-                name = "recomp_entrypoint";
-            } else {
-                auto size_find = unsized_funcs.find(name);
-                if (size_find != unsized_funcs.end()) {
-                    size = size_find->second;
-                    type = ELFIO::STT_FUNC;
-                }
-            }
-        }
-
-        if (ignored_funcs.contains(name)) {
-            name = name + "_recomp";
-            ignored = true;
-        }
-
-        // Check if this symbol is a function or has no type (like a regular glabel would)
-        // Symbols with no type have a dummy entry created so that their symbol can be looked up for function calls
-        if (ignored || type == ELFIO::STT_FUNC || type == ELFIO::STT_NOTYPE || type == ELFIO::STT_OBJECT) {
-            if (renamed_funcs.contains(name)) {
-                name = "_" + name;
-                ignored = false;
-            }
-            if (section_index < section_rom_addrs.size()) {
-                auto section_rom_addr = section_rom_addrs[section_index];
-                auto section_offset = value - elf_file.sections[section_index]->get_address();
-                const uint32_t* words = reinterpret_cast<const uint32_t*>(elf_file.sections[section_index]->get_data() + section_offset);
-                uint32_t vram = static_cast<uint32_t>(value);
-                uint32_t num_instructions = type == ELFIO::STT_FUNC ? size / 4 : 0;
-                context.functions_by_vram[vram].push_back(context.functions.size());
-                context.functions.emplace_back(
-                    vram,
-                    static_cast<uint32_t>(section_offset + section_rom_addr),
-                    std::span{ words, num_instructions },
-                    std::move(name),
-                    ignored
-                );
-            } else {
-                uint32_t vram = static_cast<uint32_t>(value);
-                context.functions_by_vram[vram].push_back(context.functions.size());
-                context.functions.emplace_back(
-                    vram,
-                    0,
-                    std::span<const uint32_t>{},
-                    std::move(name),
-                    ignored
-                );
-            }
-        }
-    }
+    // Read all of the symbols in the elf and look for the entrypoint function
+    bool found_entrypoint_func = read_symbols(context, elf_file, symtab_section, entrypoint);
 
     if (!found_entrypoint_func) {
         exit_failure("Could not find entrypoint function\n");
@@ -427,6 +755,10 @@ int main(int argc, char** argv) {
         "\n"
     );
 
+    std::vector<std::vector<uint32_t>> static_funcs_by_section{ context.sections.size() };
+
+    std::string output_dir = "test/funcs/";
+
     //#pragma omp parallel for
     for (size_t i = 0; i < context.functions.size(); i++) {
         const auto& func = context.functions[i];
@@ -436,7 +768,73 @@ int main(int argc, char** argv) {
                 "void {}(uint8_t* restrict rdram, recomp_context* restrict ctx);\n", func.name);
             fmt::print(func_lookup_file,
                 "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
-            if (RecompPort::recompile_function(context, func, "test/funcs/" + func.name + ".c") == false) {
+            if (RecompPort::recompile_function(context, func, output_dir + "ignore.txt"/*func.name + ".c"*/, static_funcs_by_section) == false) {
+                func_lookup_file.clear();
+                fmt::print(stderr, "Error recompiling {}\n", func.name);
+                std::exit(EXIT_FAILURE);
+            }
+        } else if (func.reimplemented) {
+            fmt::print(func_header_file,
+                       "void {}(uint8_t* restrict rdram, recomp_context* restrict ctx);\n", func.name);
+            fmt::print(func_lookup_file,
+                       "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
+        }
+    }
+
+    for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
+        auto& section = context.sections[section_index];
+        auto& section_funcs = section.function_addrs;
+
+        // Sort the section's functions
+        std::sort(section_funcs.begin(), section_funcs.end());
+        // Sort and deduplicate the static functions via a set
+        std::set<uint32_t> statics_set{ static_funcs_by_section[section_index].begin(), static_funcs_by_section[section_index].end() };
+        std::vector<uint32_t> section_statics{};
+        section_statics.assign(statics_set.begin(), statics_set.end());
+
+        size_t closest_func_index = 0;
+        for (size_t static_func_index = 0; static_func_index < section_statics.size(); static_func_index++) {
+            uint32_t static_func_addr = section_statics[static_func_index];
+            // Search for the closest function 
+            while (section_funcs[closest_func_index] < static_func_addr && closest_func_index < section_funcs.size()) {
+                closest_func_index++;
+            }
+
+            // Determine the end of this static function
+            uint32_t cur_func_end = static_cast<uint32_t>(section.size + section.ram_addr);
+
+            // Check if there's a nonstatic function after this one
+            if (closest_func_index < section_funcs.size()) {
+                // If so, use that function's address as the end of this one
+                cur_func_end = section_funcs[closest_func_index];
+            }
+
+            uint32_t next_static_index = static_func_index + 1;
+            // Check if there's a known static function after this one
+            if (next_static_index < section_statics.size()) {
+                // If so, check if it's before the current end address
+                if (section_statics[next_static_index] < cur_func_end) {
+                    cur_func_end = section_statics[next_static_index];
+                }
+            }
+
+            uint32_t rom_addr = static_cast<uint32_t>(static_func_addr - section.ram_addr + section.rom_addr);
+            const uint32_t* func_rom_start = reinterpret_cast<const uint32_t*>(context.rom.data() + rom_addr);
+
+            RecompPort::Function func {
+                static_func_addr,
+                rom_addr,
+                std::span{ func_rom_start, (cur_func_end - static_func_addr) / sizeof(uint32_t) },
+                fmt::format("static_{}_{:08X}", section_index, static_func_addr),
+                static_cast<ELFIO::Elf_Half>(section_index),
+                false
+            };
+
+            fmt::print(func_header_file,
+                       "void {}(uint8_t* restrict rdram, recomp_context* restrict ctx);\n", func.name);
+            fmt::print(func_lookup_file,
+                       "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
+            if (RecompPort::recompile_function(context, func, output_dir + func.name + ".c", static_funcs_by_section) == false) {
                 func_lookup_file.clear();
                 fmt::print(stderr, "Error recompiling {}\n", func.name);
                 std::exit(EXIT_FAILURE);
@@ -453,7 +851,7 @@ int main(int argc, char** argv) {
         "const char* get_rom_name() {{ return \"{}\"; }}\n"
         "\n",
         entrypoint,
-        std::filesystem::path{ elf_name }.replace_extension(".z64").string()
+        std::filesystem::path{ elf_name }.filename().replace_extension(".z64").string()
     );
 
     fmt::print(func_header_file,
@@ -462,6 +860,51 @@ int main(int argc, char** argv) {
         "}}\n"
         "#endif\n"
     );
+
+    {
+        std::ofstream overlay_file(output_dir + "recomp_overlays.c");
+        std::string section_load_table = "SectionTableEntry sections[] = {\n";
+
+        fmt::print(overlay_file, 
+            "#include \"recomp.h\"\n"
+            "#include \"funcs.h\"\n"
+            "#include \"sections.h\"\n"
+            "\n"
+        );
+
+        for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
+            const auto& section = context.sections[section_index];
+            const auto& section_funcs = context.section_functions[section_index];
+
+            if (!section_funcs.empty()) {
+                std::string_view section_name_trimmed{ section.name };
+
+                while (section_name_trimmed[0] == '.') {
+                    section_name_trimmed.remove_prefix(1);
+                }
+
+                std::string section_funcs_array_name = fmt::format("section_{}_{}_funcs", section_index, section_name_trimmed);
+
+                section_load_table += fmt::format("    {{ .rom_addr = 0x{0:08X}, .ram_addr = 0x{1:08X}, .size = 0x{2:08X}, .funcs = {3}, .num_funcs = ARRLEN({3}) }},\n",
+                                                  section.rom_addr, section.ram_addr, section.size, section_funcs_array_name);
+
+                fmt::print(overlay_file, "FuncEntry {}[] = {{\n", section_funcs_array_name);
+
+                for (size_t func_index : section_funcs) {
+                    const auto& func = context.functions[func_index];
+
+                    if (func.reimplemented || (!func.name.empty() && !func.ignored && func.words.size() != 0)) {
+                        fmt::print(overlay_file, "    {{ .func = {}, .offset = 0x{:08x} }},\n", func.name, func.rom - section.rom_addr);
+                    }
+                }
+
+                fmt::print(overlay_file, "}};\n");
+            }
+        }
+        section_load_table += "};\n";
+
+        fmt::print(overlay_file, "{}", section_load_table);
+    }
 
     return 0;
 }

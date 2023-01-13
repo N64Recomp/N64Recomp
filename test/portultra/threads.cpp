@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <thread>
+#include <cassert>
 
 #include "ultra64.h"
 #include "multilibultra.hpp"
@@ -102,6 +103,14 @@ extern "C" void osCreateThread(RDRAM_ARG PTR(OSThread) t_, OSId id, PTR(thread_f
     t->context->host_thread = std::thread{_thread_func, PASS_RDRAM t_, entrypoint, arg};
 }
 
+extern "C" void osStopThread(RDRAM_ARG PTR(OSThread) t_) {
+    assert(false);
+}
+
+extern "C" void osDestroyThread(RDRAM_ARG PTR(OSThread) t_) {
+    assert(false);
+}
+
 extern "C" void osSetThreadPri(RDRAM_ARG PTR(OSThread) t, OSPri pri) {
     if (t == NULLPTR) {
         t = thread_self;
@@ -118,6 +127,20 @@ extern "C" void osSetThreadPri(RDRAM_ARG PTR(OSThread) t, OSPri pri) {
     if (pause_self) {
         Multilibultra::wait_for_resumed(PASS_RDRAM1);
     }
+}
+
+extern "C" OSPri osGetThreadPri(RDRAM_ARG PTR(OSThread) t) {
+    if (t == NULLPTR) {
+        t = thread_self;
+    }
+    return TO_PTR(OSThread, t)->priority;
+}
+
+extern "C" OSId osGetThreadId(RDRAM_ARG PTR(OSThread) t) {
+    if (t == NULLPTR) {
+        t = thread_self;
+    }
+    return TO_PTR(OSThread, t)->id;
 }
 
 // TODO yield thread, need a stable priority queue in the scheduler

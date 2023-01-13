@@ -150,7 +150,7 @@ XCOPY "$(ProjectDir)Lib\SDL2-2.24.0\lib\$(Platform)\SDL2.dll" "$(TargetDir)" /S 
     <ClCompile Include="funcs\lookup.cpp" />
     <ClCompile Include="portultra\events.cpp" />
     <ClCompile Include="portultra\ultrainit.cpp" />
-    <ClCompile Include="portultra\main.c" />
+    <ClCompile Include="portultra\port_main.c" />
     <ClCompile Include="portultra\mesgqueue.cpp" />
     <ClCompile Include="portultra\scheduler.cpp" />
     <ClCompile Include="portultra\task_pthreads.cpp" />
@@ -162,6 +162,7 @@ XCOPY "$(ProjectDir)Lib\SDL2-2.24.0\lib\$(Platform)\SDL2.dll" "$(TargetDir)" /S 
     <ClCompile Include="src\dp.cpp" />
     <ClCompile Include="src\eep.cpp" />
     <ClCompile Include="portultra\misc_ultra.cpp" />
+    <ClCompile Include="src\math_routines.cpp" />
     <ClCompile Include="src\pi.cpp" />
     <ClCompile Include="src\portultra_translation.cpp" />
     <ClCompile Include="src\recomp.cpp" />

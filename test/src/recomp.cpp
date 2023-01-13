@@ -66,8 +66,6 @@ void do_rom_read(uint8_t* rdram, gpr ram_address, uint32_t dev_address, size_t n
 std::unique_ptr<uint8_t[]> rom;
 size_t rom_size;
 
-uint64_t start_time;
-
 // Recomp generation functions
 extern "C" void recomp_entrypoint(uint8_t * restrict rdram, recomp_context * restrict ctx);
 gpr get_entrypoint_address();
@@ -116,18 +114,6 @@ int main(int argc, char **argv) {
     for (size_t i = 0; i < num_funcs; i++) {
         func_map[funcs[i].first] = funcs[i].second;
     }
-
-    // TODO move this to a more appropriate place
-#ifdef _WIN32
-    {
-        SYSTEMTIME st;
-        FILETIME ft;
-        GetSystemTime(&st);
-        SystemTimeToFileTime(&st, &ft);
-
-        start_time = ((uint64_t)ft.dwHighDateTime << 32) + ft.dwLowDateTime;
-    }
-#endif
 
     // Set up stack pointer
     context.r29 = 0xFFFFFFFF803FFFF0u;

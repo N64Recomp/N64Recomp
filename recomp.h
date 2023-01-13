@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <math.h>
 #include <assert.h>
+#include <setjmp.h>
+#include <malloc.h>
 
 #if 0 // treat GPRs as 32-bit, should be better codegen
 typedef uint32_t gpr;
@@ -129,6 +131,19 @@ static inline gpr do_lwl(uint8_t* rdram, gpr offset, gpr reg) {
 #define TRUNC_W_D(val) \
     ((int32_t)(val))
 
+#define TRUNC_L_S(val) \
+    ((int64_t)(val))
+
+#define TRUNC_L_D(val) \
+    ((int64_t)(val))
+
+// TODO rounding mode
+#define CVT_W_S(val) \
+    ((int32_t)(val))
+
+#define CVT_W_D(val) \
+    ((int32_t)(val))
+
 #define NAN_CHECK(val) \
     assert(val == val)
 
@@ -171,6 +186,38 @@ recomp_func_t* get_function(uint32_t vram);
 
 #define LOOKUP_FUNC(val) \
     get_function(val)
+
+// For the Mario Party games (not working)
+//// This has to be in this file so it can be inlined
+//struct jmp_buf_storage {
+//    jmp_buf buffer;
+//};
+//
+//struct RecompJmpBuf {
+//    int32_t owner;
+//    struct jmp_buf_storage* storage;
+//    uint64_t magic;
+//};
+//
+//// Randomly generated constant
+//#define SETJMP_MAGIC 0xe17afdfa939a437bu
+//
+//int32_t osGetThreadEx(void);
+//
+//#define setjmp_recomp(rdram, ctx) { \
+//    struct RecompJmpBuf* buf = (struct RecompJmpBuf*)(&rdram[(uint64_t)ctx->r4 - 0xFFFFFFFF80000000]); \
+//    \
+//    /* Check if this jump buffer was previously set up */ \
+//    if (buf->magic == SETJMP_MAGIC) { \
+//        /* If so, free the old jmp_buf */ \
+//        free(buf->storage); \
+//    } \
+//    \
+//    buf->magic = SETJMP_MAGIC; \
+//    buf->owner = osGetThreadEx(); \
+//    buf->storage = (struct jmp_buf_storage*)calloc(1, sizeof(struct jmp_buf_storage)); \
+//    ctx->r2 = setjmp(buf->storage->buffer); \
+//}
 
 #ifdef __cplusplus
 }

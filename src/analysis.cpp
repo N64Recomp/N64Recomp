@@ -19,37 +19,38 @@ struct RegState {
 	bool valid_addiu;
 	bool valid_addend;
 	// For tracking a register that has been loaded from RAM
-	uint32_t loaded_lw_vram;
-	uint32_t loaded_addu_vram;
-	uint32_t loaded_address;
-	uint8_t loaded_addend_reg;
-	bool valid_loaded;
+uint32_t loaded_lw_vram;
+uint32_t loaded_addu_vram;
+uint32_t loaded_address;
+uint8_t loaded_addend_reg;
+bool valid_loaded;
 
-	RegState() = default;
+RegState() = default;
 
-	void invalidate() {
-		prev_lui = 0;
-		prev_addiu_vram = 0;
-		prev_addu_vram = 0;
-		prev_addend_reg = 0;
+void invalidate() {
+	prev_lui = 0;
+	prev_addiu_vram = 0;
+	prev_addu_vram = 0;
+	prev_addend_reg = 0;
 
-		valid_lui = false;
-		valid_addiu = false;
-		valid_addend = false;
+	valid_lui = false;
+	valid_addiu = false;
+	valid_addend = false;
 
-		loaded_lw_vram = 0;
-		loaded_addu_vram = 0;
-		loaded_address = 0;
-		loaded_addend_reg = 0;
+	loaded_lw_vram = 0;
+	loaded_addu_vram = 0;
+	loaded_address = 0;
+	loaded_addend_reg = 0;
 
-		valid_loaded = false;
-	}
+	valid_loaded = false;
+}
 };
 
 using InstrId = rabbitizer::InstrId::UniqueId;
+using RegId = rabbitizer::Registers::Cpu::GprO32;
 
 bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const RecompPort::Function& func, RecompPort::FunctionStats& stats,
-	RegState reg_states[32]) {
+	RegState reg_states[32], std::vector<RegState>& stack_states) {
 	// Temporary register state for tracking the register being operated on
 	RegState temp{};
 
@@ -117,11 +118,45 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const RecompPo
 	case InstrId::cpu_or:
 		check_move();
 		break;
+	case InstrId::cpu_sw:
+		// If this is a store to the stack, copy the state of rt into the stack at the given offset
+		if (base == (int)RegId::GPR_O32_sp) {
+			if ((imm & 0b11) != 0) {
+				fmt::print(stderr, "Invalid alignment on offset for sw to stack: {}\n", (int16_t)imm);
+				return false;
+			}
+			if (((int16_t)imm) < 0) {
+				fmt::print(stderr, "Negative offset for sw to stack: {}\n", (int16_t)imm);
+				return false;
+			}
+			size_t stack_offset = imm / 4;
+			if (stack_offset >= stack_states.size()) {
+				stack_states.resize(stack_offset + 1);
+			}
+			stack_states[stack_offset] = reg_states[rt];
+		}
+		break;
 	case InstrId::cpu_lw:
 		// rt has been completely overwritten, so invalidate it
 		temp.invalidate();
+		// If this is a load from the stack, copy the state of the stack at the given offset to rt
+		if (base == (int)RegId::GPR_O32_sp) {
+			if ((imm & 0b11) != 0) {
+				fmt::print(stderr, "Invalid alignment on offset for lw from stack: {}\n", (int16_t)imm);
+				return false;
+			}
+			if (((int16_t)imm) < 0) {
+				fmt::print(stderr, "Negative offset for lw from stack: {}\n", (int16_t)imm);
+				return false;
+			}
+			size_t stack_offset = imm / 4;
+			if (stack_offset >= stack_states.size()) {
+				stack_states.resize(stack_offset + 1);
+			}
+			temp = stack_states[stack_offset];
+		}
 		// If the base register has a valid lui state and a valid addend before this, then this may be a load from a jump table
-		if (reg_states[base].valid_lui && reg_states[base].valid_addend) {
+		else if (reg_states[base].valid_lui && reg_states[base].valid_addend) {
 			// Exactly one of the lw and the base reg should have a valid lo16 value
 			bool nonzero_immediate = imm != 0;
 			if (nonzero_immediate != reg_states[base].valid_addiu) {
@@ -158,6 +193,12 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const RecompPo
 				instr.getVram(),
 				std::vector<uint32_t>{}
 			);
+		} else if (reg_states[rs].valid_lui && reg_states[rs].valid_addiu && !reg_states[rs].valid_addend && !reg_states[rs].valid_loaded) {
+			uint32_t address = reg_states[rs].prev_addiu_vram + reg_states[rs].prev_lui;
+			stats.absolute_jumps.emplace_back(
+				address,
+				instr.getVram()
+			);
 		} else {
 			// Inconclusive analysis
 			fmt::print(stderr, "Failed to to find jump table for `jr {}` at 0x{:08X} in {}\n", RabbitizerRegister_getNameGpr(rs), instr.getVram(), func.name);
@@ -180,11 +221,12 @@ bool RecompPort::analyze_function(const RecompPort::Context& context, const Reco
 	const std::vector<rabbitizer::InstructionCpu>& instructions, RecompPort::FunctionStats& stats) {
 	// Create a state to track each register (r0 won't be used)
 	RegState reg_states[32] {};
+	std::vector<RegState> stack_states{};
 
 	// Look for jump tables
 	// A linear search through the func won't be accurate due to not taking control flow into account, but it'll work for finding jtables
 	for (const auto& instr : instructions) {
-		if (!analyze_instruction(instr, func, stats, reg_states)) {
+		if (!analyze_instruction(instr, func, stats, reg_states, stack_states)) {
 			return false;
 		}
 	}

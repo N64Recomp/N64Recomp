@@ -17,7 +17,7 @@ std::string_view ctx_gpr_prefix(int reg) {
     return "";
 }
 
-bool process_instruction(const RecompPort::Context& context, const RecompPort::Function& func, const RecompPort::FunctionStats& stats, const std::unordered_set<uint32_t>& skipped_insns, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ofstream& output_file, bool indent, bool emit_link_branch, int link_branch_index, bool& needs_link_branch, bool& is_branch_likely) {
+bool process_instruction(const RecompPort::Context& context, const RecompPort::Function& func, const RecompPort::FunctionStats& stats, const std::unordered_set<uint32_t>& skipped_insns, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ofstream& output_file, bool indent, bool emit_link_branch, int link_branch_index, bool& needs_link_branch, bool& is_branch_likely, std::span<std::vector<uint32_t>> static_funcs_out) {
     const auto& instr = instructions[instr_index];
     needs_link_branch = false;
     is_branch_likely = false;
@@ -56,7 +56,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         if (instr_index < instructions.size() - 1) {
             bool dummy_needs_link_branch;
             bool dummy_is_branch_likely;
-            process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely);
+            process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
         }
         print_indent();
         fmt::print(output_file, fmt_str, args...);
@@ -72,7 +72,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         if (instr_index < instructions.size() - 1) {
             bool dummy_needs_link_branch;
             bool dummy_is_branch_likely;
-            process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, true, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely);
+            process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, true, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
         }
         fmt::print(output_file, "        ");
         fmt::print(output_file, fmt_str, args...);
@@ -106,6 +106,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_lui:
         print_line("{}{} = S32({:#X} << 16)", ctx_gpr_prefix(rt), rt, imm);
         break;
+    case InstrId::cpu_add:
     case InstrId::cpu_addu:
         {
             // Check if this addu belongs to a jump table load
@@ -125,6 +126,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         print_line("{}{} = {}{} + {}{}", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_negu: // pseudo instruction for subu x, 0, y
+    case InstrId::cpu_sub:
     case InstrId::cpu_subu:
         print_line("{}{} = SUB32({}{}, {}{})", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
@@ -265,51 +267,62 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         {
             uint32_t target_func_vram = instr.getBranchVramGeneric();
             const auto matching_funcs_find = context.functions_by_vram.find(target_func_vram);
-            if (matching_funcs_find == context.functions_by_vram.end()) {
-                fmt::print(stderr, "No function found for jal target: 0x{:08X}\n", target_func_vram);
-                return false;
-            }
-            const auto& matching_funcs_vec = matching_funcs_find->second;
-            size_t real_func_index;
-            bool ambiguous;
-            // If there is more than one corresponding function, look for any that have a nonzero size
-            if (matching_funcs_vec.size() > 1) {
-                size_t nonzero_func_index = (size_t)-1;
-                bool found_nonzero_func = false;
-                for (size_t cur_func_index : matching_funcs_vec) {
-                    const auto& cur_func = context.functions[cur_func_index];
-                    if (cur_func.words.size() != 0) {
-                        if (found_nonzero_func) {
-                            ambiguous = true;
-                            break;
-                        }
-                        found_nonzero_func = true;
-                        nonzero_func_index = cur_func_index;
-                    }
-                }
-                if (nonzero_func_index == (size_t)-1) {
-                    fmt::print(stderr, "[Warn] Potential jal resolution ambiguity\n");
+            std::string jal_target_name;
+            // TODO the current section should be prioritized if the target jal is in its vram even if a function isn't known (i.e. static)
+            if (matching_funcs_find != context.functions_by_vram.end()) {
+                // If we found matches for the target function by vram, 
+                const auto& matching_funcs_vec = matching_funcs_find->second;
+                size_t real_func_index;
+                bool ambiguous;
+                // If there is more than one corresponding function, look for any that have a nonzero size
+                if (matching_funcs_vec.size() > 1) {
+                    size_t nonzero_func_index = (size_t)-1;
+                    bool found_nonzero_func = false;
                     for (size_t cur_func_index : matching_funcs_vec) {
-                        fmt::print(stderr, "  {}\n", context.functions[cur_func_index].name);
+                        const auto& cur_func = context.functions[cur_func_index];
+                        if (cur_func.words.size() != 0) {
+                            if (found_nonzero_func) {
+                                ambiguous = true;
+                                break;
+                            }
+                            found_nonzero_func = true;
+                            nonzero_func_index = cur_func_index;
+                        }
                     }
-                    nonzero_func_index = 0;
+                    if (nonzero_func_index == (size_t)-1) {
+                        fmt::print(stderr, "[Warn] Potential jal resolution ambiguity\n");
+                        for (size_t cur_func_index : matching_funcs_vec) {
+                            fmt::print(stderr, "  {}\n", context.functions[cur_func_index].name);
+                        }
+                        nonzero_func_index = 0;
+                    }
+                    real_func_index = nonzero_func_index;
+                    ambiguous = false;
+                } else {
+                    real_func_index = matching_funcs_vec.front();
+                    ambiguous = false;
                 }
-                real_func_index = nonzero_func_index;
-                ambiguous = false;
+                if (ambiguous) {
+                    fmt::print(stderr, "Ambiguous jal target: 0x{:08X}\n", target_func_vram);
+                    for (size_t cur_func_index : matching_funcs_vec) {
+                        const auto& cur_func = context.functions[cur_func_index];
+                        fmt::print(stderr, "  {}\n", cur_func.name);
+                    }
+                    return false;
+                }
+                jal_target_name = context.functions[real_func_index].name;
             } else {
-                real_func_index = matching_funcs_vec.front();
-                ambiguous = false;
-            }
-            if (ambiguous) {
-                fmt::print(stderr, "Ambiguous jal target: 0x{:08X}\n", target_func_vram);
-                for (size_t cur_func_index : matching_funcs_vec) {
-                    const auto& cur_func = context.functions[cur_func_index];
-                    fmt::print(stderr, "  {}\n", cur_func.name);
+                const auto& section = context.sections[func.section_index];
+                if (target_func_vram >= section.ram_addr && target_func_vram < section.ram_addr + section.size) {
+                    jal_target_name = fmt::format("static_{}_{:08X}", func.section_index, target_func_vram);
+                    static_funcs_out[func.section_index].push_back(target_func_vram);
+                } else {
+                    fmt::print(stderr, "No function found for jal target: 0x{:08X}\n", target_func_vram);
+                    return false;
                 }
-                return false;
             }
             needs_link_branch = true;
-            print_unconditional_branch("{}(rdram, ctx)", context.functions[real_func_index].name);
+            print_unconditional_branch("{}(rdram, ctx)", jal_target_name);
             break;
         }
     case InstrId::cpu_jalr:
@@ -335,26 +348,43 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         if (rs == (int)rabbitizer::Registers::Cpu::GprO32::GPR_O32_ra) {
             print_unconditional_branch("return");
         } else {
-            auto find_result = std::find_if(stats.jump_tables.begin(), stats.jump_tables.end(),
+            auto jtbl_find_result = std::find_if(stats.jump_tables.begin(), stats.jump_tables.end(),
                 [instr_vram](const RecompPort::JumpTable& jtbl) {
                     return jtbl.jr_vram == instr_vram;
                 });
-            if (find_result == stats.jump_tables.end()) {
-                fmt::print(stderr, "No jump table found for jr at 0x{:08X}\n", instr_vram);
-            }
-            const RecompPort::JumpTable& cur_jtbl = *find_result;
-            bool dummy_needs_link_branch, dummy_is_branch_likely;
-            process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely);
-            print_indent();
-            fmt::print(output_file, "switch (jr_addend_{:08X} >> 2) {{\n", cur_jtbl.jr_vram);
-            for (size_t entry_index = 0; entry_index < cur_jtbl.entries.size(); entry_index++) {
+            
+            if (jtbl_find_result != stats.jump_tables.end()) {
+                const RecompPort::JumpTable& cur_jtbl = *jtbl_find_result;
+                bool dummy_needs_link_branch, dummy_is_branch_likely;
+                process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
                 print_indent();
-                print_line("case {}: goto L_{:08X}; break", entry_index, cur_jtbl.entries[entry_index]);
+                fmt::print(output_file, "switch (jr_addend_{:08X} >> 2) {{\n", cur_jtbl.jr_vram);
+                for (size_t entry_index = 0; entry_index < cur_jtbl.entries.size(); entry_index++) {
+                    print_indent();
+                    print_line("case {}: goto L_{:08X}; break", entry_index, cur_jtbl.entries[entry_index]);
+                }
+                print_indent();
+                print_line("default: switch_error(__func__, 0x{:08X}, 0x{:08X})", instr_vram, cur_jtbl.vram);
+                print_indent();
+                fmt::print(output_file, "}}\n");
+                break;
             }
-            print_indent();
-            print_line("default: switch_error(__func__, 0x{:08X}, 0x{:08X})", instr_vram, cur_jtbl.vram);
-            print_indent();
-            fmt::print(output_file, "}}\n");
+
+            auto jump_find_result = std::find_if(stats.absolute_jumps.begin(), stats.absolute_jumps.end(),
+                [instr_vram](const RecompPort::AbsoluteJump& jump) {
+                return jump.instruction_vram == instr_vram;
+            });
+
+            if (jump_find_result != stats.absolute_jumps.end()) {
+                needs_link_branch = true;
+                print_unconditional_branch("LOOKUP_FUNC({})(rdram, ctx)", (uint64_t)(int32_t)jump_find_result->jump_target);
+                // jr doesn't link so it acts like a tail call, meaning we should return directly after the jump returns
+                print_line("return");
+                break;
+            }
+
+
+            fmt::print(stderr, "No jump table found for jr at 0x{:08X}\n", instr_vram);
         }
         break;
     case InstrId::cpu_bnel:
@@ -429,6 +459,15 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
             print_line("{}{} = ctx->f{}.u32h", ctx_gpr_prefix(rt), rt, fs - 1);
         }
         break;
+    //case InstrId::cpu_dmfc1:
+    //    if ((fs & 1) == 0) {
+    //        // even fpr
+    //        print_line("{}{} = ctx->f{}.u64", ctx_gpr_prefix(rt), rt, fs);
+    //    } else {
+    //        fmt::print(stderr, "Invalid operand for dmfc1: f{}\n", fs);
+    //        return false;
+    //    }
+    //    break;
     case InstrId::cpu_lwc1:
         if ((ft & 1) == 0) {
             // even fpr
@@ -751,6 +790,100 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
             return false;
         }
         break;
+    //case InstrId::cpu_trunc_l_s:
+    //    if ((fd & 1) == 0 && (fs & 1) == 0) {
+    //        // even fpr
+    //        print_line("ctx->f{}.u64 = TRUNC_L_S(ctx->f{}.fl)", fd, fs);
+    //    } else {
+    //        fmt::print(stderr, "Invalid operand(s) for trunc.l.s: f{} f{}\n", fd, fs);
+    //        return false;
+    //    }
+    //    break;
+    //case InstrId::cpu_trunc_l_d:
+    //    if ((fd & 1) == 0 && (fs & 1) == 0) {
+    //        // even fpr
+    //        print_line("ctx->f{}.u64 = TRUNC_L_D(ctx->f{}.d)", fd, fs);
+    //    } else {
+    //        fmt::print(stderr, "Invalid operand(s) for trunc.l.d: f{} f{}\n", fd, fs);
+    //        return false;
+    //    }
+    //    break;
+    // TODO rounding modes
+    case InstrId::cpu_ctc1:
+    case InstrId::cpu_cfc1:
+        break;
+    case InstrId::cpu_cvt_w_s:
+        if ((fd & 1) == 0 && (fs & 1) == 0) {
+            // even fpr
+            print_line("ctx->f{}.u32l = CVT_W_S(ctx->f{}.fl)", fd, fs);
+        } else {
+            fmt::print(stderr, "Invalid operand(s) for cvt.w.s: f{} f{}\n", fd, fs);
+            return false;
+        }
+        break;
+    case InstrId::cpu_cvt_w_d:
+        if ((fd & 1) == 0 && (fs & 1) == 0) {
+            // even fpr
+            print_line("ctx->f{}.u32l = CVT_W_D(ctx->f{}.d)", fd, fs);
+        } else {
+            fmt::print(stderr, "Invalid operand(s) for cvt.w.d: f{} f{}\n", fd, fs);
+            return false;
+        }
+        break;
+    case InstrId::cpu_round_w_s:
+        if ((fd & 1) == 0 && (fs & 1) == 0) {
+            // even fpr
+            print_line("ctx->f{}.u32l = lroundf(ctx->f{}.fl)", fd, fs);
+        } else {
+            fmt::print(stderr, "Invalid operand(s) for round.w.s: f{} f{}\n", fd, fs);
+            return false;
+        }
+        break;
+    case InstrId::cpu_round_w_d:
+        if ((fd & 1) == 0 && (fs & 1) == 0) {
+            // even fpr
+            print_line("ctx->f{}.u32l = lround(ctx->f{}.d)", fd, fs);
+        } else {
+            fmt::print(stderr, "Invalid operand(s) for round.w.d: f{} f{}\n", fd, fs);
+            return false;
+        }
+        break;
+    case InstrId::cpu_ceil_w_s:
+        if ((fd & 1) == 0 && (fs & 1) == 0) {
+            // even fpr
+            print_line("ctx->f{}.u32l = S32(ceilf(ctx->f{}.fl))", fd, fs);
+        } else {
+            fmt::print(stderr, "Invalid operand(s) for ceil.w.s: f{} f{}\n", fd, fs);
+            return false;
+        }
+        break;
+    case InstrId::cpu_ceil_w_d:
+        if ((fd & 1) == 0 && (fs & 1) == 0) {
+            // even fpr
+            print_line("ctx->f{}.u32l = S32(ceil(ctx->f{}.d))", fd, fs);
+        } else {
+            fmt::print(stderr, "Invalid operand(s) for ceil.w.d: f{} f{}\n", fd, fs);
+            return false;
+        }
+        break;
+    case InstrId::cpu_floor_w_s:
+        if ((fd & 1) == 0 && (fs & 1) == 0) {
+            // even fpr
+            print_line("ctx->f{}.u32l = S32(floorf(ctx->f{}.fl))", fd, fs);
+        } else {
+            fmt::print(stderr, "Invalid operand(s) for floor.w.s: f{} f{}\n", fd, fs);
+            return false;
+        }
+        break;
+    case InstrId::cpu_floor_w_d:
+        if ((fd & 1) == 0 && (fs & 1) == 0) {
+            // even fpr
+            print_line("ctx->f{}.u32l = S32(floor(ctx->f{}.d))", fd, fs);
+        } else {
+            fmt::print(stderr, "Invalid operand(s) for floor.w.d: f{} f{}\n", fd, fs);
+            return false;
+        }
+        break;
     default:
         fmt::print(stderr, "Unhandled instruction: {}\n", instr.getOpcodeName());
         return false;
@@ -763,7 +896,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     return true;
 }
 
-bool RecompPort::recompile_function(const RecompPort::Context& context, const RecompPort::Function& func, std::string_view output_path) {
+bool RecompPort::recompile_function(const RecompPort::Context& context, const RecompPort::Function& func, std::string_view output_path, std::span<std::vector<uint32_t>> static_funcs_out) {
     //fmt::print("Recompiling {}\n", func.name);
     std::vector<rabbitizer::InstructionCpu> instructions;
 
@@ -835,7 +968,7 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
             ++cur_label;
         }
         // Process the current instruction and check for errors
-        if (process_instruction(context, func, stats, skipped_insns, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, needs_link_branch, is_branch_likely) == false) {
+        if (process_instruction(context, func, stats, skipped_insns, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, needs_link_branch, is_branch_likely, static_funcs_out) == false) {
             fmt::print(stderr, "Error in recompilation, clearing {}\n", output_path);
             output_file.clear();
             return false;
@@ -856,7 +989,7 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
     }
 
     // Terminate the function
-    fmt::print(output_file, "}}\n");
+    fmt::print(output_file, ";}}\n");
 
     return true;
 }
