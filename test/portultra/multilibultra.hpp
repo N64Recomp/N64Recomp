@@ -21,6 +21,7 @@ void preinit(uint8_t* rdram, uint8_t* rom);
 void native_init();
 void init_scheduler();
 void init_events(uint8_t* rdram, uint8_t* rom);
+void init_timers(RDRAM_ARG1);
 void native_thread_init(OSThread *t);
 void set_self_paused(RDRAM_ARG1);
 void wait_for_resumed(RDRAM_ARG1);
@@ -42,6 +43,9 @@ void set_main_thread();
 bool is_game_thread();
 void submit_rsp_task(RDRAM_ARG PTR(OSTask) task);
 void send_si_message();
+uint32_t get_speed_multiplier();
+std::chrono::system_clock::time_point get_start();
+std::chrono::system_clock::duration time_since_start();
 
 class preemption_guard {
 public:

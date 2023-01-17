@@ -166,8 +166,12 @@ s32 osRecvMesg(RDRAM_ARG PTR(OSMesgQueue), PTR(OSMesg), s32);
 void osSetEventMesg(RDRAM_ARG OSEvent, PTR(OSMesgQueue), OSMesg);
 void osViSetEvent(RDRAM_ARG PTR(OSMesgQueue), OSMesg, u32);
 void osViSwapBuffer(RDRAM_ARG PTR(void) frameBufPtr);
+PTR(void) osViGetNextFramebuffer();
+PTR(void) osViGetCurrentFramebuffer();
 u32 osGetCount();
 OSTime osGetTime();
+int osSetTimer(RDRAM_ARG PTR(OSTimer) timer, OSTime countdown, OSTime interval, PTR(OSMesgQueue) mq, OSMesg msg);
+int osStopTimer(RDRAM_ARG PTR(OSTimer) timer);
 u32 osVirtualToPhysical(PTR(void) addr);
 
 #ifdef __cplusplus

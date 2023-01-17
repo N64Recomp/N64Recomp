@@ -29,21 +29,25 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>ClangCL</PlatformToolset>
+    <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>ClangCL</PlatformToolset>
+    <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -71,6 +75,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <CopyCppRuntimeToOutputDir>true</CopyCppRuntimeToOutputDir>
+    <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <CopyCppRuntimeToOutputDir>true</CopyCppRuntimeToOutputDir>
@@ -79,11 +84,12 @@
     <ClCompile>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>Level1</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>$(ProjectDir)..;$(ProjectDir)thirdparty;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/utf-8</AdditionalOptions>
     </ClCompile>
     <Link>
       <TargetMachine>MachineX86</TargetMachine>
@@ -95,10 +101,11 @@
     <ClCompile>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>Level1</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <AdditionalIncludeDirectories>$(ProjectDir)..;$(ProjectDir)thirdparty;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/utf-8</AdditionalOptions>
     </ClCompile>
     <Link>
       <TargetMachine>MachineX86</TargetMachine>
@@ -112,12 +119,12 @@
     <ClCompile>
       <AdditionalIncludeDirectories>$(ProjectDir)..;$(ProjectDir)thirdparty;$(ProjectDir)Lib\SDL2-2.24.0\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalOptions>
-      </AdditionalOptions>
+      <AdditionalOptions>/utf-8</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <WarningLevel>Level1</WarningLevel>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <AdditionalDependencies>$(ProjectDir)RT64\$(Configuration)\RT64.lib;$(ProjectDir)Lib\SDL2-2.24.0\lib\$(Platform)\SDL2.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
     </Link>
@@ -130,12 +137,12 @@ XCOPY "$(ProjectDir)Lib\SDL2-2.24.0\lib\$(Platform)\SDL2.dll" "$(TargetDir)" /S 
     <ClCompile>
       <AdditionalIncludeDirectories>$(ProjectDir)..;$(ProjectDir)thirdparty;$(ProjectDir)Lib\SDL2-2.24.0\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalOptions>
-      </AdditionalOptions>
+      <AdditionalOptions>/utf-8</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <WarningLevel>Level1</WarningLevel>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <AdditionalDependencies>$(ProjectDir)RT64\$(Configuration)\RT64.lib;$(ProjectDir)Lib\SDL2-2.24.0\lib\$(Platform)\SDL2.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
     </Link>
@@ -145,10 +152,9 @@ XCOPY "$(ProjectDir)Lib\SDL2-2.24.0\lib\$(Platform)\SDL2.dll" "$(TargetDir)" /S 
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <_WildCardClCompile Include="funcs\*.c" />
-    <ClCompile Include="@(_WildCardClCompile)" />
     <ClCompile Include="funcs\lookup.cpp" />
     <ClCompile Include="portultra\events.cpp" />
+    <ClCompile Include="portultra\timer.cpp" />
     <ClCompile Include="portultra\ultrainit.cpp" />
     <ClCompile Include="portultra\port_main.c" />
     <ClCompile Include="portultra\mesgqueue.cpp" />
@@ -162,9 +168,13 @@ XCOPY "$(ProjectDir)Lib\SDL2-2.24.0\lib\$(Platform)\SDL2.dll" "$(TargetDir)" /S 
     <ClCompile Include="src\dp.cpp" />
     <ClCompile Include="src\eep.cpp" />
     <ClCompile Include="portultra\misc_ultra.cpp" />
+    <ClCompile Include="src\euc-jp.cpp" />
     <ClCompile Include="src\math_routines.cpp" />
+    <ClCompile Include="src\overlays.cpp" />
+    <ClCompile Include="src\pak.cpp" />
     <ClCompile Include="src\pi.cpp" />
     <ClCompile Include="src\portultra_translation.cpp" />
+    <ClCompile Include="src\print.cpp" />
     <ClCompile Include="src\recomp.cpp" />
     <ClCompile Include="src\sp.cpp" />
     <ClCompile Include="src\vi.cpp" />
@@ -176,9 +186,15 @@ XCOPY "$(ProjectDir)Lib\SDL2-2.24.0\lib\$(Platform)\SDL2.dll" "$(TargetDir)" /S 
     <ClInclude Include="portultra\platform_specific.h" />
     <ClInclude Include="RT64\rt64_layer.h" />
     <ClInclude Include="portultra\ultra64.h" />
+    <ClInclude Include="src\euc-jp.h" />
     <ClInclude Include="thirdparty\blockingconcurrentqueue.h" />
     <ClInclude Include="thirdparty\concurrentqueue.h" />
     <ClInclude Include="thirdparty\lightweightsemaphore.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="RecompFuncs\RecompFuncs.vcxproj">
+      <Project>{d080900b-5c12-45fc-941b-515a5fea7594}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

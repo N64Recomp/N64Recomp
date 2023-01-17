@@ -1,9 +1,15 @@
 #include <cstdio>
 #include <thread>
 #include <cassert>
+#include <string>
 
 #include "ultra64.h"
 #include "multilibultra.hpp"
+
+// Native APIs only used to set thread names for easier debugging
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 extern "C" void bootproc();
 
@@ -40,6 +46,16 @@ static void _thread_func(RDRAM_ARG PTR(OSThread) self_, PTR(thread_func_t) entry
     debug_printf("[Thread] Thread created: %d\n", self->id);
     thread_self = self_;
     is_game_thread = true;
+
+    // Set the thread name
+#ifdef _WIN32
+    std::wstring thread_name = L"Game Thread " + std::to_wstring(self->id);
+    HRESULT r;
+    r = SetThreadDescription(
+        GetCurrentThread(),
+        thread_name.c_str()
+    );
+#endif
 
     // Perform any necessary native thread initialization.
     Multilibultra::native_thread_init(self);
@@ -93,7 +109,7 @@ extern "C" void osCreateThread(RDRAM_ARG PTR(OSThread) t_, OSId id, PTR(thread_f
     t->priority = pri;
     t->id = id;
     t->state = OSThreadState::PAUSED;
-    t->sp = sp;
+    t->sp = sp - 0x10; // Set up the first stack frame
 
     // Spawn a new thread, which will immediately pause itself and wait until it's been started.
     t->context = new UltraThreadContext{};

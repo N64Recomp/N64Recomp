@@ -17,12 +17,14 @@ std::unordered_set<std::string> reimplemented_funcs{
     // OS initialize functions
     "__osInitialize_common",
     "osInitialize",
+    "osGetMemSize",
     // Audio interface functions
     "osAiGetLength",
     "osAiGetStatus",
     "osAiSetFrequency",
     "osAiSetNextBuffer",
     // Video interface functions
+    "osViSetXScale",
     "osViSetYScale",
     "osCreateViManager",
     "osViBlack",
@@ -44,6 +46,8 @@ std::unordered_set<std::string> reimplemented_funcs{
     "osContInit",
     "osContStartReadData",
     "osContGetReadData",
+    "osContStartQuery",
+    "osContGetQuery",
     "osContSetCh",
     // EEPROM functions
     "osEepromProbe",
@@ -56,6 +60,14 @@ std::unordered_set<std::string> reimplemented_funcs{
     "osMotorInit",
     "osMotorStart",
     "osMotorStop",
+    // PFS functions
+    "osPfsInitPak",
+    "osPfsFreeBlocks",
+    "osPfsAllocateFile",
+    "osPfsDeleteFile",
+    "osPfsFileState",
+    "osPfsFindFile",
+    "osPfsReadWriteFile",
     // Parallel interface (cartridge, DMA, etc.) functions
     "osCartRomInit",
     "osCreatePiManager",
@@ -63,6 +75,7 @@ std::unordered_set<std::string> reimplemented_funcs{
     "osEPiStartDma",
     "osPiGetStatus",
     "osEPiRawStartDma",
+    "osEPiReadIo",
     // Threading functions
     "osCreateThread",
     "osStartThread",
@@ -79,6 +92,8 @@ std::unordered_set<std::string> reimplemented_funcs{
     "osSetEventMesg",
     // Timer functions
     "osGetTime",
+    "osSetTimer",
+    "osStopTimer",
     // interrupt functions
     "osSetIntMask",
     "__osDisableInt",
@@ -94,6 +109,7 @@ std::unordered_set<std::string> reimplemented_funcs{
     "osWritebackDCache",
     "osWritebackDCacheAll",
     // Debug functions
+    "is_proutSyncPrintf",
     "__checkHardware_msp",
     "__checkHardware_kmc",
     "__checkHardware_isv",
@@ -119,6 +135,7 @@ std::unordered_set<std::string> ignored_funcs {
     "__createSpeedParam",
     "__osInitialize_common",
     "osInitialize",
+    "osGetMemSize",
     // Audio interface functions
     "osAiGetLength",
     "osAiGetStatus",
@@ -615,26 +632,74 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
     return found_entrypoint_func;
 }
 
+struct SegmentEntry {
+    ELFIO::Elf64_Off data_offset;
+    ELFIO::Elf64_Addr physical_address;
+    ELFIO::Elf_Xword memory_size;
+};
+
 ELFIO::section* read_sections(RecompPort::Context& context, const ELFIO::elfio& elf_file) {
     ELFIO::section* symtab_section = nullptr;
+    std::vector<SegmentEntry> segments{};
+    segments.resize(elf_file.segments.size());
+
+    // Copy the data for each segment into the segment entry list
+    for (size_t segment_index = 0; segment_index < elf_file.segments.size(); segment_index++) {
+        const auto& segment = *elf_file.segments[segment_index];
+        segments[segment_index].data_offset = segment.get_offset();
+        segments[segment_index].physical_address = segment.get_physical_address();
+        segments[segment_index].memory_size = segment.get_memory_size();
+    }
+
+    // Sort the segments by physical address
+    std::sort(segments.begin(), segments.end(),
+        [](const SegmentEntry& lhs, const SegmentEntry& rhs) {
+            return lhs.data_offset < rhs.data_offset;
+        }
+    );
+
     // Iterate over every section to record rom addresses and find the symbol table
     fmt::print("Sections\n");
-    for (const std::unique_ptr<ELFIO::section>& section : elf_file.sections) {
+    for (const auto& section : elf_file.sections) {
         auto& section_out = context.sections[section->get_index()];
         //fmt::print("  {}: {} @ 0x{:08X}, 0x{:08X}\n", section->get_index(), section->get_name(), section->get_address(), context.rom.size());
         // Set the rom address of this section to the current accumulated ROM size
-        section_out.rom_addr = context.rom.size();
         section_out.ram_addr = section->get_address();
         section_out.size = section->get_size();
-        // If this section isn't bss (SHT_NOBITS) and ends up in the rom (SHF_ALLOC), copy this section into the rom
+
+        // If this section isn't bss (SHT_NOBITS) and ends up in the rom (SHF_ALLOC), 
+        // find this section's rom address and copy it into the rom
         if (section->get_type() != ELFIO::SHT_NOBITS && section->get_flags() & ELFIO::SHF_ALLOC) {
-            size_t cur_rom_size = context.rom.size();
-            context.rom.resize(context.rom.size() + section->get_size());
-            std::copy(section->get_data(), section->get_data() + section->get_size(), &context.rom[cur_rom_size]);
-        }
-        // Check if this section is the symbol table and record it if so
-        if (section->get_type() == ELFIO::SHT_SYMTAB) {
-            symtab_section = section.get();
+            // Find the segment this section is in to determine the physical (rom) address of the section
+            auto segment_it = std::upper_bound(segments.begin(), segments.end(), section->get_offset(),
+                [](ELFIO::Elf64_Off section_offset, const SegmentEntry& segment) {
+                    return section_offset < segment.data_offset;
+                }
+            );
+            if (segment_it == segments.begin()) {
+                fmt::print(stderr, "Could not find segment that section {} belongs to!\n", section->get_name().c_str());
+                return nullptr;
+            }
+            // Upper bound returns the iterator after the element we're looking for, so rewind by one
+            // This is safe because we checked if segment_it was segments.begin() already, which is the minimum value it could be
+            const SegmentEntry& segment = *(segment_it - 1);
+            // Check to be sure that the section is actually in this segment
+            if (section->get_offset() >= segment.data_offset + segment.memory_size) {
+                fmt::print(stderr, "Section {} out of range of segment at offset 0x{:08X}\n", section->get_name().c_str(), segment.data_offset);
+                return nullptr;
+            }
+            // Calculate the rom address based on this section's offset into the segment and the segment's rom address
+            section_out.rom_addr = segment.physical_address + (section->get_offset() - segment.data_offset);
+            // Resize the output rom if needed to fit this section
+            size_t required_rom_size = section_out.rom_addr + section_out.size;
+            if (required_rom_size > context.rom.size()) {
+                context.rom.resize(required_rom_size);
+            }
+            // Copy this section's data into the rom
+            std::copy(section->get_data(), section->get_data() + section->get_size(), &context.rom[section_out.rom_addr]);
+        } else {
+            // Otherwise mark this section as having an invalid rom address
+            section_out.rom_addr = (ELFIO::Elf_Xword)-1;
         }
         // Check if this section is marked as executable, which means it has code in it
         if (section->get_flags() & ELFIO::SHF_EXECINSTR) {
@@ -642,6 +707,13 @@ ELFIO::section* read_sections(RecompPort::Context& context, const ELFIO::elfio& 
             context.executable_section_count++;
         }
         section_out.name = section->get_name();
+    }
+    // Find the symbol table
+    for (const auto& section : elf_file.sections) {
+        // Check if this section is the symbol table and record it if so
+        if (section->get_type() == ELFIO::SHT_SYMTAB) {
+            symtab_section = section.get();
+        }
     }
     return symtab_section;
 }
@@ -735,15 +807,15 @@ int main(int argc, char** argv) {
 
     fmt::print("Function count: {}\n", context.functions.size());
 
-    std::ofstream func_lookup_file{ "test/funcs/lookup.cpp" };
+    std::ofstream lookup_file{ "test/funcs/lookup.cpp" };
     std::ofstream func_header_file{ "test/funcs/funcs.h" };
 
-    fmt::print(func_lookup_file,
-        "#include <utility>\n"
+    fmt::print(lookup_file,
+        //"#include <utility>\n"
         "#include \"recomp.h\"\n"
-        "#include \"funcs.h\"\n"
+        //"#include \"funcs.h\"\n"
         "\n"
-        "std::pair<uint32_t, recomp_func_t*> funcs[] {{\n"
+        //"std::pair<uint32_t, recomp_func_t*> funcs[] {{\n"
     );
 
     fmt::print(func_header_file,
@@ -766,18 +838,18 @@ int main(int argc, char** argv) {
         if (!func.ignored && func.words.size() != 0) {
             fmt::print(func_header_file,
                 "void {}(uint8_t* restrict rdram, recomp_context* restrict ctx);\n", func.name);
-            fmt::print(func_lookup_file,
-                "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
+            //fmt::print(lookup_file,
+            //    "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
             if (RecompPort::recompile_function(context, func, output_dir + "ignore.txt"/*func.name + ".c"*/, static_funcs_by_section) == false) {
-                func_lookup_file.clear();
+                //lookup_file.clear();
                 fmt::print(stderr, "Error recompiling {}\n", func.name);
                 std::exit(EXIT_FAILURE);
             }
         } else if (func.reimplemented) {
             fmt::print(func_header_file,
                        "void {}(uint8_t* restrict rdram, recomp_context* restrict ctx);\n", func.name);
-            fmt::print(func_lookup_file,
-                       "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
+            //fmt::print(lookup_file,
+            //           "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
         }
     }
 
@@ -832,20 +904,20 @@ int main(int argc, char** argv) {
 
             fmt::print(func_header_file,
                        "void {}(uint8_t* restrict rdram, recomp_context* restrict ctx);\n", func.name);
-            fmt::print(func_lookup_file,
-                       "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
+            //fmt::print(lookup_file,
+            //           "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
             if (RecompPort::recompile_function(context, func, output_dir + func.name + ".c", static_funcs_by_section) == false) {
-                func_lookup_file.clear();
+                //lookup_file.clear();
                 fmt::print(stderr, "Error recompiling {}\n", func.name);
                 std::exit(EXIT_FAILURE);
             }
         }
     }
 
-    fmt::print(func_lookup_file,
-        "}};\n"
-        "extern const size_t num_funcs = sizeof(funcs) / sizeof(funcs[0]);\n"
-        "\n"
+    fmt::print(lookup_file,
+        //"}};\n"
+        //"extern const size_t num_funcs = sizeof(funcs) / sizeof(funcs[0]);\n"
+        //"\n"
         "gpr get_entrypoint_address() {{ return (gpr)(int32_t)0x{:08X}u; }}\n"
         "\n"
         "const char* get_rom_name() {{ return \"{}\"; }}\n"
@@ -862,8 +934,8 @@ int main(int argc, char** argv) {
     );
 
     {
-        std::ofstream overlay_file(output_dir + "recomp_overlays.c");
-        std::string section_load_table = "SectionTableEntry sections[] = {\n";
+        std::ofstream overlay_file(output_dir + "recomp_overlays.inl");
+        std::string section_load_table = "static SectionTableEntry section_table[] = {\n";
 
         fmt::print(overlay_file, 
             "#include \"recomp.h\"\n"
@@ -888,7 +960,7 @@ int main(int argc, char** argv) {
                 section_load_table += fmt::format("    {{ .rom_addr = 0x{0:08X}, .ram_addr = 0x{1:08X}, .size = 0x{2:08X}, .funcs = {3}, .num_funcs = ARRLEN({3}) }},\n",
                                                   section.rom_addr, section.ram_addr, section.size, section_funcs_array_name);
 
-                fmt::print(overlay_file, "FuncEntry {}[] = {{\n", section_funcs_array_name);
+                fmt::print(overlay_file, "static FuncEntry {}[] = {{\n", section_funcs_array_name);
 
                 for (size_t func_index : section_funcs) {
                     const auto& func = context.functions[func_index];

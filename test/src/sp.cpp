@@ -15,7 +15,7 @@ extern "C" void osSpTaskStartGo_recomp(uint8_t* restrict rdram, recomp_context* 
     if (task->t.type == M_GFXTASK) {
         //printf("[sp] Gfx task: %08X\n", (uint32_t)ctx->r4);
     } else if (task->t.type == M_AUDTASK) {
-        printf("[sp] Audio task: %08X\n", (uint32_t)ctx->r4);
+        //printf("[sp] Audio task: %08X\n", (uint32_t)ctx->r4);
     }
     // For debugging
     if (dump_frame) {

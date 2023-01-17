@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <utility>
 #include <mutex>
+#include <queue>
 
 #include <Windows.h>
 #include "SDL.h"
@@ -29,6 +30,8 @@ static struct {
     struct {
         std::thread thread;
         PTR(OSMesgQueue) mq = NULLPTR;
+        PTR(void) current_buffer = NULLPTR;
+        PTR(void) next_buffer = NULLPTR;
         OSMesg msg = (OSMesg)0;
         int retrace_count = 1;
     } vi;
@@ -55,7 +58,6 @@ static struct {
     // The same message queue may be used for multiple events, so share a mutex for all of them
     std::mutex message_mutex;
     uint8_t* rdram;
-    std::chrono::system_clock::time_point start;
     moodycamel::BlockingConcurrentQueue<Action> action_queue{};
 } events_context{};
 
@@ -89,43 +91,15 @@ extern "C" void osViSetEvent(RDRAM_ARG PTR(OSMesgQueue) mq_, OSMesg msg, u32 ret
     events_context.vi.retrace_count = retrace_count;
 }
 
-constexpr uint32_t speed_multiplier = 1;
-
-// N64 CPU counter ticks per millisecond
-constexpr uint32_t counter_per_ms = 46'875 * speed_multiplier;
-
-uint64_t duration_to_count(std::chrono::system_clock::duration duration) {
-    uint64_t delta_micros = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
-    // More accurate than using a floating point timer, will only overflow after running for 12.47 years
-    // Units: (micros * (counts/millis)) / (micros/millis) = counts
-    uint64_t total_count = (delta_micros * counter_per_ms) / 1000;
-
-    return total_count;
-}
-
-extern "C" u32 osGetCount() {
-    uint64_t total_count = duration_to_count(std::chrono::system_clock::now() - events_context.start);
-
-    // Allow for overflows, which is how osGetCount behaves
-    return (uint32_t)total_count;
-}
-
-extern "C" OSTime osGetTime() {
-    uint64_t total_count = duration_to_count(std::chrono::system_clock::now() - events_context.start);
-
-    return total_count;
-}
-
 void vi_thread_func() {
     using namespace std::chrono_literals;
     
-    events_context.start = std::chrono::system_clock::now();
     uint64_t total_vis = 0;
     int remaining_retraces = events_context.vi.retrace_count;
 
     while (true) {
         // Determine the next VI time (more accurate than adding 16ms each VI interrupt)
-        auto next = events_context.start + (total_vis * 1000000us) / (60 * speed_multiplier);
+        auto next = Multilibultra::get_start() + (total_vis * 1000000us) / (60 * Multilibultra::get_speed_multiplier());
         //if (next > std::chrono::system_clock::now()) {
         //    printf("Sleeping for %" PRIu64 " us to get from %" PRIu64 " us to %" PRIu64 " us \n",
         //        (next - std::chrono::system_clock::now()) / 1us,
@@ -136,7 +110,7 @@ void vi_thread_func() {
         //}
         std::this_thread::sleep_until(next);
         // Calculate how many VIs have passed
-        uint64_t new_total_vis = ((std::chrono::system_clock::now() - events_context.start) * (60 * speed_multiplier) / 1000ms) + 1;
+        uint64_t new_total_vis = (Multilibultra::time_since_start() * (60 * Multilibultra::get_speed_multiplier()) / 1000ms) + 1;
         if (new_total_vis > total_vis + 1) {
             //printf("Skipped % " PRId64 " frames in VI interupt thread!\n", new_total_vis - total_vis - 1);
         }
@@ -223,7 +197,7 @@ int sdl_event_filter(void* userdata, SDL_Event* event) {
     return 1;
 }
 
-void gfx_thread_func(uint8_t* rdram, uint8_t* rom) {
+void event_thread_func(uint8_t* rdram, uint8_t* rom) {
     using namespace std::chrono_literals;
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0) {
         fprintf(stderr, "Failed to initialize SDL2: %s\n", SDL_GetError());
@@ -234,7 +208,7 @@ void gfx_thread_func(uint8_t* rdram, uint8_t* rom) {
     // TODO set this window title in RT64, create the window here and send it to RT64, or something else entirely
     // as the current window name visibly changes as RT64 is initialized
     SDL_SetWindowTitle(window, "Recomp");
-    SDL_SetEventFilter(sdl_event_filter, nullptr);
+    //SDL_SetEventFilter(sdl_event_filter, nullptr);
 
     while (true) {
         // Try to pull an action from the queue
@@ -254,17 +228,33 @@ void gfx_thread_func(uint8_t* rdram, uint8_t* rom) {
                     std::exit(EXIT_FAILURE);
                 }
             } else if (const auto* swap_action = std::get_if<SwapBuffersAction>(&action)) {
+                events_context.vi.current_buffer = events_context.vi.next_buffer;
                 RT64UpdateScreen(swap_action->origin);
             }
         }
 
         // Handle events
-        SDL_PumpEvents();
+        constexpr int max_events_per_frame = 16;
+        SDL_Event cur_event;
+        int i = 0;
+        while (i++ < max_events_per_frame && SDL_PollEvent(&cur_event)) {
+            sdl_event_filter(nullptr, &cur_event);
+        }
+        //SDL_PumpEvents();
     }
 }
 
 extern "C" void osViSwapBuffer(RDRAM_ARG PTR(void) frameBufPtr) {
+    events_context.vi.next_buffer = frameBufPtr;
     events_context.action_queue.enqueue(SwapBuffersAction{ osVirtualToPhysical(frameBufPtr) + 640 });
+}
+
+extern "C" PTR(void) osViGetNextFramebuffer() {
+    return events_context.vi.next_buffer;
+}
+
+extern "C" PTR(void) osViGetCurrentFramebuffer() {
+    return events_context.vi.current_buffer;
 }
 
 void Multilibultra::submit_rsp_task(RDRAM_ARG PTR(OSTask) task_) {
@@ -280,5 +270,5 @@ void Multilibultra::send_si_message() {
 void Multilibultra::init_events(uint8_t* rdram, uint8_t* rom) {
     events_context.rdram = rdram;
     events_context.vi.thread = std::thread{ vi_thread_func };
-    events_context.sp.thread = std::thread{ gfx_thread_func, rdram, rom };
+    events_context.sp.thread = std::thread{ event_thread_func, rdram, rom };
 }

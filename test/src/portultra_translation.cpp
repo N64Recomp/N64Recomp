@@ -70,8 +70,18 @@ extern "C" void osGetCount_recomp(uint8_t * restrict rdram, recomp_context * res
 
 extern "C" void osGetTime_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
     uint64_t total_count = osGetTime();
-    ctx->r2 = (uint32_t)(total_count >> 32);
-    ctx->r3 =  (int32_t)(total_count >> 0);
+    ctx->r2 = (int32_t)(total_count >> 32);
+    ctx->r3 = (int32_t)(total_count >> 0);
+}
+
+extern "C" void osSetTimer_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    uint64_t countdown = ((uint64_t)(ctx->r6) << 32) | ((ctx->r7) & 0xFFFFFFFFu);
+    uint64_t interval = load_doubleword(rdram, ctx->r29, 0x10);
+    ctx->r2 = osSetTimer(rdram, (int32_t)ctx->r4, countdown, interval, (int32_t)MEM_W(0x18, ctx->r29), (OSMesg)MEM_W(0x1C, ctx->r29));
+}
+
+extern "C" void osStopTimer_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+    ctx->r2 = osStopTimer(rdram, (int32_t)ctx->r4);
 }
 
 extern "C" void osVirtualToPhysical_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
@@ -108,43 +118,6 @@ extern "C" void __osRestoreInt_recomp(uint8_t * restrict rdram, recomp_context *
 
 extern "C" void __osSetFpcCsr_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
     ctx->r2 = 0;
-}
-
-extern "C" void __checkHardware_msp_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
-    ctx->r2 = 0;
-}
-
-extern "C" void __checkHardware_kmc_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
-    ctx->r2 = 0;
-}
-
-extern "C" void __checkHardware_isv_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
-    ctx->r2 = 0;
-}
-
-extern "C" void __osInitialize_msp_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
-}
-
-extern "C" void __osInitialize_kmc_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
-}
-
-extern "C" void __osInitialize_isv_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
-}
-
-extern "C" void __osRdbSend_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
-    gpr buf = ctx->r4;
-    size_t size = ctx->r5;
-    u32 type = (u32)ctx->r6;
-    std::unique_ptr<char[]> to_print = std::make_unique<char[]>(size);
-
-    for (size_t i = 0; i < size; i++) {
-        to_print[i] = MEM_B(i, buf);
-    }
-    to_print[size] = '\x00';
-
-    fwrite(to_print.get(), 1, size, stdout);
-
-    ctx->r2 = size;
 }
 
 // For the Mario Party games (not working)

@@ -4,6 +4,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 16.0.32929.386
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RecompTest", "RecompTest.vcxproj", "{73819ED8-8A5B-4554-B3F3-60257A43F296}"
+	ProjectSection(ProjectDependencies) = postProject
+		{D080900B-5C12-45FC-941B-515A5FEA7594} = {D080900B-5C12-45FC-941B-515A5FEA7594}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RecompFuncs", "RecompFuncs\RecompFuncs.vcxproj", "{D080900B-5C12-45FC-941B-515A5FEA7594}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +26,14 @@ Global
 		{73819ED8-8A5B-4554-B3F3-60257A43F296}.Release|x64.Build.0 = Release|x64
 		{73819ED8-8A5B-4554-B3F3-60257A43F296}.Release|x86.ActiveCfg = Release|Win32
 		{73819ED8-8A5B-4554-B3F3-60257A43F296}.Release|x86.Build.0 = Release|Win32
+		{D080900B-5C12-45FC-941B-515A5FEA7594}.Debug|x64.ActiveCfg = Debug|x64
+		{D080900B-5C12-45FC-941B-515A5FEA7594}.Debug|x64.Build.0 = Debug|x64
+		{D080900B-5C12-45FC-941B-515A5FEA7594}.Debug|x86.ActiveCfg = Debug|Win32
+		{D080900B-5C12-45FC-941B-515A5FEA7594}.Debug|x86.Build.0 = Debug|Win32
+		{D080900B-5C12-45FC-941B-515A5FEA7594}.Release|x64.ActiveCfg = Release|x64
+		{D080900B-5C12-45FC-941B-515A5FEA7594}.Release|x64.Build.0 = Release|x64
+		{D080900B-5C12-45FC-941B-515A5FEA7594}.Release|x86.ActiveCfg = Release|Win32
+		{D080900B-5C12-45FC-941B-515A5FEA7594}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

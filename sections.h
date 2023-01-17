@@ -2,11 +2,12 @@
 #define __SECTIONS_H__
 
 #include <stdint.h>
+#include "recomp.h"
 
 #define ARRLEN(x) (sizeof(x) / sizeof((x)[0]))
 
 typedef struct {
-    void* func;
+    recomp_func_t* func;
     uint32_t offset;
 } FuncEntry;
 

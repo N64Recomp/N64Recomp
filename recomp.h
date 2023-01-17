@@ -182,10 +182,10 @@ void do_break(uint32_t vram);
 
 typedef void (recomp_func_t)(uint8_t* restrict rdram, recomp_context* restrict ctx);
 
-recomp_func_t* get_function(uint32_t vram);
+recomp_func_t* get_function(int32_t vram);
 
 #define LOOKUP_FUNC(val) \
-    get_function(val)
+    get_function((int32_t)(val))
 
 // For the Mario Party games (not working)
 //// This has to be in this file so it can be inlined
