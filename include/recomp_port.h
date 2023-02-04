@@ -7,6 +7,7 @@
 #include <vector>
 #include <unordered_map>
 #include <span>
+#include <unordered_set>
 #include "elfio/elfio.hpp"
 
 #ifdef _MSC_VER
@@ -46,13 +47,35 @@ namespace RecompPort {
         bool reimplemented;
     };
 
+    enum class RelocType : uint8_t {
+        R_MIPS_NONE = 0,
+        R_MIPS_16,
+        R_MIPS_32,
+        R_MIPS_REL32,
+        R_MIPS_26,
+        R_MIPS_HI16,
+        R_MIPS_LO16,
+        R_MIPS_GPREL16,
+    };
+
+    struct Reloc {
+        uint32_t address;
+        uint32_t target_address;
+        uint32_t symbol_index;
+        uint32_t target_section;
+        RelocType type;
+        bool needs_relocation;
+    };
+
     struct Section {
         ELFIO::Elf_Xword rom_addr;
         ELFIO::Elf64_Addr ram_addr;
         ELFIO::Elf_Xword size;
         std::vector<uint32_t> function_addrs;
+        std::vector<Reloc> relocs;
         std::string name;
         bool executable;
+        bool relocatable;
     };
 
     struct FunctionStats {
@@ -68,6 +91,8 @@ namespace RecompPort {
         std::vector<uint8_t> rom;
         // A list of the list of each function (by index in `functions`) in a given section
         std::vector<std::vector<size_t>> section_functions;
+        // The section names that were specified as relocatable
+        std::unordered_set<std::string> relocatable_sections;
         int executable_section_count;
 
         Context(const ELFIO::elfio& elf_file) {

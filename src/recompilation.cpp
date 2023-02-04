@@ -17,7 +17,8 @@ std::string_view ctx_gpr_prefix(int reg) {
     return "";
 }
 
-bool process_instruction(const RecompPort::Context& context, const RecompPort::Function& func, const RecompPort::FunctionStats& stats, const std::unordered_set<uint32_t>& skipped_insns, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ofstream& output_file, bool indent, bool emit_link_branch, int link_branch_index, bool& needs_link_branch, bool& is_branch_likely, std::span<std::vector<uint32_t>> static_funcs_out) {
+bool process_instruction(const RecompPort::Context& context, const RecompPort::Function& func, const RecompPort::FunctionStats& stats, const std::unordered_set<uint32_t>& skipped_insns, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ofstream& output_file, bool indent, bool emit_link_branch, int link_branch_index, size_t reloc_index, bool& needs_link_branch, bool& is_branch_likely, std::span<std::vector<uint32_t>> static_funcs_out) {
+    const auto& section = context.sections[func.section_index];
     const auto& instr = instructions[instr_index];
     needs_link_branch = false;
     is_branch_likely = false;
@@ -35,6 +36,40 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
 
     if (skipped_insns.contains(instr_vram)) {
         return true;
+    }
+
+
+    bool at_reloc = false;
+    bool reloc_handled = false;
+    RecompPort::RelocType reloc_type = RecompPort::RelocType::R_MIPS_NONE;
+    uint32_t reloc_section = 0;
+    uint32_t reloc_target_section_offset = 0;
+
+    // Check if this instruction has a reloc.
+    if (section.relocatable && section.relocs[reloc_index].address == instr_vram) {
+        // Get the reloc data for this instruction
+        const auto& reloc = section.relocs[reloc_index];
+        reloc_section = reloc.target_section;
+        // Some symbols are in a nonexistent section (e.g. absolute symbols), so check that the section is valid before doing anything else.
+        // Absolute symbols will never need to be relocated so it's safe to skip this.
+        if (reloc_section < context.sections.size()) {
+            // Check if the target section is also relocatable. References to symbols that are in a non-relocatable section don't need to
+            // be relocated, so we can skip those.
+            if (context.sections[reloc_section].relocatable) {
+                // For games where references between sections aren't relocated, ignore this reloc if it points to a different section
+                // TODO expose this as a config option
+                // TODO!!!!! also relocate references to the corresponding bss section!!!!!
+                if (reloc_section == func.section_index) {
+                    // Record the reloc's data.
+                    reloc_type = reloc.type;
+                    reloc_target_section_offset = reloc.target_address - context.sections[reloc_section].ram_addr;
+                    // Ignore all relocs that aren't HI16 or LO16.
+                    if (reloc_type == RecompPort::RelocType::R_MIPS_HI16 || reloc_type == RecompPort::RelocType::R_MIPS_LO16) {
+                        at_reloc = true;
+                    }
+                }
+            }
+        }
     }
 
     auto print_indent = [&]() {
@@ -56,7 +91,12 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         if (instr_index < instructions.size() - 1) {
             bool dummy_needs_link_branch;
             bool dummy_is_branch_likely;
-            process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
+            size_t next_reloc_index = reloc_index;
+            uint32_t next_vram = instr_vram + 4;
+            if (reloc_index + 1 < section.relocs.size() && next_vram > section.relocs[reloc_index].address) {
+                next_reloc_index++;
+            }
+            process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
         }
         print_indent();
         fmt::print(output_file, fmt_str, args...);
@@ -72,7 +112,12 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         if (instr_index < instructions.size() - 1) {
             bool dummy_needs_link_branch;
             bool dummy_is_branch_likely;
-            process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, true, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
+            size_t next_reloc_index = reloc_index;
+            uint32_t next_vram = instr_vram + 4;
+            if (reloc_index + 1 < section.relocs.size() && next_vram > section.relocs[reloc_index].address) {
+                next_reloc_index++;
+            }
+            process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, true, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
         }
         fmt::print(output_file, "        ");
         fmt::print(output_file, fmt_str, args...);
@@ -98,13 +143,34 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
 
     uint16_t imm = instr.Get_immediate();
 
+    std::string unsigned_imm_string;
+    std::string signed_imm_string;
+    
+    if (!at_reloc) {
+        unsigned_imm_string = fmt::format("{:#X}", imm);
+        signed_imm_string = fmt::format("{:#X}", (int16_t)imm);
+    } else {
+        switch (reloc_type) {
+            case RecompPort::RelocType::R_MIPS_HI16:
+                unsigned_imm_string = fmt::format("RELOC_HI16({}, {:#X})", reloc_section, reloc_target_section_offset);
+                signed_imm_string = "(int16_t)" + unsigned_imm_string;
+                reloc_handled = true;
+                break;
+            case RecompPort::RelocType::R_MIPS_LO16:
+                unsigned_imm_string = fmt::format("RELOC_LO16({}, {:#X})", reloc_section, reloc_target_section_offset);
+                signed_imm_string = "(int16_t)" + unsigned_imm_string;
+                reloc_handled = true;
+                break;
+        }
+    }
+
     switch (instr.getUniqueId()) {
     case InstrId::cpu_nop:
         fmt::print(output_file, "\n");
         break;
     // Arithmetic
     case InstrId::cpu_lui:
-        print_line("{}{} = S32({:#X} << 16)", ctx_gpr_prefix(rt), rt, imm);
+        print_line("{}{} = S32({} << 16)", ctx_gpr_prefix(rt), rt, unsigned_imm_string);
         break;
     case InstrId::cpu_add:
     case InstrId::cpu_addu:
@@ -132,19 +198,19 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         break;
     case InstrId::cpu_addi:
     case InstrId::cpu_addiu:
-        print_line("{}{} = ADD32({}{}, {:#X})", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, (int16_t)imm);
+        print_line("{}{} = ADD32({}{}, {})", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, signed_imm_string);
         break;
     case InstrId::cpu_and:
         print_line("{}{} = {}{} & {}{}", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_andi:
-        print_line("{}{} = {}{} & {:#X}", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, imm);
+        print_line("{}{} = {}{} & {}", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, unsigned_imm_string);
         break;
     case InstrId::cpu_or:
         print_line("{}{} = {}{} | {}{}", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_ori:
-        print_line("{}{} = {}{} | {:#X}", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, imm);
+        print_line("{}{} = {}{} | {}", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, unsigned_imm_string);
         break;
     case InstrId::cpu_nor:
         print_line("{}{} = ~({}{} | {}{})", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
@@ -153,7 +219,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         print_line("{}{} = {}{} ^ {}{}", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_xori:
-        print_line("{}{} = {}{} ^ {:#X}", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, imm);
+        print_line("{}{} = {}{} ^ {}", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, unsigned_imm_string);
         break;
     case InstrId::cpu_sll:
         print_line("{}{} = S32({}{}) << {}", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, sa);
@@ -177,13 +243,13 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         print_line("{}{} = SIGNED({}{}) < SIGNED({}{}) ? 1 : 0", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_slti:
-        print_line("{}{} = SIGNED({}{}) < {:#X} ? 1 : 0", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, (int16_t)imm);
+        print_line("{}{} = SIGNED({}{}) < {} ? 1 : 0", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, signed_imm_string);
         break;
     case InstrId::cpu_sltu:
         print_line("{}{} = {}{} < {}{} ? 1 : 0", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_sltiu:
-        print_line("{}{} = {}{} < {:#X} ? 1 : 0", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, (int16_t)imm);
+        print_line("{}{} = {}{} < {} ? 1 : 0", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, signed_imm_string);
         break;
     case InstrId::cpu_mult:
         print_line("result = S64({}{}) * S64({}{}); lo = S32(result >> 0); hi = S32(result >> 32)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
@@ -207,29 +273,29 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     // Loads
     // TODO ld
     case InstrId::cpu_lw:
-        print_line("{}{} = MEM_W({:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
+        print_line("{}{} = MEM_W({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
         break;
     case InstrId::cpu_lh:
-        print_line("{}{} = MEM_H({:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
+        print_line("{}{} = MEM_H({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
         break;
     case InstrId::cpu_lb:
-        print_line("{}{} = MEM_B({:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
+        print_line("{}{} = MEM_B({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
         break;
     case InstrId::cpu_lhu:
-        print_line("{}{} = MEM_HU({:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
+        print_line("{}{} = MEM_HU({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
         break;
     case InstrId::cpu_lbu:
-        print_line("{}{} = MEM_BU({:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
+        print_line("{}{} = MEM_BU({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
         break;
     // Stores
     case InstrId::cpu_sw:
-        print_line("MEM_W({:#X}, {}{}) = {}{}", (int16_t)imm, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
+        print_line("MEM_W({}, {}{}) = {}{}", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_sh:
-        print_line("MEM_H({:#X}, {}{}) = {}{}", (int16_t)imm, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
+        print_line("MEM_H({}, {}{}) = {}{}", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_sb:
-        print_line("MEM_B({:#X}, {}{}) = {}{}", (int16_t)imm, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
+        print_line("MEM_B({}, {}{}) = {}{}", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
         break;
     // TODO lwl, lwr
     // examples:
@@ -246,20 +312,20 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     // LWR x + 2 -> 00000000 0189ABCD
     // LWR x + 3 -> FFFFFFFF 89ABCDEF
     case InstrId::cpu_lwl:
-        print_line("{}{} = do_lwl(rdram, {:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
-        //print_line("{}{} = MEM_WL({:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
+        print_line("{}{} = do_lwl(rdram, {}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
+        //print_line("{}{} = MEM_WL({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
         break;
     case InstrId::cpu_lwr:
-        //print_line("{}{} = do_lwr(rdram, {:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
-        //print_line("//{}{} = MEM_WR({:#X}, {}{})", ctx_gpr_prefix(rt), rt, (int16_t)imm, ctx_gpr_prefix(base), base);
+        //print_line("{}{} = do_lwr(rdram, {}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
+        //print_line("//{}{} = MEM_WR({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
         break;
     case InstrId::cpu_swl:
-        print_line("do_swl(rdram, {:#X}, {}{}, {}{})", (int16_t)imm, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
-        //print_line("MEM_WL({:#X}, {}{}) = {}{}", (int16_t)imm, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
+        print_line("do_swl(rdram, {}, {}{}, {}{})", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
+        //print_line("MEM_WL({}, {}{}) = {}{}", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_swr:
-        //print_line("do_swr(rdram, {:#X}, {}{}, {}{})", (int16_t)imm, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
-        //print_line("//MEM_WR({:#X}, {}{}) = {}{}", (int16_t)imm, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
+        //print_line("do_swr(rdram, {}, {}{}, {}{})", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
+        //print_line("//MEM_WR({}, {}{}) = {}{}", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
         break;
         
     // Branches
@@ -356,7 +422,12 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
             if (jtbl_find_result != stats.jump_tables.end()) {
                 const RecompPort::JumpTable& cur_jtbl = *jtbl_find_result;
                 bool dummy_needs_link_branch, dummy_is_branch_likely;
-                process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
+                size_t next_reloc_index = reloc_index;
+                uint32_t next_vram = instr_vram + 4;
+                if (reloc_index + 1 < section.relocs.size() && next_vram > section.relocs[reloc_index].address) {
+                    next_reloc_index++;
+                }
+                process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
                 print_indent();
                 fmt::print(output_file, "switch (jr_addend_{:08X} >> 2) {{\n", cur_jtbl.jr_vram);
                 for (size_t entry_index = 0; entry_index < cur_jtbl.entries.size(); entry_index++) {
@@ -471,16 +542,16 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_lwc1:
         if ((ft & 1) == 0) {
             // even fpr
-            print_line("ctx->f{}.u32l = MEM_W({:#X}, {}{})", ft, (int16_t)imm, ctx_gpr_prefix(base), base);
+            print_line("ctx->f{}.u32l = MEM_W({}, {}{})", ft, signed_imm_string, ctx_gpr_prefix(base), base);
             print_line("NAN_CHECK(ctx->f{}.fl)", ft);
         } else {
             // odd fpr
-            print_line("ctx->f{}.u32h = MEM_W({:#X}, {}{})", ft - 1, (int16_t)imm, ctx_gpr_prefix(base), base);
+            print_line("ctx->f{}.u32h = MEM_W({}, {}{})", ft - 1, signed_imm_string, ctx_gpr_prefix(base), base);
         }
         break;
     case InstrId::cpu_ldc1:
         if ((ft & 1) == 0) {
-            print_line("ctx->f{}.u64 = LD({:#X}, {}{})", ft, (int16_t)imm, ctx_gpr_prefix(base), base);
+            print_line("ctx->f{}.u64 = LD({}, {}{})", ft, signed_imm_string, ctx_gpr_prefix(base), base);
             print_line("NAN_CHECK(ctx->f{}.d)", ft);
         } else {
             fmt::print(stderr, "Invalid operand for ldc1: f{}\n", ft);
@@ -490,15 +561,15 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_swc1:
         if ((ft & 1) == 0) {
             // even fpr
-            print_line("MEM_W({:#X}, {}{}) = ctx->f{}.u32l", (int16_t)imm, ctx_gpr_prefix(base), base, ft);
+            print_line("MEM_W({}, {}{}) = ctx->f{}.u32l", signed_imm_string, ctx_gpr_prefix(base), base, ft);
         } else {
             // odd fpr
-            print_line("MEM_W({:#X}, {}{}) = ctx->f{}.u32h", (int16_t)imm, ctx_gpr_prefix(base), base, ft - 1);
+            print_line("MEM_W({}, {}{}) = ctx->f{}.u32h", signed_imm_string, ctx_gpr_prefix(base), base, ft - 1);
         }
         break;
     case InstrId::cpu_sdc1:
         if ((ft & 1) == 0) {
-            print_line("SD(ctx->f{}.u64, {:#X}, {}{})", ft, (int16_t)imm, ctx_gpr_prefix(base), base);
+            print_line("SD(ctx->f{}.u64, {}, {}{})", ft, signed_imm_string, ctx_gpr_prefix(base), base);
         } else {
             fmt::print(stderr, "Invalid operand for sdc1: f{}\n", ft);
             return false;
@@ -955,6 +1026,9 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
     int num_likely_branches = 0;
     bool needs_link_branch = false;
     bool in_likely_delay_slot = false;
+    const auto& section = context.sections[func.section_index];
+    bool needs_reloc = section.relocatable;
+    size_t reloc_index = 0;
     for (size_t instr_index = 0; instr_index < instructions.size(); ++instr_index) {
         bool had_link_branch = needs_link_branch;
         bool is_branch_likely = false;
@@ -967,8 +1041,16 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
             fmt::print(output_file, "L_{:08X}:\n", *cur_label);
             ++cur_label;
         }
+        
+        // If this is a relocatable section, advance the reloc index until we reach the last one or until we get to/pass the current instruction
+        if (needs_reloc) {
+            while (reloc_index < (section.relocs.size() - 1) && section.relocs[reloc_index].address < vram) {
+                reloc_index++;
+            }
+        }
+        
         // Process the current instruction and check for errors
-        if (process_instruction(context, func, stats, skipped_insns, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, needs_link_branch, is_branch_likely, static_funcs_out) == false) {
+        if (process_instruction(context, func, stats, skipped_insns, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, reloc_index, needs_link_branch, is_branch_likely, static_funcs_out) == false) {
             fmt::print(stderr, "Error in recompilation, clearing {}\n", output_path);
             output_file.clear();
             return false;

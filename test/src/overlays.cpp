@@ -27,6 +27,12 @@ void load_overlay(size_t section_table_index, int32_t ram) {
         func_map[ram + func.offset] = func.func;
     }
     loaded_sections.emplace_back(ram, section_table_index);
+    section_addresses[section.index] = ram;
+}
+
+
+extern "C" {
+int32_t section_addresses[num_sections];
 }
 
 extern "C" void load_overlays(uint32_t rom, int32_t ram_addr, uint32_t size) {
@@ -69,6 +75,8 @@ extern "C" void unload_overlays(int32_t ram_addr, uint32_t size) {
                 uint32_t func_address = func.offset + it->loaded_ram_addr;
                 func_map.erase(func_address);
             }
+            // Reset the section's address in the address table
+            section_addresses[section.index] = 0;
             // Remove the section from the loaded section map
             it = loaded_sections.erase(it);
             // Skip incrementing the iterator
@@ -79,6 +87,10 @@ extern "C" void unload_overlays(int32_t ram_addr, uint32_t size) {
 }
 
 void init_overlays() {
+    for (size_t section_index = 0; section_index < num_sections; section_index++) {
+        section_addresses[section_index] = section_table[section_index].ram_addr;
+    }
+
     // Sort the executable sections by rom address
     std::sort(&section_table[0], &section_table[num_sections],
         [](const SectionTableEntry& a, const SectionTableEntry& b) {

@@ -168,7 +168,6 @@
     <ClInclude Include="..\..\recomp.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="test.cpp" />
     <_WildCardClCompile Include="..\funcs\*.c" />
     <ClCompile Include="@(_WildCardClCompile)" />
   </ItemGroup>

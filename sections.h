@@ -17,6 +17,7 @@ typedef struct {
     uint32_t size;
     FuncEntry *funcs;
     size_t num_funcs;
+    size_t index;
 } SectionTableEntry;
 
 #endif

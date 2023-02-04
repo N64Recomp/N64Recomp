@@ -187,6 +187,20 @@ recomp_func_t* get_function(int32_t vram);
 #define LOOKUP_FUNC(val) \
     get_function((int32_t)(val))
 
+extern int32_t section_addresses[];
+
+#define LO16(x) \
+    ((x) & 0xFFFF)
+
+#define HI16(x) \
+    (((x) >> 16) + (((x) >> 15) & 1))
+
+#define RELOC_HI16(section_index, offset) \
+    HI16(section_addresses[section_index] + (offset))
+
+#define RELOC_LO16(section_index, offset) \
+    LO16(section_addresses[section_index] + (offset))
+
 // For the Mario Party games (not working)
 //// This has to be in this file so it can be inlined
 //struct jmp_buf_storage {
