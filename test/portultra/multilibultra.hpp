@@ -18,6 +18,7 @@ struct UltraThreadContext {
 namespace Multilibultra {
 
 void preinit(uint8_t* rdram, uint8_t* rom);
+void save_init();
 void native_init();
 void init_scheduler();
 void init_events(uint8_t* rdram, uint8_t* rom);

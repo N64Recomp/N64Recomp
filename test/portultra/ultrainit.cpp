@@ -5,6 +5,7 @@ void Multilibultra::preinit(uint8_t* rdram, uint8_t* rom) {
     Multilibultra::set_main_thread();
     Multilibultra::init_events(rdram, rom);
     Multilibultra::init_timers(rdram);
+    Multilibultra::save_init();
 }
 
 extern "C" void osInitialize() {

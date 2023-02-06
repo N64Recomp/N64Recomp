@@ -1,4 +1,6 @@
 #include <memory>
+#include <fstream>
+#include <array>
 #include "recomp.h"
 #include "../portultra/ultra64.h"
 #include "../portultra/multilibultra.hpp"
@@ -78,36 +80,70 @@ void do_rom_read(uint8_t* rdram, gpr ram_address, uint32_t physical_addr, size_t
     }
 }
 
+std::array<char, 0x20000> save_buffer;
+const char save_filename[] = "save.bin";
+
+void save_write(uint8_t* restrict rdram, gpr rdram_address, uint32_t offset, uint32_t count) {
+    for (uint32_t i = 0; i < count; i++) {
+        save_buffer[offset + i] = MEM_B(i, rdram_address);
+    }
+    std::ofstream save_file{ save_filename, std::ios_base::binary };
+
+    if (save_file.good()) {
+        save_file.write(save_buffer.data(), save_buffer.size());
+    } else {
+        fprintf(stderr, "Failed to save!\n");
+        std::exit(EXIT_FAILURE);
+    }
+}
+
+void save_read(uint8_t* restrict rdram, gpr rdram_address, uint32_t offset, uint32_t count) {
+    for (size_t i = 0; i < count; i++) {
+        MEM_B(i, rdram_address) = save_buffer[offset + i];
+    }
+}
+
+void Multilibultra::save_init() {
+    std::ifstream save_file{ save_filename, std::ios_base::binary };
+
+    if (save_file.good()) {
+        save_file.read(save_buffer.data(), save_buffer.size());
+    } else {
+        save_buffer.fill(0);
+    }
+}
+
 void do_dma(uint8_t* restrict rdram, PTR(OSMesgQueue) mq, gpr rdram_address, uint32_t physical_addr, uint32_t size, uint32_t direction) {
     // TODO asynchronous transfer
     // TODO implement unaligned DMA correctly
     if (direction == 0) {
-        if (physical_addr > rom_base) {
+        if (physical_addr >= rom_base) {
             // read cart rom
             do_rom_read(rdram, rdram_address, physical_addr, size);
 
             // Send a message to the mq to indicate that the transfer completed
             osSendMesg(rdram, mq, 0, OS_MESG_NOBLOCK);
-        } else {
+        } else if (physical_addr >= sram_base) {
             // read sram
-            printf("[WARN] SRAM read unimplemented, returning zeroes\n");
-            for (uint32_t i = 0; i < size; i++) {
-                MEM_B(i, rdram_address) = 0;
-            }
+            save_read(rdram, rdram_address, physical_addr - sram_base, size);
 
             // Send a message to the mq to indicate that the transfer completed
             osSendMesg(rdram, mq, 0, OS_MESG_NOBLOCK);
+        } else {
+            fprintf(stderr, "[WARN] PI DMA read from unknown region, phys address 0x%08X\n", physical_addr);
         }
     } else {
-        if (physical_addr > rom_base) {
+        if (physical_addr >= rom_base) {
             // write cart rom
             throw std::runtime_error("ROM DMA write unimplemented");
-        } else {
+        } else if (physical_addr >= sram_base) {
             // write sram
-            printf("[WARN] SRAM write unimplemented, ignoring data\n");
+            save_write(rdram, rdram_address, physical_addr - sram_base, size);
 
             // Send a message to the mq to indicate that the transfer completed
             osSendMesg(rdram, mq, 0, OS_MESG_NOBLOCK);
+        } else {
+            fprintf(stderr, "[WARN] PI DMA write to unknown region, phys address 0x%08X\n", physical_addr);
         }
     }
 }
