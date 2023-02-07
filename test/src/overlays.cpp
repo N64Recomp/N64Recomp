@@ -4,7 +4,7 @@
 #include "recomp.h"
 #include "../funcs/recomp_overlays.inl"
 
-constexpr size_t num_sections = ARRLEN(section_table);
+constexpr size_t num_code_sections = ARRLEN(section_table);
 
 // SectionTableEntry sections[] defined in recomp_overlays.inl
 
@@ -38,12 +38,12 @@ int32_t section_addresses[num_sections];
 extern "C" void load_overlays(uint32_t rom, int32_t ram_addr, uint32_t size) {
     // Search for the first section that's included in the loaded rom range
     // Sections were sorted by `init_overlays` so we can use the bounds functions
-    auto lower = std::lower_bound(&section_table[0], &section_table[num_sections], rom, 
+    auto lower = std::lower_bound(&section_table[0], &section_table[num_code_sections], rom,
         [](const SectionTableEntry& entry, uint32_t addr) {
             return entry.rom_addr < addr;
         }
     );
-    auto upper = std::upper_bound(&section_table[0], &section_table[num_sections], (uint32_t)(rom + size),
+    auto upper = std::upper_bound(&section_table[0], &section_table[num_code_sections], (uint32_t)(rom + size),
         [](uint32_t addr, const SectionTableEntry& entry) {
             return addr < entry.size + entry.rom_addr;
         }
@@ -87,12 +87,12 @@ extern "C" void unload_overlays(int32_t ram_addr, uint32_t size) {
 }
 
 void init_overlays() {
-    for (size_t section_index = 0; section_index < num_sections; section_index++) {
+    for (size_t section_index = 0; section_index < num_code_sections; section_index++) {
         section_addresses[section_index] = section_table[section_index].ram_addr;
     }
 
     // Sort the executable sections by rom address
-    std::sort(&section_table[0], &section_table[num_sections],
+    std::sort(&section_table[0], &section_table[num_code_sections],
         [](const SectionTableEntry& a, const SectionTableEntry& b) {
             return a.rom_addr < b.rom_addr;
         }

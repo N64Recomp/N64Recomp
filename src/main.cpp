@@ -1131,6 +1131,8 @@ int main(int argc, char** argv) {
         section_load_table += "};\n";
 
         fmt::print(overlay_file, "{}", section_load_table);
+
+        fmt::print(overlay_file, "const size_t num_sections = {};\n", context.sections.size());
     }
 
     return 0;
