@@ -66,6 +66,7 @@ typedef u64	OSTime;
 #define	M_GFXTASK	1
 #define	M_AUDTASK	2
 #define	M_VIDTASK	3
+#define M_NJPEGTASK 4
 
 /////////////
 // Structs //

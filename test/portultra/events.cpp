@@ -164,6 +164,12 @@ std::unordered_map<SDL_Scancode, int> button_map{
     { SDL_Scancode::SDL_SCANCODE_SPACE,  0x8000 }, // a
     { SDL_Scancode::SDL_SCANCODE_LSHIFT, 0x4000 }, // b
     { SDL_Scancode::SDL_SCANCODE_Q,      0x2000 }, // z
+    { SDL_Scancode::SDL_SCANCODE_E,      0x0020 }, // l
+    { SDL_Scancode::SDL_SCANCODE_R,      0x0010 }, // r
+    { SDL_Scancode::SDL_SCANCODE_J,      0x0200 }, // dpad left
+    { SDL_Scancode::SDL_SCANCODE_L,      0x0100 }, // dpad right
+    { SDL_Scancode::SDL_SCANCODE_I,      0x0800 }, // dpad up
+    { SDL_Scancode::SDL_SCANCODE_K,      0x0400 }, // dpad down
 };
 
 extern int button;
@@ -223,9 +229,25 @@ void event_thread_func(uint8_t* rdram, uint8_t* rom) {
                     dp_complete();
                 } else if (task_action->task.t.type == M_AUDTASK) {
                     sp_complete();
+                } else if (task_action->task.t.type == M_NJPEGTASK) {
+                    uint32_t* jpeg_task = TO_PTR(uint32_t, (int32_t)(0x80000000 | task_action->task.t.data_ptr));
+                    int32_t address = jpeg_task[0] | 0x80000000;
+                    size_t mbCount = jpeg_task[1];
+                    uint32_t mode    = jpeg_task[2];
+                    //int32_t qTableYPtr = jpeg_task[3] | 0x80000000;
+                    //int32_t qTableUPtr = jpeg_task[4] | 0x80000000;
+                    //int32_t qTableVPtr = jpeg_task[5] | 0x80000000;
+                    //uint32_t mbSize = jpeg_task[6];
+                    if (mode == 0) {
+                        memset(TO_PTR(void, address), 0, mbCount * 0x40 * sizeof(uint16_t) * 4);
+                    } else {
+                        memset(TO_PTR(void, address), 0, mbCount * 0x40 * sizeof(uint16_t) * 6);
+                    }
+                    sp_complete();
                 } else {
                     fprintf(stderr, "Unknown task type: %" PRIu32 "\n", task_action->task.t.type);
-                    std::exit(EXIT_FAILURE);
+                    assert(false);
+                    std::quick_exit(EXIT_FAILURE);
                 }
             } else if (const auto* swap_action = std::get_if<SwapBuffersAction>(&action)) {
                 events_context.vi.current_buffer = events_context.vi.next_buffer;
