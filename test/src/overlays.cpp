@@ -88,7 +88,7 @@ extern "C" void unload_overlays(int32_t ram_addr, uint32_t size) {
 
 void init_overlays() {
     for (size_t section_index = 0; section_index < num_code_sections; section_index++) {
-        section_addresses[section_index] = section_table[section_index].ram_addr;
+        section_addresses[section_table[section_index].index] = section_table[section_index].ram_addr;
     }
 
     // Sort the executable sections by rom address
