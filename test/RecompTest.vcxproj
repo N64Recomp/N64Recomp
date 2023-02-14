@@ -162,6 +162,7 @@ XCOPY "$(ProjectDir)Lib\SDL2-2.24.0\lib\$(Platform)\SDL2.dll" "$(TargetDir)" /S 
     <ClCompile Include="portultra\task_pthreads.cpp" />
     <ClCompile Include="portultra\task_win32.cpp" />
     <ClCompile Include="portultra\threads.cpp" />
+    <ClCompile Include="rsp\njpgdspMain.cpp" />
     <ClCompile Include="RT64\rt64_layer.cpp" />
     <ClCompile Include="src\ai.cpp" />
     <ClCompile Include="src\cont.cpp" />

@@ -15,6 +15,7 @@
 #include "ultra64.h"
 #include "multilibultra.hpp"
 #include "recomp.h"
+#include "../src/rsp.h"
 
 struct SpTaskAction {
     OSTask task;
@@ -203,6 +204,44 @@ int sdl_event_filter(void* userdata, SDL_Event* event) {
     return 1;
 }
 
+uint8_t dmem[0x1000];
+uint16_t rspReciprocals[512];
+uint16_t rspInverseSquareRoots[512];
+
+using RspUcodeFunc = RspExitReason(uint8_t* rdram);
+extern RspUcodeFunc njpgdspMain;
+
+// From Ares emulator. For license details, see rsp_vu.h
+void rsp_constants_init() {
+    rspReciprocals[0] = u16(~0);
+    for (u16 index = 1; index < 512; index++) {
+        u64 a = index + 512;
+        u64 b = (u64(1) << 34) / a;
+        rspReciprocals[index] = u16(b + 1 >> 8);
+    }
+
+    for (u16 index = 0; index < 512; index++) {
+        u64 a = index + 512 >> ((index % 2 == 1) ? 1 : 0);
+        u64 b = 1 << 17;
+        //find the largest b where b < 1.0 / sqrt(a)
+        while (a * (b + 1) * (b + 1) < (u64(1) << 44)) b++;
+        rspInverseSquareRoots[index] = u16(b >> 1);
+    }
+}
+
+// Runs a recompiled RSP microcode
+void run_rsp_microcode(uint8_t* rdram, const OSTask* task, RspUcodeFunc* ucode_func) {
+    // Load the OSTask into DMEM
+    memcpy(&dmem[0xFC0], task, sizeof(OSTask));
+    // Load the ucode data into DMEM
+    dma_rdram_to_dmem(rdram, 0x0000, task->t.ucode_data, 0xF80 - 1);
+    // Run the ucode
+    RspExitReason exit_reason = ucode_func(rdram);
+    // Ensure that the ucode exited correctly
+    assert(exit_reason == RspExitReason::Broke);
+    sp_complete();
+}
+
 void event_thread_func(uint8_t* rdram, uint8_t* rom) {
     using namespace std::chrono_literals;
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0) {
@@ -215,6 +254,8 @@ void event_thread_func(uint8_t* rdram, uint8_t* rom) {
     // as the current window name visibly changes as RT64 is initialized
     SDL_SetWindowTitle(window, "Recomp");
     //SDL_SetEventFilter(sdl_event_filter, nullptr);
+
+    rsp_constants_init();
 
     while (true) {
         // Try to pull an action from the queue
@@ -230,20 +271,7 @@ void event_thread_func(uint8_t* rdram, uint8_t* rom) {
                 } else if (task_action->task.t.type == M_AUDTASK) {
                     sp_complete();
                 } else if (task_action->task.t.type == M_NJPEGTASK) {
-                    uint32_t* jpeg_task = TO_PTR(uint32_t, (int32_t)(0x80000000 | task_action->task.t.data_ptr));
-                    int32_t address = jpeg_task[0] | 0x80000000;
-                    size_t mbCount = jpeg_task[1];
-                    uint32_t mode    = jpeg_task[2];
-                    //int32_t qTableYPtr = jpeg_task[3] | 0x80000000;
-                    //int32_t qTableUPtr = jpeg_task[4] | 0x80000000;
-                    //int32_t qTableVPtr = jpeg_task[5] | 0x80000000;
-                    //uint32_t mbSize = jpeg_task[6];
-                    if (mode == 0) {
-                        memset(TO_PTR(void, address), 0, mbCount * 0x40 * sizeof(uint16_t) * 4);
-                    } else {
-                        memset(TO_PTR(void, address), 0, mbCount * 0x40 * sizeof(uint16_t) * 6);
-                    }
-                    sp_complete();
+                    run_rsp_microcode(rdram, &task_action->task, njpgdspMain);
                 } else {
                     fprintf(stderr, "Unknown task type: %" PRIu32 "\n", task_action->task.t.type);
                     assert(false);

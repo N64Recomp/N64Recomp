@@ -960,6 +960,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         return false;
     }
 
+    // TODO is this used?
     if (emit_link_branch) {
         fmt::print(output_file, "    after_{}:\n", link_branch_index);
     }

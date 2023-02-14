@@ -30234,6 +30234,9 @@
     <ClCompile Include="funcs\lookup.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="rsp\njpgdspMain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="portultra\platform_specific.h">
