@@ -3,13 +3,13 @@
 #include "../portultra/multilibultra.hpp"
 #include "recomp.h"
 
-extern "C" void osSpTaskLoad_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void osSpTaskLoad_recomp(uint8_t* rdram, recomp_context* ctx) {
     // Nothing to do here
 }
 
 bool dump_frame = false;
 
-extern "C" void osSpTaskStartGo_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void osSpTaskStartGo_recomp(uint8_t* rdram, recomp_context* ctx) {
     //printf("[sp] osSpTaskStartGo(0x%08X)\n", (uint32_t)ctx->r4);
     OSTask* task = TO_PTR(OSTask, ctx->r4);
     if (task->t.type == M_GFXTASK) {
@@ -35,15 +35,15 @@ extern "C" void osSpTaskStartGo_recomp(uint8_t* restrict rdram, recomp_context* 
     Multilibultra::submit_rsp_task(rdram, ctx->r4);
 }
 
-extern "C" void osSpTaskYield_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void osSpTaskYield_recomp(uint8_t* rdram, recomp_context* ctx) {
     // Ignore yield requests (acts as if the task completed before it received the yield request)
 }
 
-extern "C" void osSpTaskYielded_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void osSpTaskYielded_recomp(uint8_t* rdram, recomp_context* ctx) {
     // Task yield requests are ignored, so always return 0 as tasks will never be yielded
     ctx->r2 = 0;
 }
 
-extern "C" void __osSpSetPc_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void __osSpSetPc_recomp(uint8_t* rdram, recomp_context* ctx) {
     assert(false);
 }

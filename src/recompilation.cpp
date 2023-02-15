@@ -978,7 +978,7 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
         "#include \"recomp.h\"\n"
         "#include \"disable_warnings.h\"\n"
         "\n"
-        "void {}(uint8_t* restrict rdram, recomp_context* restrict ctx) {{\n"
+        "void {}(uint8_t* rdram, recomp_context* ctx) {{\n"
         // these variables shouldn't need to be preserved across function boundaries, so make them local for more efficient output
         "    uint64_t hi = 0, lo = 0, result = 0;\n"
         "    int c1cs = 0; \n", // cop1 conditional signal

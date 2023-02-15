@@ -58,7 +58,7 @@ constexpr int32_t cart_handle = 0x80800000;
 extern std::unique_ptr<uint8_t[]> rom;
 extern size_t rom_size;
 
-extern "C" void osCartRomInit_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void osCartRomInit_recomp(uint8_t* rdram, recomp_context* ctx) {
     OSPiHandle* handle = TO_PTR(OSPiHandle, cart_handle);
     handle->type = 0; // cart
     handle->baseAddress = phys_to_k1(rom_base);
@@ -67,7 +67,7 @@ extern "C" void osCartRomInit_recomp(uint8_t* restrict rdram, recomp_context* re
     ctx->r2 = (gpr)cart_handle;
 }
 
-extern "C" void osCreatePiManager_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void osCreatePiManager_recomp(uint8_t* rdram, recomp_context* ctx) {
     ;
 }
 
@@ -83,7 +83,7 @@ void do_rom_read(uint8_t* rdram, gpr ram_address, uint32_t physical_addr, size_t
 std::array<char, 0x20000> save_buffer;
 const char save_filename[] = "save.bin";
 
-void save_write(uint8_t* restrict rdram, gpr rdram_address, uint32_t offset, uint32_t count) {
+void save_write(uint8_t* rdram, gpr rdram_address, uint32_t offset, uint32_t count) {
     for (uint32_t i = 0; i < count; i++) {
         save_buffer[offset + i] = MEM_B(i, rdram_address);
     }
@@ -97,7 +97,7 @@ void save_write(uint8_t* restrict rdram, gpr rdram_address, uint32_t offset, uin
     }
 }
 
-void save_read(uint8_t* restrict rdram, gpr rdram_address, uint32_t offset, uint32_t count) {
+void save_read(uint8_t* rdram, gpr rdram_address, uint32_t offset, uint32_t count) {
     for (size_t i = 0; i < count; i++) {
         MEM_B(i, rdram_address) = save_buffer[offset + i];
     }
@@ -113,7 +113,7 @@ void Multilibultra::save_init() {
     }
 }
 
-void do_dma(uint8_t* restrict rdram, PTR(OSMesgQueue) mq, gpr rdram_address, uint32_t physical_addr, uint32_t size, uint32_t direction) {
+void do_dma(uint8_t* rdram, PTR(OSMesgQueue) mq, gpr rdram_address, uint32_t physical_addr, uint32_t size, uint32_t direction) {
     // TODO asynchronous transfer
     // TODO implement unaligned DMA correctly
     if (direction == 0) {
@@ -148,7 +148,7 @@ void do_dma(uint8_t* restrict rdram, PTR(OSMesgQueue) mq, gpr rdram_address, uin
     }
 }
 
-extern "C" void osPiStartDma_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void osPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx) {
     uint32_t mb = ctx->r4;
     uint32_t pri = ctx->r5;
     uint32_t direction = ctx->r6;
@@ -165,7 +165,7 @@ extern "C" void osPiStartDma_recomp(uint8_t* restrict rdram, recomp_context* res
     ctx->r2 = 0;
 }
 
-extern "C" void osEPiStartDma_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void osEPiStartDma_recomp(uint8_t* rdram, recomp_context* ctx) {
     OSPiHandle* handle = TO_PTR(OSPiHandle, ctx->r4);
     OSIoMesg* mb = TO_PTR(OSIoMesg, ctx->r5);
     uint32_t direction = ctx->r6;
@@ -182,7 +182,7 @@ extern "C" void osEPiStartDma_recomp(uint8_t* restrict rdram, recomp_context* re
     ctx->r2 = 0;
 }
 
-extern "C" void osEPiReadIo_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+extern "C" void osEPiReadIo_recomp(uint8_t * rdram, recomp_context * ctx) {
     OSPiHandle* handle = TO_PTR(OSPiHandle, ctx->r4);
     uint32_t devAddr = handle->baseAddress | ctx->r5;
     gpr dramAddr = ctx->r6;
@@ -199,10 +199,10 @@ extern "C" void osEPiReadIo_recomp(uint8_t * restrict rdram, recomp_context * re
     ctx->r2 = 0;
 }
 
-extern "C" void osPiGetStatus_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+extern "C" void osPiGetStatus_recomp(uint8_t * rdram, recomp_context * ctx) {
     ctx->r2 = 0;
 }
 
-extern "C" void osPiRawStartDma_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+extern "C" void osPiRawStartDma_recomp(uint8_t * rdram, recomp_context * ctx) {
     ctx->r2 = 0;
 }

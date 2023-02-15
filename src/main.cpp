@@ -992,7 +992,7 @@ int main(int argc, char** argv) {
 
         if (!func.ignored && func.words.size() != 0) {
             fmt::print(func_header_file,
-                "void {}(uint8_t* restrict rdram, recomp_context* restrict ctx);\n", func.name);
+                "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
             //fmt::print(lookup_file,
             //    "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
             if (RecompPort::recompile_function(context, func, output_dir + func.name + ".c", static_funcs_by_section) == false) {
@@ -1002,7 +1002,7 @@ int main(int argc, char** argv) {
             }
         } else if (func.reimplemented) {
             fmt::print(func_header_file,
-                       "void {}(uint8_t* restrict rdram, recomp_context* restrict ctx);\n", func.name);
+                       "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
             //fmt::print(lookup_file,
             //           "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
         }
@@ -1058,7 +1058,7 @@ int main(int argc, char** argv) {
             };
 
             fmt::print(func_header_file,
-                       "void {}(uint8_t* restrict rdram, recomp_context* restrict ctx);\n", func.name);
+                       "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
             //fmt::print(lookup_file,
             //           "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
             if (RecompPort::recompile_function(context, func, output_dir + func.name + ".c", static_funcs_by_section) == false) {

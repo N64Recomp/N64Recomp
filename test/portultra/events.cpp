@@ -210,6 +210,7 @@ uint16_t rspInverseSquareRoots[512];
 
 using RspUcodeFunc = RspExitReason(uint8_t* rdram);
 extern RspUcodeFunc njpgdspMain;
+extern RspUcodeFunc aspMain;
 
 // From Ares emulator. For license details, see rsp_vu.h
 void rsp_constants_init() {
@@ -269,7 +270,7 @@ void event_thread_func(uint8_t* rdram, uint8_t* rom) {
                     sp_complete();
                     dp_complete();
                 } else if (task_action->task.t.type == M_AUDTASK) {
-                    sp_complete();
+                    run_rsp_microcode(rdram, &task_action->task, aspMain);
                 } else if (task_action->task.t.type == M_NJPEGTASK) {
                     run_rsp_microcode(rdram, &task_action->task, njpgdspMain);
                 } else {

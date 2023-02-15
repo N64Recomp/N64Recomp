@@ -47,6 +47,10 @@ void send_si_message();
 uint32_t get_speed_multiplier();
 std::chrono::system_clock::time_point get_start();
 std::chrono::system_clock::duration time_since_start();
+void init_audio();
+void set_audio_frequency(uint32_t freq);
+void queue_audio_buffer(RDRAM_ARG PTR(s16) audio_data, uint32_t byte_count);
+uint32_t get_remaining_audio_bytes();
 
 class preemption_guard {
 public:

@@ -3,7 +3,7 @@
 
 static int max_controllers = 0;
 
-extern "C" void osContInit_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void osContInit_recomp(uint8_t* rdram, recomp_context* ctx) {
     gpr bitpattern = ctx->r5;
     gpr status = ctx->r6;
 
@@ -26,7 +26,7 @@ extern "C" void osContInit_recomp(uint8_t* restrict rdram, recomp_context* restr
     ctx->r2 = 0;
 }
 
-extern "C" void osContStartReadData_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void osContStartReadData_recomp(uint8_t* rdram, recomp_context* ctx) {
     Multilibultra::send_si_message();
 }
 
@@ -49,7 +49,7 @@ void release_button(int button) {
 
 }
 
-extern "C" void osContGetReadData_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void osContGetReadData_recomp(uint8_t* rdram, recomp_context* ctx) {
     int32_t pad = (int32_t)ctx->r4;
 
     if (max_controllers > 0) {
@@ -67,11 +67,11 @@ extern "C" void osContGetReadData_recomp(uint8_t* restrict rdram, recomp_context
     }
 }
 
-extern "C" void osContStartQuery_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+extern "C" void osContStartQuery_recomp(uint8_t * rdram, recomp_context * ctx) {
     Multilibultra::send_si_message();
 }
 
-extern "C" void osContGetQuery_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+extern "C" void osContGetQuery_recomp(uint8_t * rdram, recomp_context * ctx) {
     gpr status = ctx->r4;
 
     // Mark controller 0 as present
@@ -86,23 +86,23 @@ extern "C" void osContGetQuery_recomp(uint8_t * restrict rdram, recomp_context *
     }
 }
 
-extern "C" void osContSetCh_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void osContSetCh_recomp(uint8_t* rdram, recomp_context* ctx) {
     max_controllers = std::min((unsigned int)ctx->r4, 4u);
     ctx->r2 = 0;
 }
 
-extern "C" void __osMotorAccess_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void __osMotorAccess_recomp(uint8_t* rdram, recomp_context* ctx) {
 
 }
 
-extern "C" void osMotorInit_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void osMotorInit_recomp(uint8_t* rdram, recomp_context* ctx) {
     ;
 }
 
-extern "C" void osMotorStart_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void osMotorStart_recomp(uint8_t* rdram, recomp_context* ctx) {
     ;
 }
 
-extern "C" void osMotorStop_recomp(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void osMotorStop_recomp(uint8_t* rdram, recomp_context* ctx) {
     ;
 }

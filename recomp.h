@@ -173,14 +173,13 @@ typedef struct {
 } recomp_context;
 
 #ifdef __cplusplus
-#define restrict __restrict
 extern "C" {
 #endif
 
 void switch_error(const char* func, uint32_t vram, uint32_t jtbl);
 void do_break(uint32_t vram);
 
-typedef void (recomp_func_t)(uint8_t* restrict rdram, recomp_context* restrict ctx);
+typedef void (recomp_func_t)(uint8_t* rdram, recomp_context* ctx);
 
 recomp_func_t* get_function(int32_t vram);
 

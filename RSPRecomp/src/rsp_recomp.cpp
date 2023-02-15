@@ -11,6 +11,7 @@
 using InstrId = rabbitizer::InstrId::UniqueId;
 using Cop0Reg = rabbitizer::Registers::Rsp::Cop0;
 constexpr size_t instr_size = sizeof(uint32_t);
+constexpr uint32_t rsp_mem_mask = 0x1FFF;
 
 // Can't use rabbitizer's operand types because we need to be able to provide a register reference or a register index
 enum class RspOperand {
@@ -126,6 +127,8 @@ uint32_t expected_c0_reg_value(int cop0_reg) {
         return 0; // Pretend DMAs complete instantly
     case Cop0Reg::RSP_COP0_SP_SEMAPHORE:
         return 0; // Always acquire the semaphore
+    case Cop0Reg::RSP_COP0_DPC_STATUS:
+        return 0; // Good enough for the microcodes that would be recompiled (i.e. non-graphics ones)
     }
     fmt::print(stderr, "Unhandled mfc0: {}\n", cop0_reg);
     assert(false);
@@ -175,7 +178,7 @@ BranchTargets get_branch_targets(const std::vector<rabbitizer::InstructionRsp>& 
     BranchTargets ret;
     for (const auto& instr : instrs) {
         if (instr.isJumpWithAddress() || instr.isBranch()) {
-            ret.direct_targets.insert(instr.getBranchVramGeneric());
+            ret.direct_targets.insert(instr.getBranchVramGeneric() & rsp_mem_mask);
         }
         if (instr.doesLink()) {
             ret.indirect_targets.insert(instr.getVram() + 2 * instr_size);
@@ -184,22 +187,27 @@ BranchTargets get_branch_targets(const std::vector<rabbitizer::InstructionRsp>& 
     return ret;
 }
 
-bool process_instruction(size_t instr_index, const std::vector<rabbitizer::InstructionRsp>& instructions, std::ofstream& output_file, const BranchTargets& branch_targets, bool indent) {
+bool process_instruction(size_t instr_index, const std::vector<rabbitizer::InstructionRsp>& instructions, std::ofstream& output_file, const BranchTargets& branch_targets, bool indent, bool in_delay_slot) {
     const auto& instr = instructions[instr_index];
 
     uint32_t instr_vram = instr.getVram();
     InstrId instr_id = instr.getUniqueId();
 
-    // Print a label if one exists here
-    if (branch_targets.direct_targets.contains(instr_vram) || branch_targets.indirect_targets.contains(instr_vram)) {
-        fmt::print(output_file, "L_{:08X}:\n", instr_vram);
+    // Skip labels if we're duplicating an instruction into a delay slot
+    if (!in_delay_slot) {
+        // Print a label if one exists here
+        if (branch_targets.direct_targets.contains(instr_vram) || branch_targets.indirect_targets.contains(instr_vram)) {
+            fmt::print(output_file, "L_{:04X}:\n", instr_vram);
+        }
     }
+
+    uint16_t branch_target = instr.getBranchVramGeneric() & rsp_mem_mask;
 
     // Output a comment with the original instruction
     if (instr.isBranch() || instr_id == InstrId::rsp_j) {
-        fmt::print(output_file, "    // {}\n", instr.disassemble(0, fmt::format("L_{:08X}", (uint32_t)instr.getBranchVramGeneric())));
+        fmt::print(output_file, "    // {}\n", instr.disassemble(0, fmt::format("L_{:04X}", branch_target)));
     } else if (instr_id == InstrId::rsp_jal) {
-        fmt::print(output_file, "    // {}\n", instr.disassemble(0, fmt::format("0x{:08X}", (uint32_t)instr.getBranchVramGeneric())));
+        fmt::print(output_file, "    // {}\n", instr.disassemble(0, fmt::format("0x{:04X}", branch_target)));
     } else {
         fmt::print(output_file, "    // {}\n", instr.disassemble(0));
     }
@@ -222,7 +230,7 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
     auto print_unconditional_branch = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts ...args) {
         if (instr_index < instructions.size() - 1) {
             uint32_t next_vram = instr_vram + 4;
-            process_instruction(instr_index + 1, instructions, output_file, branch_targets, false);
+            process_instruction(instr_index + 1, instructions, output_file, branch_targets, false, true);
         }
         print_indent();
         fmt::print(output_file, fmt_str, args...);
@@ -233,7 +241,7 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
         fmt::print(output_file, "{{\n    ");
         if (instr_index < instructions.size() - 1) {
             uint32_t next_vram = instr_vram + 4;
-            process_instruction(instr_index + 1, instructions, output_file, branch_targets, true);
+            process_instruction(instr_index + 1, instructions, output_file, branch_targets, true, true);
         }
         fmt::print(output_file, "        ");
         fmt::print(output_file, fmt_str, args...);
@@ -421,11 +429,11 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
             // Branches
         case InstrId::rsp_j:
         case InstrId::rsp_b:
-            print_unconditional_branch("goto L_{:08X}", instr.getBranchVramGeneric());
+            print_unconditional_branch("goto L_{:04X}", branch_target);
             break;
         case InstrId::rsp_jal:
-            print_line("{}{} = 0x{:08X}", ctx_gpr_prefix(31), 31, instr_vram + 2 * instr_size);
-            print_unconditional_branch("goto L_{:08X}", instr.getBranchVramGeneric());
+            print_line("{}{} = 0x{:04X}", ctx_gpr_prefix(31), 31, instr_vram + 2 * instr_size);
+            print_unconditional_branch("goto L_{:04X}", branch_target);
             break;
         case InstrId::rsp_jr:
             print_line("jump_target = {}{}", ctx_gpr_prefix(rs), rs);
@@ -438,32 +446,32 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
         case InstrId::rsp_bne:
             print_indent();
             print_branch_condition("if ({}{} != {}{})", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-            print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
+            print_branch("goto L_{:04X}", branch_target);
             break;
         case InstrId::rsp_beq:
             print_indent();
             print_branch_condition("if ({}{} == {}{})", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-            print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
+            print_branch("goto L_{:04X}", branch_target);
             break;
         case InstrId::rsp_bgez:
             print_indent();
             print_branch_condition("if (RSP_SIGNED({}{}) >= 0)", ctx_gpr_prefix(rs), rs);
-            print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
+            print_branch("goto L_{:04X}", branch_target);
             break;
         case InstrId::rsp_bgtz:
             print_indent();
             print_branch_condition("if (RSP_SIGNED({}{}) > 0)", ctx_gpr_prefix(rs), rs);
-            print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
+            print_branch("goto L_{:04X}", branch_target);
             break;
         case InstrId::rsp_blez:
             print_indent();
             print_branch_condition("if (RSP_SIGNED({}{}) <= 0)", ctx_gpr_prefix(rs), rs);
-            print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
+            print_branch("goto L_{:04X}", branch_target);
             break;
         case InstrId::rsp_bltz:
             print_indent();
             print_branch_condition("if (RSP_SIGNED({}{}) < 0)", ctx_gpr_prefix(rs), rs);
-            print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
+            print_branch("goto L_{:04X}", branch_target);
             break;
         case InstrId::rsp_break:
             print_line("return RspExitReason::Broke", instr_vram);
@@ -492,9 +500,9 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
 void write_indirect_jumps(std::ofstream& output_file, const BranchTargets& branch_targets) {
     fmt::print(output_file,
         "do_indirect_jump:\n"
-        "    switch (jump_target) {{ \n");
+        "    switch (jump_target & {:#X}) {{ \n", rsp_mem_mask);
     for (uint32_t branch_target: branch_targets.indirect_targets) {
-        fmt::print(output_file, "        case 0x{0:08X}: goto L_{0:08X};\n", branch_target);
+        fmt::print(output_file, "        case 0x{0:04X}: goto L_{0:04X};\n", branch_target);
     }
     fmt::print(output_file,
         "    }}\n"
@@ -502,12 +510,21 @@ void write_indirect_jumps(std::ofstream& output_file, const BranchTargets& branc
 }
 
 // TODO de-hardcode these
-constexpr size_t rsp_text_offset = 0xB8BAD0;
-constexpr size_t rsp_text_size = 0xAF0;
-constexpr size_t rsp_text_address = 0x04001080;
+//constexpr size_t rsp_text_offset = 0xB8BAD0;
+//constexpr size_t rsp_text_size = 0xAF0;
+//constexpr size_t rsp_text_address = 0x04001080;
+//std::string rom_file_path = "../test/oot_mq_debug.z64";
+//std::string output_file_path = "../test/rsp/njpgdspMain.cpp";
+//std::string output_function_name = "njpgdspMain";
+//const std::vector<uint32_t> extra_indirect_branch_targets{};
+
+constexpr size_t rsp_text_offset = 0xB89260;
+constexpr size_t rsp_text_size = 0xFB0;
+constexpr size_t rsp_text_address = 0x04001000;
 std::string rom_file_path = "../test/oot_mq_debug.z64";
-std::string output_file_path = "../test/rsp/njpgdspMain.cpp";
-std::string output_function_name = "njpgdspMain";
+std::string output_file_path = "../test/rsp/aspMain.cpp";
+std::string output_function_name = "aspMain";
+const std::vector<uint32_t> extra_indirect_branch_targets{ 0x1F68, 0x1230, 0x114C, 0x1F18, 0x1E2C, 0x14F4, 0x1E9C, 0x1CB0, 0x117C, 0x17CC, 0x11E8, 0x1AA4, 0x1B34, 0x1190, 0x1C5C, 0x1220, 0x1784, 0x1830, 0x1A20, 0x1884, 0x1A84, 0x1A94, 0x1A48, 0x1BA0 };
 
 #ifdef _MSC_VER
 inline uint32_t byteswap(uint32_t val) {
@@ -544,7 +561,7 @@ int main() {
     // Decode the instruction words into instructions
     std::vector<rabbitizer::InstructionRsp> instrs{};
     instrs.reserve(instr_words.size());
-    uint32_t vram = rsp_text_address;
+    uint32_t vram = rsp_text_address & rsp_mem_mask;
     for (uint32_t instr_word : instr_words) {
         const rabbitizer::InstructionRsp& instr = instrs.emplace_back(byteswap(instr_word), vram);
         vram += instr_size;
@@ -552,6 +569,11 @@ int main() {
 
     // Collect indirect jump targets (return addresses for linked jumps)
     BranchTargets branch_targets = get_branch_targets(instrs);
+
+    // Add any additional indirect branch targets that may not be found directly in the code (e.g. from a jump table)
+    for (uint32_t target : extra_indirect_branch_targets) {
+        branch_targets.indirect_targets.insert(target);
+    }
 
     // Open output file and write beginning
     std::ofstream output_file(output_file_path);
@@ -568,7 +590,7 @@ int main() {
         "    r1 = 0xFC0;\n", output_function_name);
     // Write each instruction
     for (size_t instr_index = 0; instr_index < instrs.size(); instr_index++) {
-        process_instruction(instr_index, instrs, output_file, branch_targets, false);
+        process_instruction(instr_index, instrs, output_file, branch_targets, false, false);
     }
 
     // Terminate instruction code with a return to indicate that the microcode has run past its end

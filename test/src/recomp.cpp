@@ -21,7 +21,7 @@ constexpr uint32_t byteswap(uint32_t val) {
 }
 #endif
 
-extern "C" void _bzero(uint8_t* restrict rdram, recomp_context* restrict ctx) {
+extern "C" void _bzero(uint8_t* rdram, recomp_context* ctx) {
     gpr start_addr = ctx->r4;
     gpr size = ctx->r5;
 
@@ -30,7 +30,7 @@ extern "C" void _bzero(uint8_t* restrict rdram, recomp_context* restrict ctx) {
     }
 }
 
-extern "C" void osGetMemSize_recomp(uint8_t * restrict rdram, recomp_context * restrict ctx) {
+extern "C" void osGetMemSize_recomp(uint8_t * rdram, recomp_context * ctx) {
     ctx->r2 = 8 * 1024 * 1024;
 }
 
@@ -58,7 +58,7 @@ std::unique_ptr<uint8_t[]> rom;
 size_t rom_size;
 
 // Recomp generation functions
-extern "C" void recomp_entrypoint(uint8_t * restrict rdram, recomp_context * restrict ctx);
+extern "C" void recomp_entrypoint(uint8_t * rdram, recomp_context * ctx);
 gpr get_entrypoint_address();
 const char* get_rom_name();
 void init_overlays();
