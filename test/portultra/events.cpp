@@ -243,7 +243,7 @@ void run_rsp_microcode(uint8_t* rdram, const OSTask* task, RspUcodeFunc* ucode_f
     sp_complete();
 }
 
-void event_thread_func(uint8_t* rdram, uint8_t* rom) {
+void event_thread_func(uint8_t* rdram, uint8_t* rom, std::atomic_flag* events_thread_ready) {
     using namespace std::chrono_literals;
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0) {
         fprintf(stderr, "Failed to initialize SDL2: %s\n", SDL_GetError());
@@ -257,6 +257,10 @@ void event_thread_func(uint8_t* rdram, uint8_t* rom) {
     //SDL_SetEventFilter(sdl_event_filter, nullptr);
 
     rsp_constants_init();
+
+    // Notify the caller thread that this thread is ready.
+    events_thread_ready->test_and_set();
+    events_thread_ready->notify_all();
 
     while (true) {
         // Try to pull an action from the queue
@@ -319,7 +323,13 @@ void Multilibultra::send_si_message() {
 }
 
 void Multilibultra::init_events(uint8_t* rdram, uint8_t* rom) {
+    std::atomic_flag events_thread_ready;
     events_context.rdram = rdram;
+    events_context.sp.thread = std::thread{ event_thread_func, rdram, rom, &events_thread_ready };
+    
+    // Wait for the event thread to be ready before continuing to prevent the game from
+    // running before we're able to handle RSP tasks.
+    events_thread_ready.wait(false);
+
     events_context.vi.thread = std::thread{ vi_thread_func };
-    events_context.sp.thread = std::thread{ event_thread_func, rdram, rom };
 }
