@@ -510,6 +510,7 @@ void write_indirect_jumps(std::ofstream& output_file, const BranchTargets& branc
 }
 
 // TODO de-hardcode these
+// OoT njpgdspMain
 //constexpr size_t rsp_text_offset = 0xB8BAD0;
 //constexpr size_t rsp_text_size = 0xAF0;
 //constexpr size_t rsp_text_address = 0x04001080;
@@ -518,13 +519,25 @@ void write_indirect_jumps(std::ofstream& output_file, const BranchTargets& branc
 //std::string output_function_name = "njpgdspMain";
 //const std::vector<uint32_t> extra_indirect_branch_targets{};
 
-constexpr size_t rsp_text_offset = 0xB89260;
-constexpr size_t rsp_text_size = 0xFB0;
+// OoT aspMain
+//constexpr size_t rsp_text_offset = 0xB89260;
+//constexpr size_t rsp_text_size = 0xFB0;
+//constexpr size_t rsp_text_address = 0x04001000;
+//std::string rom_file_path = "../test/oot_mq_debug.z64";
+//std::string output_file_path = "../test/rsp/aspMain.cpp";
+//std::string output_function_name = "aspMain";
+//const std::vector<uint32_t> extra_indirect_branch_targets{ 0x1F68, 0x1230, 0x114C, 0x1F18, 0x1E2C, 0x14F4, 0x1E9C, 0x1CB0, 0x117C, 0x17CC, 0x11E8, 0x1AA4, 0x1B34, 0x1190, 0x1C5C, 0x1220, 0x1784, 0x1830, 0x1A20, 0x1884, 0x1A84, 0x1A94, 0x1A48, 0x1BA0 };
+
+// MM's njpgdspMain is identical to OoT's
+
+// MM aspMain
+constexpr size_t rsp_text_offset = 0xC40FF0;
+constexpr size_t rsp_text_size = 0x1000;
 constexpr size_t rsp_text_address = 0x04001000;
-std::string rom_file_path = "../test/oot_mq_debug.z64";
-std::string output_file_path = "../test/rsp/aspMain.cpp";
+std::string rom_file_path = "../../MMRecomp/mm.us.rev1.z64"; // uncompressed rom!
+std::string output_file_path = "../../MMRecomp/rsp/aspMain.cpp";
 std::string output_function_name = "aspMain";
-const std::vector<uint32_t> extra_indirect_branch_targets{ 0x1F68, 0x1230, 0x114C, 0x1F18, 0x1E2C, 0x14F4, 0x1E9C, 0x1CB0, 0x117C, 0x17CC, 0x11E8, 0x1AA4, 0x1B34, 0x1190, 0x1C5C, 0x1220, 0x1784, 0x1830, 0x1A20, 0x1884, 0x1A84, 0x1A94, 0x1A48, 0x1BA0 };
+const std::vector<uint32_t> extra_indirect_branch_targets{ 0x1F80, 0x1250, 0x1154, 0x1094, 0x1E0C, 0x1514, 0x1E7C, 0x1C90, 0x1180, 0x1808, 0x11E8, 0x1ADC, 0x1B6C, 0x1194, 0x1EF8, 0x1240, 0x17C0, 0x186C, 0x1A58, 0x18BC, 0x1ABC, 0x1ACC, 0x1A80, 0x1BD4 };
 
 #ifdef _MSC_VER
 inline uint32_t byteswap(uint32_t val) {
@@ -578,8 +591,8 @@ int main() {
     // Open output file and write beginning
     std::ofstream output_file(output_file_path);
     fmt::print(output_file,
-        "#include \"../src/rsp.h\"\n"
-        "#include \"../src/rsp_vu_impl.h\"\n"
+        "#include \"rsp.h\"\n"
+        "#include \"rsp_vu_impl.h\"\n"
         "RspExitReason {}(uint8_t* rdram) {{\n"
         "    uint32_t           r1 = 0,  r2 = 0,  r3 = 0,  r4 = 0,  r5 = 0,  r6 = 0,  r7 = 0;\n"
         "    uint32_t  r8 = 0,  r9 = 0, r10 = 0, r11 = 0, r12 = 0, r13 = 0, r14 = 0, r15 = 0;\n"

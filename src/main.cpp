@@ -76,6 +76,20 @@ std::unordered_set<std::string> reimplemented_funcs{
     "osPiGetStatus",
     "osEPiRawStartDma",
     "osEPiReadIo",
+    // Flash saving functions
+    "osFlashInit",
+    "osFlashReadStatus",
+    "osFlashReadId",
+    "osFlashClearStatus",
+    "osFlashAllErase",
+    "osFlashAllEraseThrough",
+    "osFlashSectorErase",
+    "osFlashSectorEraseThrough",
+    "osFlashCheckEraseEnd",
+    "osFlashWriteBuffer",
+    "osFlashWriteArray",
+    "osFlashReadArray",
+    "osFlashChange",
     // Threading functions
     "osCreateThread",
     "osStartThread",
@@ -94,6 +108,16 @@ std::unordered_set<std::string> reimplemented_funcs{
     "osGetTime",
     "osSetTimer",
     "osStopTimer",
+    // Voice functions
+    "osVoiceSetWord",
+    "osVoiceCheckWord",
+    "osVoiceStopReadData",
+    "osVoiceInit",
+    "osVoiceMaskDictionary",
+    "osVoiceStartReadData",
+    "osVoiceControlGain",
+    "osVoiceGetReadData",
+    "osVoiceClearDictionary",
     // interrupt functions
     "osSetIntMask",
     "__osDisableInt",
@@ -194,6 +218,7 @@ std::unordered_set<std::string> ignored_funcs {
     "__osContGetInitData",
     "__osContRamRead",
     "__osContRamWrite",
+    "__osContChannelReset",
     // EEPROM functions
     "osEepromLongRead",
     "osEepromLongWrite",
@@ -286,6 +311,20 @@ std::unordered_set<std::string> ignored_funcs {
     "__osLeoAbnormalResume",
     "__osLeoInterrupt",
     "__osLeoResume",
+    // Flash saving functions
+    "osFlashInit",
+    "osFlashReadStatus",
+    "osFlashReadId",
+    "osFlashClearStatus",
+    "osFlashAllErase",
+    "osFlashAllEraseThrough",
+    "osFlashSectorErase",
+    "osFlashSectorEraseThrough",
+    "osFlashCheckEraseEnd",
+    "osFlashWriteBuffer",
+    "osFlashWriteArray",
+    "osFlashReadArray",
+    "osFlashChange",
     // Threading functions
     "osCreateThread",
     "osStartThread",
@@ -311,6 +350,26 @@ std::unordered_set<std::string> ignored_funcs {
     "__osTimerInterrupt",
     "__osTimerServicesInit",
     "__osSetTimerIntr",
+    // Voice functions
+    "osVoiceSetWord",
+    "osVoiceCheckWord",
+    "osVoiceStopReadData",
+    "osVoiceInit",
+    "osVoiceMaskDictionary",
+    "osVoiceStartReadData",
+    "osVoiceControlGain",
+    "osVoiceGetReadData",
+    "osVoiceClearDictionary",
+    "__osVoiceCheckResult",
+    "__osVoiceContRead36",
+    "__osVoiceContWrite20",
+    "__osVoiceContWrite4",
+    "__osVoiceContRead2",
+    "__osVoiceSetADConverter",
+    "__osVoiceContDataCrc",
+    "__osVoiceGetStatus",
+    "corrupted",
+    "corrupted_init",
     // exceptasm functions
     "__osExceptionPreamble",
     "__osException",
@@ -547,7 +606,11 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
         }
         
         // Check if this symbol is the entrypoint
-        if (value == entrypoint && type == ELFIO::STT_FUNC) {
+        if (value == entrypoint /*&& type == ELFIO::STT_FUNC*/) {
+            if (found_entrypoint_func) {
+                fmt::print(stderr, "Ambiguous entrypoint\n");
+                return false;
+            }
             found_entrypoint_func = true;
             size = 0x50; // dummy size for entrypoints, should cover them all
             name = "recomp_entrypoint";
@@ -638,6 +701,20 @@ struct SegmentEntry {
     ELFIO::Elf_Xword memory_size;
 };
 
+std::optional<size_t> get_segment(const std::vector<SegmentEntry>& segments, ELFIO::Elf_Xword section_size, ELFIO::Elf64_Off section_offset) {
+    // A linear search is safest even if the segment list is sorted, as there may be overlapping segments
+    for (size_t i = 0; i < segments.size(); i++) {
+        const auto& segment = segments[i];
+
+        // Check that the section's data in the elf file is within bounds of the segment's data
+        if (section_offset >= segment.data_offset && section_offset + section_size <= segment.data_offset + segment.memory_size) {
+            return i;
+        }
+    }
+
+    return std::nullopt;
+}
+
 ELFIO::section* read_sections(RecompPort::Context& context, const ELFIO::elfio& elf_file) {
     ELFIO::section* symtab_section = nullptr;
     std::vector<SegmentEntry> segments{};
@@ -648,15 +725,15 @@ ELFIO::section* read_sections(RecompPort::Context& context, const ELFIO::elfio& 
         const auto& segment = *elf_file.segments[segment_index];
         segments[segment_index].data_offset = segment.get_offset();
         segments[segment_index].physical_address = segment.get_physical_address();
-        segments[segment_index].memory_size = segment.get_memory_size();
+        segments[segment_index].memory_size = segment.get_file_size();
     }
 
-    // Sort the segments by physical address
-    std::sort(segments.begin(), segments.end(),
-        [](const SegmentEntry& lhs, const SegmentEntry& rhs) {
-            return lhs.data_offset < rhs.data_offset;
-        }
-    );
+    //// Sort the segments by physical address
+    //std::sort(segments.begin(), segments.end(),
+    //    [](const SegmentEntry& lhs, const SegmentEntry& rhs) {
+    //        return lhs.data_offset < rhs.data_offset;
+    //    }
+    //);
 
     std::unordered_map<std::string, ELFIO::section*> reloc_sections_by_name;
 
@@ -694,25 +771,31 @@ ELFIO::section* read_sections(RecompPort::Context& context, const ELFIO::elfio& 
 
         // If this section isn't bss (SHT_NOBITS) and ends up in the rom (SHF_ALLOC), 
         // find this section's rom address and copy it into the rom
-        if (type != ELFIO::SHT_NOBITS && section->get_flags() & ELFIO::SHF_ALLOC) {
-            // Find the segment this section is in to determine the physical (rom) address of the section
-            auto segment_it = std::upper_bound(segments.begin(), segments.end(), section->get_offset(),
-                [](ELFIO::Elf64_Off section_offset, const SegmentEntry& segment) {
-                    return section_offset < segment.data_offset;
-                }
-            );
-            if (segment_it == segments.begin()) {
+        if (type != ELFIO::SHT_NOBITS && section->get_flags() & ELFIO::SHF_ALLOC && section->get_size() != 0) {
+            //// Find the segment this section is in to determine the physical (rom) address of the section
+            //auto segment_it = std::upper_bound(segments.begin(), segments.end(), section->get_offset(),
+            //    [](ELFIO::Elf64_Off section_offset, const SegmentEntry& segment) {
+            //        return section_offset < segment.data_offset;
+            //    }
+            //);
+            //if (segment_it == segments.begin()) {
+            //    fmt::print(stderr, "Could not find segment that section {} belongs to!\n", section_name.c_str());
+            //    return nullptr;
+            //}
+            //// Upper bound returns the iterator after the element we're looking for, so rewind by one
+            //// This is safe because we checked if segment_it was segments.begin() already, which is the minimum value it could be
+            //const SegmentEntry& segment = *(segment_it - 1);
+            //// Check to be sure that the section is actually in this segment
+            //if (section->get_offset() >= segment.data_offset + segment.memory_size) {
+            //    fmt::print(stderr, "Section {} out of range of segment at offset 0x{:08X}\n", section_name.c_str(), segment.data_offset);
+            //    return nullptr;
+            //}
+            std::optional<size_t> segment_index = get_segment(segments, section_out.size, section->get_offset());
+            if (!segment_index.has_value()) {
                 fmt::print(stderr, "Could not find segment that section {} belongs to!\n", section_name.c_str());
                 return nullptr;
             }
-            // Upper bound returns the iterator after the element we're looking for, so rewind by one
-            // This is safe because we checked if segment_it was segments.begin() already, which is the minimum value it could be
-            const SegmentEntry& segment = *(segment_it - 1);
-            // Check to be sure that the section is actually in this segment
-            if (section->get_offset() >= segment.data_offset + segment.memory_size) {
-                fmt::print(stderr, "Section {} out of range of segment at offset 0x{:08X}\n", section_name.c_str(), segment.data_offset);
-                return nullptr;
-            }
+            const SegmentEntry& segment = segments[segment_index.value()];
             // Calculate the rom address based on this section's offset into the segment and the segment's rom address
             section_out.rom_addr = segment.physical_address + (section->get_offset() - segment.data_offset);
             // Resize the output rom if needed to fit this section
@@ -895,8 +978,8 @@ bool read_list_file(const char* filename, std::unordered_set<std::string>& entri
 }
 
 int main(int argc, char** argv) {
-    if (argc < 3 || argc > 4) {
-        fmt::print("Usage: {} [input elf file] [entrypoint RAM address] [relocatable sections list file (optional)]\n", argv[0]);
+    if (argc < 4 || argc > 5) {
+        fmt::print("Usage: {} [input elf file] [entrypoint RAM address] [output path] [relocatable sections list file (optional)]\n", argv[0]);
         std::exit(EXIT_SUCCESS);
     }
 
@@ -913,13 +996,18 @@ int main(int argc, char** argv) {
 
     std::unordered_set<std::string> relocatable_sections{};
 
-    if (argc == 4) {
-        if (!read_list_file(argv[3], relocatable_sections)) {
-            exit_failure("Failed to load the relocatable section list file: " + std::string(argv[3]) + "\n");
+    if (argc == 5) {
+        if (!read_list_file(argv[4], relocatable_sections)) {
+            exit_failure("Failed to load the relocatable section list file: " + std::string(argv[4]) + "\n");
         }
     }
 
+    std::string output_dir{ argv[3] };
     std::string elf_name{ argv[1] };
+
+    if (!output_dir.ends_with('/')) {
+        output_dir += "/";
+    }
 
     if (!elf_file.load(elf_name)) {
         exit_failure("Failed to load provided elf file\n");
@@ -962,8 +1050,8 @@ int main(int argc, char** argv) {
 
     fmt::print("Function count: {}\n", context.functions.size());
 
-    std::ofstream lookup_file{ "test/funcs/lookup.cpp" };
-    std::ofstream func_header_file{ "test/funcs/funcs.h" };
+    std::ofstream lookup_file{ output_dir + "lookup.cpp" };
+    std::ofstream func_header_file{ output_dir + "funcs.h" };
 
     fmt::print(lookup_file,
         //"#include <utility>\n"
@@ -984,7 +1072,7 @@ int main(int argc, char** argv) {
 
     std::vector<std::vector<uint32_t>> static_funcs_by_section{ context.sections.size() };
 
-    std::string output_dir = "test/funcs/";
+    fmt::print("Working dir: {}\n", std::filesystem::current_path().string());
 
     //#pragma omp parallel for
     for (size_t i = 0; i < context.functions.size(); i++) {

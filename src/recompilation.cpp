@@ -974,6 +974,10 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
 
     // Open the output file and write the file header
     std::ofstream output_file{ output_path.data() };
+    if (!output_file.good()) {
+        fmt::print(stderr, "Failed to open file for writing: {}\n", output_path);
+        return false;
+    }
     fmt::print(output_file,
         "#include \"recomp.h\"\n"
         "#include \"disable_warnings.h\"\n"
