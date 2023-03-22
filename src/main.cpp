@@ -975,6 +975,8 @@ bool read_list_file(const char* filename, std::unordered_set<std::string>& entri
     while (input_file >> entry) {
         entries_out.emplace(std::move(entry));
     }
+
+    return true;
 }
 
 int main(int argc, char** argv) {
