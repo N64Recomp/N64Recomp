@@ -141,6 +141,8 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     int fs = (int)instr.GetO32_fs();
     int ft = (int)instr.GetO32_ft();
 
+    int cop1_cs = (int)instr.Get_cop1cs();
+
     uint16_t imm = instr.Get_immediate();
 
     std::string unsigned_imm_string;
@@ -524,10 +526,10 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_mfc1:
         if ((fs & 1) == 0) {
             // even fpr
-            print_line("{}{} = ctx->f{}.u32l", ctx_gpr_prefix(rt), rt, fs);
+            print_line("{}{} = (int32_t)ctx->f{}.u32l", ctx_gpr_prefix(rt), rt, fs);
         } else {
             // odd fpr
-            print_line("{}{} = ctx->f{}.u32h", ctx_gpr_prefix(rt), rt, fs - 1);
+            print_line("{}{} = (int32_t)ctx->f{}.u32h", ctx_gpr_prefix(rt), rt, fs - 1);
         }
         break;
     //case InstrId::cpu_dmfc1:
@@ -543,7 +545,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         if ((ft & 1) == 0) {
             // even fpr
             print_line("ctx->f{}.u32l = MEM_W({}, {}{})", ft, signed_imm_string, ctx_gpr_prefix(base), base);
-            print_line("NAN_CHECK(ctx->f{}.fl)", ft);
         } else {
             // odd fpr
             print_line("ctx->f{}.u32h = MEM_W({}, {}{})", ft - 1, signed_imm_string, ctx_gpr_prefix(base), base);
@@ -552,7 +553,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_ldc1:
         if ((ft & 1) == 0) {
             print_line("ctx->f{}.u64 = LD({}, {}{})", ft, signed_imm_string, ctx_gpr_prefix(base), base);
-            print_line("NAN_CHECK(ctx->f{}.d)", ft);
         } else {
             fmt::print(stderr, "Invalid operand for ldc1: f{}\n", ft);
             return false;
@@ -648,7 +648,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_mov_s:
         if ((fd & 1) == 0 && (fs & 1) == 0) {
             // even fpr
-            print_line("NAN_CHECK(ctx->f{}.fl)", fs);
             print_line("ctx->f{}.fl = ctx->f{}.fl", fd, fs);
         } else {
             fmt::print(stderr, "Invalid operand(s) for mov.s: f{} f{}\n", fd, fs);
@@ -658,7 +657,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_mov_d:
         if ((fd & 1) == 0 && (fs & 1) == 0) {
             // even fpr
-            print_line("NAN_CHECK(ctx->f{}.d)", fs);
             print_line("ctx->f{}.d = ctx->f{}.d", fd, fs);
         } else {
             fmt::print(stderr, "Invalid operand(s) for mov.d: f{} f{}\n", fd, fs);
@@ -879,9 +877,19 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     //        return false;
     //    }
     //    break;
-    // TODO rounding modes
     case InstrId::cpu_ctc1:
+        if (cop1_cs != 31) {
+            fmt::print(stderr, "Invalid FP control register for ctc1: {}\n", cop1_cs);
+            return false;
+        }
+        print_line("rounding_mode = ({}{}) & 0x3", ctx_gpr_prefix(rt), rt);
+        break;
     case InstrId::cpu_cfc1:
+        if (cop1_cs != 31) {
+            fmt::print(stderr, "Invalid FP control register for cfc1: {}\n", cop1_cs);
+            return false;
+        }
+        print_line("{}{} = rounding_mode", ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_cvt_w_s:
         if ((fd & 1) == 0 && (fs & 1) == 0) {
@@ -985,6 +993,7 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
         "void {}(uint8_t* rdram, recomp_context* ctx) {{\n"
         // these variables shouldn't need to be preserved across function boundaries, so make them local for more efficient output
         "    uint64_t hi = 0, lo = 0, result = 0;\n"
+        "    unsigned int rounding_mode = DEFAULT_ROUNDING_MODE;\n"
         "    int c1cs = 0; \n", // cop1 conditional signal
         func.name);
 
