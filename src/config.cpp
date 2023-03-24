@@ -4,13 +4,15 @@
 #include "fmt/format.h"
 #include "recomp_port.h"
 
-void get_stubbed_funcs(std::vector<std::string>& stubbed_funcs, const toml::value& patches_data) {
+std::vector<std::string> get_stubbed_funcs(const toml::value& patches_data) {
+	std::vector<std::string> stubbed_funcs{};
+
 	// Check if the stubs array exists.
 	const auto& stubs_data = toml::find_or<toml::value>(patches_data, "stubs", toml::value{});
 
 	if (stubs_data.type() == toml::value_t::empty) {
 		// No stubs, nothing to do here.
-		return;
+		return stubbed_funcs;
 	}
 
 	// Get the stubs array as an array type.
@@ -24,6 +26,8 @@ void get_stubbed_funcs(std::vector<std::string>& stubbed_funcs, const toml::valu
 		// Copy the entry into the stubbed function list.
 		stubbed_funcs[stub_idx] = stubs_array[stub_idx].as_string();
 	}
+
+	return stubbed_funcs;
 }
 
 std::unordered_map<std::string, RecompPort::FunctionArgType> arg_type_map{
@@ -53,12 +57,14 @@ std::vector<RecompPort::FunctionArgType> parse_args(const toml::array& args_in) 
 	return ret;
 }
 
-void get_declared_funcs(RecompPort::DeclaredFunctionMap& declared_funcs, const toml::value& patches_data) {
+RecompPort::DeclaredFunctionMap get_declared_funcs(const toml::value& patches_data) {
+	RecompPort::DeclaredFunctionMap declared_funcs{};
+
 	// Check if the func array exists.
 	const toml::value& funcs_data = toml::find_or<toml::value>(patches_data, "func", toml::value{});
 	if (funcs_data.type() == toml::value_t::empty) {
 		// No func array, nothing to do here
-		return;
+		return declared_funcs;
 	}
 
 	// Get the funcs array as an array type.
@@ -72,6 +78,34 @@ void get_declared_funcs(RecompPort::DeclaredFunctionMap& declared_funcs, const t
 		
 		declared_funcs.emplace(func_name, parse_args(args_in));
 	}
+
+	return declared_funcs;
+}
+
+std::vector<RecompPort::InstructionPatch> get_instruction_patches(const toml::value& patches_data) {
+	std::vector<RecompPort::InstructionPatch> ret;
+
+	// Check if the instruction patch array exists.
+	const toml::value& insn_patch_data = toml::find_or<toml::value>(patches_data, "instruction", toml::value{});
+	if (insn_patch_data.type() == toml::value_t::empty) {
+		// No instruction patch array, nothing to do here
+		return ret;
+	}
+
+	// Get the instruction patch array as an array type.
+	const toml::array& insn_patch_array = insn_patch_data.as_array();
+	ret.resize(insn_patch_array.size());
+
+	// Copy all the patches into the output vector.
+	for (size_t patch_idx = 0; patch_idx < insn_patch_array.size(); patch_idx++) {
+		const toml::value& cur_patch = insn_patch_array[patch_idx];
+
+		ret[patch_idx].func_name = toml::find<std::string>(cur_patch, "func");
+		ret[patch_idx].vram = toml::find<int32_t>(cur_patch, "vram");
+		ret[patch_idx].value = toml::find<uint32_t>(cur_patch, "value");
+	}
+
+	return ret;
 }
 
 std::filesystem::path concat_if_not_empty(const std::filesystem::path& parent, const std::filesystem::path& child) {
@@ -102,10 +136,13 @@ RecompPort::Config::Config(const char* path) {
 		const toml::value& patches_data = toml::find_or<toml::value>(config_data, "patches", toml::value{});
 		if (patches_data.type() != toml::value_t::empty) {
 			// Stubs array (optional)
-			get_stubbed_funcs(stubbed_funcs, patches_data);
+			stubbed_funcs = get_stubbed_funcs(patches_data);
 
 			// Functions (optional)
-			get_declared_funcs(declared_funcs, patches_data);
+			declared_funcs = get_declared_funcs(patches_data);
+
+			// Single-instruction patches (optional)
+			instruction_patches = get_instruction_patches(patches_data);
 		}
 	}
 	catch (const toml::syntax_error& err) {

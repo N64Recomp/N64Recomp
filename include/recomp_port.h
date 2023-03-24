@@ -33,6 +33,12 @@ namespace RecompPort {
     // Mapping of function name to argument types
     using DeclaredFunctionMap = std::unordered_map<std::string, std::vector<FunctionArgType>>;
 
+    struct InstructionPatch {
+        std::string func_name;
+        int32_t vram;
+        uint32_t value;
+    };
+
     struct Config {
         int32_t entrypoint;
         std::filesystem::path elf_path;
@@ -40,6 +46,7 @@ namespace RecompPort {
         std::filesystem::path relocatable_sections_path;
         std::vector<std::string> stubbed_funcs;
         DeclaredFunctionMap declared_funcs;
+        std::vector<InstructionPatch> instruction_patches;
 
         Config(const char* path);
         bool good() { return !bad; }
