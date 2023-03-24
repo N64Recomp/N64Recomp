@@ -976,14 +976,14 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     return true;
 }
 
-bool RecompPort::recompile_function(const RecompPort::Context& context, const RecompPort::Function& func, std::string_view output_path, std::span<std::vector<uint32_t>> static_funcs_out) {
+bool RecompPort::recompile_function(const RecompPort::Context& context, const RecompPort::Function& func, const std::filesystem::path& output_path, std::span<std::vector<uint32_t>> static_funcs_out) {
     //fmt::print("Recompiling {}\n", func.name);
     std::vector<rabbitizer::InstructionCpu> instructions;
 
     // Open the output file and write the file header
-    std::ofstream output_file{ output_path.data() };
+    std::ofstream output_file{ output_path };
     if (!output_file.good()) {
-        fmt::print(stderr, "Failed to open file for writing: {}\n", output_path);
+        fmt::print(stderr, "Failed to open file for writing: {}\n", output_path.string() );
         return false;
     }
     fmt::print(output_file,
@@ -1065,7 +1065,7 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
         
         // Process the current instruction and check for errors
         if (process_instruction(context, func, stats, skipped_insns, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, reloc_index, needs_link_branch, is_branch_likely, static_funcs_out) == false) {
-            fmt::print(stderr, "Error in recompilation, clearing {}\n", output_path);
+            fmt::print(stderr, "Error in recompilation, clearing {}\n", output_path.string() );
             output_file.clear();
             return false;
         }

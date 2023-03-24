@@ -10,7 +10,6 @@
 #include "fmt/ostream.h"
 
 #include "recomp_port.h"
-#include "main.h"
 #include <set>
 
 std::unordered_set<std::string> reimplemented_funcs{
@@ -964,7 +963,7 @@ void analyze_sections(RecompPort::Context& context, const ELFIO::elfio& elf_file
     );
 }
 
-bool read_list_file(const char* filename, std::unordered_set<std::string>& entries_out) {
+bool read_list_file(const std::filesystem::path& filename, std::unordered_set<std::string>& entries_out) {
     std::ifstream input_file{ filename };
     if (!input_file.good()) {
         return false;
@@ -980,9 +979,21 @@ bool read_list_file(const char* filename, std::unordered_set<std::string>& entri
 }
 
 int main(int argc, char** argv) {
-    if (argc < 4 || argc > 5) {
-        fmt::print("Usage: {} [input elf file] [entrypoint RAM address] [output path] [relocatable sections list file (optional)]\n", argv[0]);
+    auto exit_failure = [] (const std::string& error_str) {
+        fmt::print(stderr, error_str);
+        std::exit(EXIT_FAILURE);
+    };
+
+    if (argc != 2) {
+        fmt::print("Usage: {} [config file]\n", argv[0]);
         std::exit(EXIT_SUCCESS);
+    }
+
+    const char* config_path = argv[1];
+
+    RecompPort::Config config{ config_path };
+    if (!config.good()) {
+        exit_failure(fmt::format("Failed to load config file: {}\n", config_path));
     }
 
     ELFIO::elfio elf_file;
@@ -991,34 +1002,16 @@ int main(int argc, char** argv) {
     RabbitizerConfig_Cfg.pseudos.pseudoBnez = false;
     RabbitizerConfig_Cfg.pseudos.pseudoNot = false;
 
-    auto exit_failure = [] (const std::string& error_str) {
-        fmt::print(stderr, error_str);
-        std::exit(EXIT_FAILURE);
-    };
-
     std::unordered_set<std::string> relocatable_sections{};
 
-    if (argc == 5) {
-        if (!read_list_file(argv[4], relocatable_sections)) {
+    if (!config.relocatable_sections_path.empty()) {
+        if (!read_list_file(config.relocatable_sections_path, relocatable_sections)) {
             exit_failure("Failed to load the relocatable section list file: " + std::string(argv[4]) + "\n");
         }
     }
 
-    std::string output_dir{ argv[3] };
-    std::string elf_name{ argv[1] };
-
-    if (!output_dir.ends_with('/')) {
-        output_dir += "/";
-    }
-
-    if (!elf_file.load(elf_name)) {
+    if (!elf_file.load(config.elf_path.string())) {
         exit_failure("Failed to load provided elf file\n");
-    }
-
-    char* end;
-    const uint32_t entrypoint = (uint32_t)strtoul(argv[2], &end, 0);
-    if (argv[2] == end) {
-        exit_failure("Invalid entrypoint value: " + std::string(argv[2]) + "\n");
     }
 
     if (elf_file.get_class() != ELFIO::ELFCLASS32) {
@@ -1044,7 +1037,7 @@ int main(int argc, char** argv) {
     }
 
     // Read all of the symbols in the elf and look for the entrypoint function
-    bool found_entrypoint_func = read_symbols(context, elf_file, symtab_section, entrypoint);
+    bool found_entrypoint_func = read_symbols(context, elf_file, symtab_section, config.entrypoint);
 
     if (!found_entrypoint_func) {
         exit_failure("Could not find entrypoint function\n");
@@ -1052,8 +1045,8 @@ int main(int argc, char** argv) {
 
     fmt::print("Function count: {}\n", context.functions.size());
 
-    std::ofstream lookup_file{ output_dir + "lookup.cpp" };
-    std::ofstream func_header_file{ output_dir + "funcs.h" };
+    std::ofstream lookup_file{ config.output_func_path / "lookup.cpp" };
+    std::ofstream func_header_file{ config.output_func_path / "funcs.h" };
 
     fmt::print(lookup_file,
         //"#include <utility>\n"
@@ -1085,7 +1078,7 @@ int main(int argc, char** argv) {
                 "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
             //fmt::print(lookup_file,
             //    "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
-            if (RecompPort::recompile_function(context, func, output_dir + func.name + ".c", static_funcs_by_section) == false) {
+            if (RecompPort::recompile_function(context, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section) == false) {
                 //lookup_file.clear();
                 fmt::print(stderr, "Error recompiling {}\n", func.name);
                 std::exit(EXIT_FAILURE);
@@ -1151,7 +1144,7 @@ int main(int argc, char** argv) {
                        "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
             //fmt::print(lookup_file,
             //           "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
-            if (RecompPort::recompile_function(context, func, output_dir + func.name + ".c", static_funcs_by_section) == false) {
+            if (RecompPort::recompile_function(context, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section) == false) {
                 //lookup_file.clear();
                 fmt::print(stderr, "Error recompiling {}\n", func.name);
                 std::exit(EXIT_FAILURE);
@@ -1167,8 +1160,8 @@ int main(int argc, char** argv) {
         "\n"
         "const char* get_rom_name() {{ return \"{}\"; }}\n"
         "\n",
-        entrypoint,
-        std::filesystem::path{ elf_name }.filename().replace_extension(".z64").string()
+        config.entrypoint,
+        config.elf_path.filename().replace_extension(".z64").string()
     );
 
     fmt::print(func_header_file,
@@ -1179,7 +1172,7 @@ int main(int argc, char** argv) {
     );
 
     {
-        std::ofstream overlay_file(output_dir + "recomp_overlays.inl");
+        std::ofstream overlay_file(config.output_func_path / "recomp_overlays.inl");
         std::string section_load_table = "static SectionTableEntry section_table[] = {\n";
 
         fmt::print(overlay_file, 

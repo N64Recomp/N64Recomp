@@ -8,6 +8,8 @@
 #include <unordered_map>
 #include <span>
 #include <unordered_set>
+#include <filesystem>
+#include "rabbitizer.hpp"
 #include "elfio/elfio.hpp"
 
 #ifdef _MSC_VER
@@ -21,6 +23,29 @@ constexpr uint32_t byteswap(uint32_t val) {
 #endif
 
 namespace RecompPort {
+
+    // Potential argument types for function declarations
+    enum class FunctionArgType {
+        u32,
+        s32,
+    };
+
+    // Mapping of function name to argument types
+    using DeclaredFunctionMap = std::unordered_map<std::string, std::vector<FunctionArgType>>;
+
+    struct Config {
+        int32_t entrypoint;
+        std::filesystem::path elf_path;
+        std::filesystem::path output_func_path;
+        std::filesystem::path relocatable_sections_path;
+        std::vector<std::string> stubbed_funcs;
+        DeclaredFunctionMap declared_funcs;
+
+        Config(const char* path);
+        bool good() { return !bad; }
+    private:
+        bool bad;
+    };
 
     struct JumpTable {
         uint32_t vram;
@@ -68,14 +93,14 @@ namespace RecompPort {
     };
 
     struct Section {
-        ELFIO::Elf_Xword rom_addr;
-        ELFIO::Elf64_Addr ram_addr;
-        ELFIO::Elf_Xword size;
+        ELFIO::Elf_Xword rom_addr = 0;
+        ELFIO::Elf64_Addr ram_addr = 0;
+        ELFIO::Elf_Xword size = 0;
         std::vector<uint32_t> function_addrs;
         std::vector<Reloc> relocs;
         std::string name;
-        bool executable;
-        bool relocatable;
+        bool executable = false;
+        bool relocatable = false;
     };
 
     struct FunctionStats {
@@ -106,7 +131,7 @@ namespace RecompPort {
     };
 
     bool analyze_function(const Context& context, const Function& function, const std::vector<rabbitizer::InstructionCpu>& instructions, FunctionStats& stats);
-    bool recompile_function(const Context& context, const Function& func, std::string_view output_path, std::span<std::vector<uint32_t>> static_funcs);
+    bool recompile_function(const Context& context, const Function& func, const std::filesystem::path& output_path, std::span<std::vector<uint32_t>> static_funcs);
 }
 
 #endif
