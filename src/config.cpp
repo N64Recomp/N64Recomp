@@ -100,7 +100,7 @@ RecompPort::Config::Config(const char* path) {
 
 		// Patches section (optional)
 		const toml::value& patches_data = toml::find_or<toml::value>(config_data, "patches", toml::value{});
-		if (patches_data.type() == toml::value_t::empty) {
+		if (patches_data.type() != toml::value_t::empty) {
 			// Stubs array (optional)
 			get_stubbed_funcs(stubbed_funcs, patches_data);
 

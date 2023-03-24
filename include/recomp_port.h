@@ -70,6 +70,7 @@ namespace RecompPort {
         ELFIO::Elf_Half section_index;
         bool ignored;
         bool reimplemented;
+        bool stubbed;
     };
 
     enum class RelocType : uint8_t {
@@ -113,6 +114,8 @@ namespace RecompPort {
         std::vector<Section> sections;
         std::vector<Function> functions;
         std::unordered_map<uint32_t, std::vector<size_t>> functions_by_vram;
+        // A mapping of function name to index in the functions vector
+        std::unordered_map<std::string, size_t> functions_by_name;
         std::vector<uint8_t> rom;
         // A list of the list of each function (by index in `functions`) in a given section
         std::vector<std::vector<size_t>> section_functions;
@@ -124,7 +127,8 @@ namespace RecompPort {
             sections.resize(elf_file.sections.size());
             section_functions.resize(elf_file.sections.size());
             functions.reserve(1024);
-            functions_by_vram.reserve(1024);
+            functions_by_vram.reserve(functions.capacity());
+            functions_by_name.reserve(functions.capacity());
             rom.reserve(8 * 1024 * 1024);
             executable_section_count = 0;
         }

@@ -997,91 +997,94 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
         "    int c1cs = 0; \n", // cop1 conditional signal
         func.name);
 
-    // Use a set to sort and deduplicate labels
-    std::set<uint32_t> branch_labels;
-    instructions.reserve(func.words.size());
+    // Skip analysis and recompilation of this function is stubbed.
+    if (!func.stubbed) {
+        // Use a set to sort and deduplicate labels
+        std::set<uint32_t> branch_labels;
+        instructions.reserve(func.words.size());
 
-    // First pass, disassemble each instruction and collect branch labels
-    uint32_t vram = func.vram;
-    for (uint32_t word : func.words) {
-        const auto& instr = instructions.emplace_back(byteswap(word), vram);
+        // First pass, disassemble each instruction and collect branch labels
+        uint32_t vram = func.vram;
+        for (uint32_t word : func.words) {
+            const auto& instr = instructions.emplace_back(byteswap(word), vram);
 
-        // If this is a branch or a direct jump, add it to the local label list
-        if (instr.isBranch() || instr.getUniqueId() == rabbitizer::InstrId::UniqueId::cpu_j) {
-            branch_labels.insert((uint32_t)instr.getBranchVramGeneric());
-        }
-
-        // Advance the vram address by the size of one instruction
-        vram += 4;
-    }
-
-    // Analyze function
-    RecompPort::FunctionStats stats{};
-    if (!RecompPort::analyze_function(context, func, instructions, stats)) {
-        fmt::print(stderr, "Failed to analyze {}\n", func.name);
-        output_file.clear();
-        return false;
-    }
-
-    std::unordered_set<uint32_t> skipped_insns{};
-
-    // Add jump table labels into function
-    for (const auto& jtbl : stats.jump_tables) {
-        skipped_insns.insert(jtbl.lw_vram);
-        for (uint32_t jtbl_entry : jtbl.entries) {
-            branch_labels.insert(jtbl_entry);
-        }
-    }
-
-    // Second pass, emit code for each instruction and emit labels
-    auto cur_label = branch_labels.cbegin();
-    vram = func.vram;
-    int num_link_branches = 0;
-    int num_likely_branches = 0;
-    bool needs_link_branch = false;
-    bool in_likely_delay_slot = false;
-    const auto& section = context.sections[func.section_index];
-    bool needs_reloc = section.relocatable;
-    size_t reloc_index = 0;
-    for (size_t instr_index = 0; instr_index < instructions.size(); ++instr_index) {
-        bool had_link_branch = needs_link_branch;
-        bool is_branch_likely = false;
-        // If we're in the delay slot of a likely instruction, emit a goto to skip the instruction before any labels
-        if (in_likely_delay_slot) {
-            fmt::print(output_file, "    goto skip_{};\n", num_likely_branches);
-        }
-        // If there are any other branch labels to insert and we're at the next one, insert it
-        if (cur_label != branch_labels.end() && vram >= *cur_label) {
-            fmt::print(output_file, "L_{:08X}:\n", *cur_label);
-            ++cur_label;
-        }
-        
-        // If this is a relocatable section, advance the reloc index until we reach the last one or until we get to/pass the current instruction
-        if (needs_reloc) {
-            while (reloc_index < (section.relocs.size() - 1) && section.relocs[reloc_index].address < vram) {
-                reloc_index++;
+            // If this is a branch or a direct jump, add it to the local label list
+            if (instr.isBranch() || instr.getUniqueId() == rabbitizer::InstrId::UniqueId::cpu_j) {
+                branch_labels.insert((uint32_t)instr.getBranchVramGeneric());
             }
+
+            // Advance the vram address by the size of one instruction
+            vram += 4;
         }
-        
-        // Process the current instruction and check for errors
-        if (process_instruction(context, func, stats, skipped_insns, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, reloc_index, needs_link_branch, is_branch_likely, static_funcs_out) == false) {
-            fmt::print(stderr, "Error in recompilation, clearing {}\n", output_path.string() );
+
+        // Analyze function
+        RecompPort::FunctionStats stats{};
+        if (!RecompPort::analyze_function(context, func, instructions, stats)) {
+            fmt::print(stderr, "Failed to analyze {}\n", func.name);
             output_file.clear();
             return false;
         }
-        // If a link return branch was generated, advance the number of link return branches
-        if (had_link_branch) {
-            num_link_branches++;
+
+        std::unordered_set<uint32_t> skipped_insns{};
+
+        // Add jump table labels into function
+        for (const auto& jtbl : stats.jump_tables) {
+            skipped_insns.insert(jtbl.lw_vram);
+            for (uint32_t jtbl_entry : jtbl.entries) {
+                branch_labels.insert(jtbl_entry);
+            }
         }
-        // Now that the instruction has been processed, emit a skip label for the likely branch if needed
-        if (in_likely_delay_slot) {
-            fmt::print(output_file, "    skip_{}:\n", num_likely_branches);
-            num_likely_branches++;
+
+        // Second pass, emit code for each instruction and emit labels
+        auto cur_label = branch_labels.cbegin();
+        vram = func.vram;
+        int num_link_branches = 0;
+        int num_likely_branches = 0;
+        bool needs_link_branch = false;
+        bool in_likely_delay_slot = false;
+        const auto& section = context.sections[func.section_index];
+        bool needs_reloc = section.relocatable;
+        size_t reloc_index = 0;
+        for (size_t instr_index = 0; instr_index < instructions.size(); ++instr_index) {
+            bool had_link_branch = needs_link_branch;
+            bool is_branch_likely = false;
+            // If we're in the delay slot of a likely instruction, emit a goto to skip the instruction before any labels
+            if (in_likely_delay_slot) {
+                fmt::print(output_file, "    goto skip_{};\n", num_likely_branches);
+            }
+            // If there are any other branch labels to insert and we're at the next one, insert it
+            if (cur_label != branch_labels.end() && vram >= *cur_label) {
+                fmt::print(output_file, "L_{:08X}:\n", *cur_label);
+                ++cur_label;
+            }
+
+            // If this is a relocatable section, advance the reloc index until we reach the last one or until we get to/pass the current instruction
+            if (needs_reloc) {
+                while (reloc_index < (section.relocs.size() - 1) && section.relocs[reloc_index].address < vram) {
+                    reloc_index++;
+                }
+            }
+
+            // Process the current instruction and check for errors
+            if (process_instruction(context, func, stats, skipped_insns, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, reloc_index, needs_link_branch, is_branch_likely, static_funcs_out) == false) {
+                fmt::print(stderr, "Error in recompilation, clearing {}\n", output_path.string());
+                output_file.clear();
+                return false;
+            }
+            // If a link return branch was generated, advance the number of link return branches
+            if (had_link_branch) {
+                num_link_branches++;
+            }
+            // Now that the instruction has been processed, emit a skip label for the likely branch if needed
+            if (in_likely_delay_slot) {
+                fmt::print(output_file, "    skip_{}:\n", num_likely_branches);
+                num_likely_branches++;
+            }
+            // Mark the next instruction as being in a likely delay slot if the 
+            in_likely_delay_slot = is_branch_likely;
+            // Advance the vram address by the size of one instruction
+            vram += 4;
         }
-        // Mark the next instruction as being in a likely delay slot if the 
-        in_likely_delay_slot = is_branch_likely;
-        // Advance the vram address by the size of one instruction
-        vram += 4;
     }
 
     // Terminate the function

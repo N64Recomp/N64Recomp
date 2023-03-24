@@ -665,6 +665,7 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
                 if (num_instructions > 0) {
                     context.section_functions[section_index].push_back(context.functions.size());
                 }
+                context.functions_by_name[name] = context.functions.size();
                 context.functions.emplace_back(
                     vram,
                     rom_address,
@@ -1068,6 +1069,19 @@ int main(int argc, char** argv) {
     std::vector<std::vector<uint32_t>> static_funcs_by_section{ context.sections.size() };
 
     fmt::print("Working dir: {}\n", std::filesystem::current_path().string());
+
+    // Stub out any functions specified in the config file.
+    for (const std::string& stubbed_func : config.stubbed_funcs) {
+        // Check if the specified function exists.
+        auto func_find = context.functions_by_name.find(stubbed_func);
+        if (func_find == context.functions_by_name.end()) {
+            // Function doesn't exist, present an error to the user instead of silently failing to stub it out.
+            // This helps prevent typos in the config file or functions renamed between versions from causing issues.
+            exit_failure(fmt::format("Function {} is stubbed out in the config file but does not exist!", stubbed_func));
+        }
+        // Mark the function as stubbed.
+        context.functions[func_find->second].stubbed = true;
+    }
 
     //#pragma omp parallel for
     for (size_t i = 0; i < context.functions.size(); i++) {
