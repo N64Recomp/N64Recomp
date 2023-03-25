@@ -4,6 +4,19 @@
 #include "fmt/format.h"
 #include "recomp_port.h"
 
+// Error type for invalid values in the config file.
+struct value_error : public toml::exception {
+	public:
+		explicit value_error(const std::string& what_arg, const toml::source_location& loc)
+			: exception(loc), what_(what_arg) {
+		}
+		virtual ~value_error() noexcept override = default;
+		virtual const char* what() const noexcept override { return what_.c_str(); }
+
+	protected:
+		std::string what_;
+};
+
 std::vector<std::string> get_stubbed_funcs(const toml::value& patches_data) {
 	std::vector<std::string> stubbed_funcs{};
 
@@ -100,6 +113,17 @@ std::vector<RecompPort::InstructionPatch> get_instruction_patches(const toml::va
 	for (size_t patch_idx = 0; patch_idx < insn_patch_array.size(); patch_idx++) {
 		const toml::value& cur_patch = insn_patch_array[patch_idx];
 
+		// Get the vram and make sure it's 4-byte aligned.
+		const toml::value& vram_value = toml::find<toml::value>(cur_patch, "vram");
+		int32_t vram = toml::get<int32_t>(vram_value);
+		if (vram & 0b11) {
+			// Not properly aligned, so throw an error (and make it look like a normal toml one).
+			throw value_error(toml::detail::format_underline(
+				std::string{ std::source_location::current().function_name() } + ": instruction vram is not 4-byte aligned!", {
+					{vram_value.location(), ""}
+				}), vram_value.location());
+		}
+
 		ret[patch_idx].func_name = toml::find<std::string>(cur_patch, "func");
 		ret[patch_idx].vram = toml::find<int32_t>(cur_patch, "vram");
 		ret[patch_idx].value = toml::find<uint32_t>(cur_patch, "value");
@@ -151,6 +175,10 @@ RecompPort::Config::Config(const char* path) {
 	}
 	catch (const toml::type_error& err) {
 		fmt::print(stderr, "Incorrect type in config file on line {}, full error:\n{}\n", err.location().line(), err.what());
+		return;
+	}
+	catch (const value_error& err) {
+		fmt::print(stderr, "Invalid value in config file on line {}, full error:\n{}\n", err.location().line(), err.what());
 		return;
 	}
 	catch (const std::out_of_range& err) {

@@ -72,7 +72,7 @@ namespace RecompPort {
     struct Function {
         uint32_t vram;
         uint32_t rom;
-        const std::span<const uint32_t> words;
+        std::vector<uint32_t> words;
         std::string name;
         ELFIO::Elf_Half section_index;
         bool ignored;

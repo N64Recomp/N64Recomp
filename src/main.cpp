@@ -666,10 +666,14 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
                     context.section_functions[section_index].push_back(context.functions.size());
                 }
                 context.functions_by_name[name] = context.functions.size();
+
+                std::vector<uint32_t> insn_words(num_instructions);
+                insn_words.assign(words, words + num_instructions);
+
                 context.functions.emplace_back(
                     vram,
                     rom_address,
-                    std::span{ words, num_instructions },
+                    std::move(insn_words),
                     std::move(name),
                     section_index,
                     ignored,
@@ -682,7 +686,7 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
                 context.functions.emplace_back(
                     vram,
                     0,
-                    std::span<const uint32_t>{},
+                    std::vector<uint32_t>{},
                     std::move(name),
                     section_index,
                     ignored,
@@ -1083,6 +1087,29 @@ int main(int argc, char** argv) {
         context.functions[func_find->second].stubbed = true;
     }
 
+    // Apply any single-instruction patches.
+    for (const RecompPort::InstructionPatch& patch : config.instruction_patches) {
+        // Check if the specified function exists.
+        auto func_find = context.functions_by_name.find(patch.func_name);
+        if (func_find == context.functions_by_name.end()) {
+            // Function doesn't exist, present an error to the user instead of silently failing to stub it out.
+            // This helps prevent typos in the config file or functions renamed between versions from causing issues.
+            exit_failure(fmt::format("Function {} has an instruction patch but does not exist!", patch.func_name));
+        }
+
+        RecompPort::Function& func = context.functions[func_find->second];
+        int32_t func_vram = func.vram;
+
+        // Check that the function actually contains this vram address.
+        if (patch.vram < func_vram || patch.vram >= func_vram + func.words.size() * sizeof(func.words[0])) {
+            exit_failure(fmt::format("Function {} has an instruction patch for vram 0x{:08X} but doesn't contain that vram address!", patch.vram));
+        }
+
+        // Calculate the instruction index and modify the instruction.
+        size_t instruction_index = (static_cast<size_t>(patch.vram) - func_vram) / sizeof(uint32_t);
+        func.words[instruction_index] = byteswap(patch.value);
+    }
+
     //#pragma omp parallel for
     for (size_t i = 0; i < context.functions.size(); i++) {
         const auto& func = context.functions[i];
@@ -1145,10 +1172,13 @@ int main(int argc, char** argv) {
             uint32_t rom_addr = static_cast<uint32_t>(static_func_addr - section.ram_addr + section.rom_addr);
             const uint32_t* func_rom_start = reinterpret_cast<const uint32_t*>(context.rom.data() + rom_addr);
 
+            std::vector<uint32_t> insn_words((cur_func_end - static_func_addr) / sizeof(uint32_t));
+            insn_words.assign(func_rom_start, func_rom_start + insn_words.size());
+
             RecompPort::Function func {
                 static_func_addr,
                 rom_addr,
-                std::span{ func_rom_start, (cur_func_end - static_func_addr) / sizeof(uint32_t) },
+                std::move(insn_words),
                 fmt::format("static_{}_{:08X}", section_index, static_func_addr),
                 static_cast<ELFIO::Elf_Half>(section_index),
                 false

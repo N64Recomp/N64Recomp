@@ -258,7 +258,7 @@ bool RecompPort::analyze_function(const RecompPort::Context& context, const Reco
 			uint32_t rom_addr = vram + func.rom - func.vram;
 			uint32_t jtbl_word = byteswap(*reinterpret_cast<const uint32_t*>(&context.rom[rom_addr]));
 			// Check if the entry is a valid address in the current function
-			if (jtbl_word < func.vram || jtbl_word > func.vram + func.words.size_bytes()) {
+			if (jtbl_word < func.vram || jtbl_word > func.vram + func.words.size() * sizeof(func.words[0])) {
 				// If it's not then this is the end of the jump table
 				break;
 			}
