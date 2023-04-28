@@ -1204,7 +1204,7 @@ int main(int argc, char** argv) {
         "\n"
         "const char* get_rom_name() {{ return \"{}\"; }}\n"
         "\n",
-        config.entrypoint,
+        static_cast<uint32_t>(config.entrypoint),
         config.elf_path.filename().replace_extension(".z64").string()
     );
 
