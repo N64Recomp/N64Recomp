@@ -78,12 +78,12 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
 
     auto print_line = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts ...args) {
         print_indent();
-        fmt::print(output_file, fmt_str, args...);
+        fmt::vprint(output_file, fmt_str, fmt::make_format_args(args...));
         fmt::print(output_file, ";\n");
     };
 
     auto print_branch_condition = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts ...args) {
-        fmt::print(output_file, fmt_str, args...);
+        fmt::vprint(output_file, fmt_str, fmt::make_format_args(args...));
         fmt::print(output_file, " ");
     };
 
@@ -99,7 +99,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
             process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
         }
         print_indent();
-        fmt::print(output_file, fmt_str, args...);
+        fmt::vprint(output_file, fmt_str, fmt::make_format_args(args...));
         if (needs_link_branch) {
             fmt::print(output_file, ";\n    goto after_{};\n", link_branch_index);
         } else {
@@ -120,7 +120,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
             process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, true, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
         }
         fmt::print(output_file, "        ");
-        fmt::print(output_file, fmt_str, args...);
+        fmt::vprint(output_file, fmt_str, fmt::make_format_args(args...));
         if (needs_link_branch) {
             fmt::print(output_file, ";\n        goto after_{}", link_branch_index);
         }

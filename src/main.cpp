@@ -985,7 +985,7 @@ bool read_list_file(const std::filesystem::path& filename, std::unordered_set<st
 
 int main(int argc, char** argv) {
     auto exit_failure = [] (const std::string& error_str) {
-        fmt::print(stderr, error_str);
+        fmt::vprint(stderr, error_str, fmt::make_format_args());
         std::exit(EXIT_FAILURE);
     };
 
@@ -1102,7 +1102,7 @@ int main(int argc, char** argv) {
 
         // Check that the function actually contains this vram address.
         if (patch.vram < func_vram || patch.vram >= func_vram + func.words.size() * sizeof(func.words[0])) {
-            exit_failure(fmt::format("Function {} has an instruction patch for vram 0x{:08X} but doesn't contain that vram address!", patch.vram));
+            exit_failure(fmt::vformat("Function {} has an instruction patch for vram 0x{:08X} but doesn't contain that vram address!", fmt::make_format_args(patch.vram)));
         }
 
         // Calculate the instruction index and modify the instruction.
