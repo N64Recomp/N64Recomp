@@ -299,7 +299,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     case InstrId::cpu_sb:
         print_line("MEM_B({}, {}{}) = {}{}", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
         break;
-    // TODO lwl, lwr
+    // Unaligned loads
     // examples:
     // reg =        11111111 01234567
     // mem @ x =             89ABCDEF
@@ -314,20 +314,30 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     // LWR x + 2 -> 00000000 0189ABCD
     // LWR x + 3 -> FFFFFFFF 89ABCDEF
     case InstrId::cpu_lwl:
-        print_line("{}{} = do_lwl(rdram, {}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
-        //print_line("{}{} = MEM_WL({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
+        print_line("{}{} = do_lwl(rdram, {}{}, {}, {}{})", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
         break;
     case InstrId::cpu_lwr:
-        //print_line("{}{} = do_lwr(rdram, {}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
-        //print_line("//{}{} = MEM_WR({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
+        print_line("{}{} = do_lwr(rdram, {}{}, {}, {}{})", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
         break;
+    // Unaligned stores
+    // examples:
+    // reg =        11111111 01234567
+    // mem @ x =             89ABCDEF
+
+    // SWL x + 0 ->          01234567
+    // SWL x + 1 ->          89012345
+    // SWL x + 2 ->          89AB0123
+    // SWL x + 3 ->          89ABCD01
+
+    // SWR x + 0 ->          67ABCDEF
+    // SWR x + 1 ->          4567CDEF
+    // SWR x + 2 ->          234567EF
+    // SWR x + 3 ->          01234567
     case InstrId::cpu_swl:
         print_line("do_swl(rdram, {}, {}{}, {}{})", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
-        //print_line("MEM_WL({}, {}{}) = {}{}", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_swr:
-        //print_line("do_swr(rdram, {}, {}{}, {}{})", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
-        //print_line("//MEM_WR({}, {}{}) = {}{}", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
+        print_line("do_swr(rdram, {}, {}{}, {}{})", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
         break;
         
     // Branches
