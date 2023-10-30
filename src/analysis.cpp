@@ -199,7 +199,9 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const RecompPo
 				address,
 				instr.getVram()
 			);
-		} else {
+		}
+		// Allow tail calls (TODO account for trailing nops due to bad function splits)
+		else if (instr.getVram() != func.vram + (func.words.size() - 2) * sizeof(func.words[0])) {
 			// Inconclusive analysis
 			fmt::print(stderr, "Failed to to find jump table for `jr {}` at 0x{:08X} in {}\n", RabbitizerRegister_getNameGpr(rs), instr.getVram(), func.name);
 			return false;

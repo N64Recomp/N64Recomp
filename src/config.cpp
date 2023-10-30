@@ -43,6 +43,32 @@ std::vector<std::string> get_stubbed_funcs(const toml::value& patches_data) {
 	return stubbed_funcs;
 }
 
+std::vector<std::string> get_ignored_funcs(const toml::value& patches_data) {
+	std::vector<std::string> ignored_funcs{};
+
+	// Check if the ignored funcs array exists.
+	const auto& ignored_funcs_data = toml::find_or<toml::value>(patches_data, "ignored", toml::value{});
+
+	if (ignored_funcs_data.type() == toml::value_t::empty) {
+		// No stubs, nothing to do here.
+		return ignored_funcs;
+	}
+
+	// Get the ignored funcs array as an array type.
+	const toml::array& ignored_funcs_array = ignored_funcs_data.as_array();
+
+	// Make room for all the ignored funcs in the array.
+	ignored_funcs.resize(ignored_funcs_array.size());
+
+	// Gather the stubs and place them into the array.
+	for (size_t stub_idx = 0; stub_idx < ignored_funcs_array.size(); stub_idx++) {
+		// Copy the entry into the ignored function list.
+		ignored_funcs[stub_idx] = ignored_funcs_array[stub_idx].as_string();
+	}
+
+	return ignored_funcs;
+}
+
 std::unordered_map<std::string, RecompPort::FunctionArgType> arg_type_map{
 	{"u32", RecompPort::FunctionArgType::u32},
 	{"s32", RecompPort::FunctionArgType::s32},
@@ -84,7 +110,7 @@ RecompPort::DeclaredFunctionMap get_declared_funcs(const toml::value& patches_da
 	const toml::array& funcs_array = funcs_data.as_array();
 
 	// Reserve room for all the funcs in the map.
-	declared_funcs.reserve(funcs_data.size());
+	declared_funcs.reserve(funcs_array.size());
 	for (const toml::value& cur_func_val : funcs_array) {
 		const std::string& func_name = toml::find<std::string>(cur_func_val, "name");
 		const toml::array& args_in = toml::find<toml::array>(cur_func_val, "args");
@@ -93,6 +119,40 @@ RecompPort::DeclaredFunctionMap get_declared_funcs(const toml::value& patches_da
 	}
 
 	return declared_funcs;
+}
+
+std::vector<RecompPort::FunctionSize> get_func_sizes(const toml::value& patches_data) {
+	std::vector<RecompPort::FunctionSize> func_sizes{};
+
+	// Check if the func size array exists.
+	const toml::value& sizes_data = toml::find_or<toml::value>(patches_data, "function_sizes", toml::value{});
+	if (sizes_data.type() == toml::value_t::empty) {
+		// No func size array, nothing to do here
+		return func_sizes;
+	}
+
+	// Get the funcs array as an array type.
+	const toml::array& sizes_array = sizes_data.as_array();
+
+	// Reserve room for all the funcs in the map.
+	func_sizes.reserve(sizes_array.size());
+	for (const toml::value& cur_func_size : sizes_array) {
+		const std::string& func_name = toml::find<std::string>(cur_func_size, "name");
+		uint32_t func_size = toml::find<uint32_t>(cur_func_size, "size");
+
+		// Make sure the size is divisible by 4
+		if (func_size & (4 - 1)) {
+			// It's not, so throw an error (and make it look like a normal toml one).
+			throw toml::type_error(toml::detail::format_underline(
+				std::string{ std::source_location::current().function_name() } + ": function size not divisible by 4", {
+					{cur_func_size.location(), ""}
+				}), cur_func_size.location());
+		}
+
+		func_sizes.emplace_back(func_name, func_size);
+	}
+
+	return func_sizes;
 }
 
 std::vector<RecompPort::InstructionPatch> get_instruction_patches(const toml::value& patches_data) {
@@ -155,6 +215,8 @@ RecompPort::Config::Config(const char* path) {
 		elf_path                  = concat_if_not_empty(basedir, toml::find<std::string>(input_data, "elf_path"));
 		output_func_path          = concat_if_not_empty(basedir, toml::find<std::string>(input_data, "output_func_path"));
 		relocatable_sections_path = concat_if_not_empty(basedir, toml::find_or<std::string>(input_data, "relocatable_sections_path", ""));
+		uses_mips3_float_mode     = toml::find_or<bool>(input_data, "uses_mips3_float_mode", false);
+		bss_section_suffix        = toml::find_or<std::string>(input_data, "bss_section_suffix", ".bss");
 
 		// Patches section (optional)
 		const toml::value& patches_data = toml::find_or<toml::value>(config_data, "patches", toml::value{});
@@ -162,11 +224,17 @@ RecompPort::Config::Config(const char* path) {
 			// Stubs array (optional)
 			stubbed_funcs = get_stubbed_funcs(patches_data);
 
+			// Ignored funcs array (optional)
+			ignored_funcs = get_ignored_funcs(patches_data);
+
 			// Functions (optional)
 			declared_funcs = get_declared_funcs(patches_data);
 
 			// Single-instruction patches (optional)
 			instruction_patches = get_instruction_patches(patches_data);
+
+			// Manual function sizes (optional)
+			manual_func_sizes = get_func_sizes(patches_data);
 		}
 	}
 	catch (const toml::syntax_error& err) {

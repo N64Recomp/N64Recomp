@@ -4,6 +4,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <cassert>
+#include <filesystem>
 #include "rabbitizer.hpp"
 #include "fmt/format.h"
 #include "fmt/ostream.h"
@@ -187,7 +188,7 @@ BranchTargets get_branch_targets(const std::vector<rabbitizer::InstructionRsp>& 
     return ret;
 }
 
-bool process_instruction(size_t instr_index, const std::vector<rabbitizer::InstructionRsp>& instructions, std::ofstream& output_file, const BranchTargets& branch_targets, bool indent, bool in_delay_slot) {
+bool process_instruction(size_t instr_index, const std::vector<rabbitizer::InstructionRsp>& instructions, std::ofstream& output_file, const BranchTargets& branch_targets, const std::unordered_set<uint32_t>& unsupported_instructions, bool indent, bool in_delay_slot) {
     const auto& instr = instructions[instr_index];
 
     uint32_t instr_vram = instr.getVram();
@@ -230,7 +231,7 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
     auto print_unconditional_branch = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts ...args) {
         if (instr_index < instructions.size() - 1) {
             uint32_t next_vram = instr_vram + 4;
-            process_instruction(instr_index + 1, instructions, output_file, branch_targets, false, true);
+            process_instruction(instr_index + 1, instructions, output_file, branch_targets, unsupported_instructions, false, true);
         }
         print_indent();
         fmt::print(output_file, fmt_str, args...);
@@ -241,7 +242,7 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
         fmt::print(output_file, "{{\n    ");
         if (instr_index < instructions.size() - 1) {
             uint32_t next_vram = instr_vram + 4;
-            process_instruction(instr_index + 1, instructions, output_file, branch_targets, true, true);
+            process_instruction(instr_index + 1, instructions, output_file, branch_targets, unsupported_instructions, true, true);
         }
         fmt::print(output_file, "        ");
         fmt::print(output_file, fmt_str, args...);
@@ -250,6 +251,14 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
 
     if (indent) {
         print_indent();
+    }
+
+    // Replace unsupported instructions with early returns
+    if (unsupported_instructions.contains(instr_vram)) {
+        print_line("return RspExitReason::Unsupported", instr_vram);
+        if (indent) {
+            print_indent();
+        }
     }
 
     int rd = (int)instr.GetO32_rd();
@@ -337,6 +346,10 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
             break;
         case InstrId::rsp_add:
         case InstrId::rsp_addu:
+            if (rd == 0) {
+                fmt::print(output_file, "\n");
+                break;
+            }
             print_line("{}{} = RSP_ADD32({}{}, {}{})", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
             break;
         case InstrId::rsp_negu: // pseudo instruction for subu x, 0, y
@@ -349,6 +362,10 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
             print_line("{}{} = RSP_ADD32({}{}, {})", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, signed_imm_string);
             break;
         case InstrId::rsp_and:
+            if (rd == 0) {
+                fmt::print(output_file, "\n");
+                break;
+            }
             print_line("{}{} = {}{} & {}{}", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
             break;
         case InstrId::rsp_andi:
@@ -518,6 +535,7 @@ void write_indirect_jumps(std::ofstream& output_file, const BranchTargets& branc
 //std::string output_file_path = "../test/rsp/njpgdspMain.cpp";
 //std::string output_function_name = "njpgdspMain";
 //const std::vector<uint32_t> extra_indirect_branch_targets{};
+//const std::unordered_set<uint32_t> unsupported_instructions{};
 
 // OoT aspMain
 //constexpr size_t rsp_text_offset = 0xB89260;
@@ -527,17 +545,35 @@ void write_indirect_jumps(std::ofstream& output_file, const BranchTargets& branc
 //std::string output_file_path = "../test/rsp/aspMain.cpp";
 //std::string output_function_name = "aspMain";
 //const std::vector<uint32_t> extra_indirect_branch_targets{ 0x1F68, 0x1230, 0x114C, 0x1F18, 0x1E2C, 0x14F4, 0x1E9C, 0x1CB0, 0x117C, 0x17CC, 0x11E8, 0x1AA4, 0x1B34, 0x1190, 0x1C5C, 0x1220, 0x1784, 0x1830, 0x1A20, 0x1884, 0x1A84, 0x1A94, 0x1A48, 0x1BA0 };
+//const std::unordered_set<uint32_t> unsupported_instructions{};
 
 // MM's njpgdspMain is identical to OoT's
 
-// MM aspMain
-constexpr size_t rsp_text_offset = 0xC40FF0;
-constexpr size_t rsp_text_size = 0x1000;
-constexpr size_t rsp_text_address = 0x04001000;
-std::string rom_file_path = "../../MMRecomp/mm.us.rev1.z64"; // uncompressed rom!
-std::string output_file_path = "../../MMRecomp/rsp/aspMain.cpp";
-std::string output_function_name = "aspMain";
-const std::vector<uint32_t> extra_indirect_branch_targets{ 0x1F80, 0x1250, 0x1154, 0x1094, 0x1E0C, 0x1514, 0x1E7C, 0x1C90, 0x1180, 0x1808, 0x11E8, 0x1ADC, 0x1B6C, 0x1194, 0x1EF8, 0x1240, 0x17C0, 0x186C, 0x1A58, 0x18BC, 0x1ABC, 0x1ACC, 0x1A80, 0x1BD4 };
+//// MM aspMain
+//constexpr size_t rsp_text_offset = 0xC40FF0;
+//constexpr size_t rsp_text_size = 0x1000;
+//constexpr size_t rsp_text_address = 0x04001000;
+//std::string rom_file_path = "../../MMRecomp/mm.us.rev1.z64"; // uncompressed rom!
+//std::string output_file_path = "../../MMRecomp/rsp/aspMain.cpp";
+//std::string output_function_name = "aspMain";
+//const std::vector<uint32_t> extra_indirect_branch_targets{ 0x1F80, 0x1250, 0x1154, 0x1094, 0x1E0C, 0x1514, 0x1E7C, 0x1C90, 0x1180, 0x1808, 0x11E8, 0x1ADC, 0x1B6C, 0x1194, 0x1EF8, 0x1240, 0x17C0, 0x186C, 0x1A58, 0x18BC, 0x1ABC, 0x1ACC, 0x1A80, 0x1BD4 };
+//const std::unordered_set<uint32_t> unsupported_instructions{};
+
+// BT n_aspMain
+constexpr size_t rsp_text_offset = 0x1E4F3B0;
+constexpr size_t rsp_text_size = 0xF80;
+constexpr size_t rsp_text_address = 0x04001080;
+std::string rom_file_path = "../../BTRecomp/banjotooie.decompressed.us.z64"; // uncompressed rom!
+std::string output_file_path = "../../BTRecomp/rsp/n_aspMain.cpp";
+std::string output_function_name = "n_aspMain";
+const std::vector<uint32_t> extra_indirect_branch_targets{
+    // dispatch table
+    0x1AE8, 0x143C, 0x1240, 0x1D84, 0x126C, 0x1B20, 0x12A8, 0x1214, 0x141C, 0x1310, 0x13CC, 0x12E4, 0x1FB0, 0x1358, 0x16EC, 0x1408
+};
+const std::unordered_set<uint32_t> unsupported_instructions{
+    // cmd_MP3
+    0x00001214
+};
 
 #ifdef _MSC_VER
 inline uint32_t byteswap(uint32_t val) {
@@ -589,6 +625,7 @@ int main() {
     }
 
     // Open output file and write beginning
+    std::filesystem::create_directories(std::filesystem::path{ output_file_path }.parent_path());
     std::ofstream output_file(output_file_path);
     fmt::print(output_file,
         "#include \"rsp.h\"\n"
@@ -603,7 +640,7 @@ int main() {
         "    r1 = 0xFC0;\n", output_function_name);
     // Write each instruction
     for (size_t instr_index = 0; instr_index < instrs.size(); instr_index++) {
-        process_instruction(instr_index, instrs, output_file, branch_targets, false, false);
+        process_instruction(instr_index, instrs, output_file, branch_targets, unsupported_instructions, false, false);
     }
 
     // Terminate instruction code with a return to indicate that the microcode has run past its end

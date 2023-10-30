@@ -540,6 +540,8 @@ std::unordered_set<std::string> renamed_funcs{
     "sincosf",
     "sinf",
     "cosf",
+    "__sinf",
+    "__cosf",
     "sqrt",
     "sqrtf",
     "memcpy",
@@ -567,17 +569,8 @@ std::unordered_set<std::string> renamed_funcs{
     "roundf",
     "trunc",
     "truncf",
-    "vsprintf"
-};
-
-// Functions that weren't declared properly and thus have no size in the elf
-std::unordered_map<std::string, size_t> unsized_funcs{
-    { "guMtxF2L", 0x64 },
-    { "guScaleF", 0x48 },
-    { "guTranslateF", 0x48 },
-    { "guMtxIdentF", 0x48 },
-    { "sqrtf", 0x8 },
-    { "guMtxIdent", 0x4C },
+    "vsprintf",
+    "__assert",
 };
 
 bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint) {
@@ -605,23 +598,22 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
         }
         
         // Check if this symbol is the entrypoint
-        if (value == entrypoint /*&& type == ELFIO::STT_FUNC*/) {
+        if (value == entrypoint && type == ELFIO::STT_FUNC) {
             if (found_entrypoint_func) {
-                fmt::print(stderr, "Ambiguous entrypoint\n");
+                fmt::print(stderr, "Ambiguous entrypoint: {}\n", name);
                 return false;
             }
             found_entrypoint_func = true;
+            fmt::print("Found entrypoint, original name: {}\n", name);
             size = 0x50; // dummy size for entrypoints, should cover them all
             name = "recomp_entrypoint";
         }
 
-        // Check if this symbol is unsized and if so populate its size from the unsized_funcs map
-        if (size == 0) {
-            auto size_find = unsized_funcs.find(name);
-            if (size_find != unsized_funcs.end()) {
-                size = size_find->second;
-                type = ELFIO::STT_FUNC;
-            }
+        // Check if this symbol has a size override
+        auto size_find = context.manually_sized_funcs.find(name);
+        if (size_find != context.manually_sized_funcs.end()) {
+            size = size_find->second;
+            type = ELFIO::STT_FUNC;
         }
 
         if (reimplemented_funcs.contains(name)) {
@@ -653,7 +645,7 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
                 context.functions_by_vram[vram].push_back(context.functions.size());
 
                 // Find the entrypoint by rom address in case it doesn't have vram as its value
-                if (rom_address == 0x1000) {
+                if (rom_address == 0x1000 && type == ELFIO::STT_FUNC) {
                     vram = entrypoint;
                     found_entrypoint_func = true;
                     name = "recomp_entrypoint";
@@ -719,7 +711,7 @@ std::optional<size_t> get_segment(const std::vector<SegmentEntry>& segments, ELF
     return std::nullopt;
 }
 
-ELFIO::section* read_sections(RecompPort::Context& context, const ELFIO::elfio& elf_file) {
+ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Config& config, const ELFIO::elfio& elf_file) {
     ELFIO::section* symtab_section = nullptr;
     std::vector<SegmentEntry> segments{};
     segments.resize(elf_file.segments.size());
@@ -740,6 +732,7 @@ ELFIO::section* read_sections(RecompPort::Context& context, const ELFIO::elfio& 
     //);
 
     std::unordered_map<std::string, ELFIO::section*> reloc_sections_by_name;
+    std::unordered_map<std::string, ELFIO::section*> bss_sections_by_name;
 
     // Iterate over every section to record rom addresses and find the symbol table
     fmt::print("Sections\n");
@@ -756,6 +749,10 @@ ELFIO::section* read_sections(RecompPort::Context& context, const ELFIO::elfio& 
         if (type == ELFIO::SHT_SYMTAB) {
             symtab_section = section.get();
         }
+
+        if (context.relocatable_sections.contains(section_name)) {
+            section_out.relocatable = true;
+        }
         
         // Check if this section is a reloc section
         if (type == ELFIO::SHT_REL) {
@@ -770,6 +767,16 @@ ELFIO::section* read_sections(RecompPort::Context& context, const ELFIO::elfio& 
             // If this reloc section is for a section that has been marked as relocatable, record it in the reloc section lookup
             if (context.relocatable_sections.contains(reloc_target_section)) {
                 reloc_sections_by_name[reloc_target_section] = section.get();
+            }
+        }
+
+        // If the section is bss (SHT_NOBITS) and ends with the bss suffix, add it to the bss section map
+        if (type == ELFIO::SHT_NOBITS && section_name.ends_with(config.bss_section_suffix)) {
+            std::string bss_target_section = section_name.substr(0, section_name.size() - config.bss_section_suffix.size());
+
+            // If this bss section is for a section that has been marked as relocatable, record it in the reloc section lookup
+            if (context.relocatable_sections.contains(bss_target_section)) {
+                bss_sections_by_name[bss_target_section] = section.get();
             }
         }
 
@@ -831,96 +838,102 @@ ELFIO::section* read_sections(RecompPort::Context& context, const ELFIO::elfio& 
 
     // TODO make sure that a reloc section was found for every section marked as relocatable
 
-    // Process reloc sections
+    // Process bss and reloc sections
     for (RecompPort::Section &section_out : context.sections) {
-        // Check if a reloc section was found that corresponds with this section
-        auto reloc_find = reloc_sections_by_name.find(section_out.name);
-        if (reloc_find != reloc_sections_by_name.end()) {
-            // Mark the section as relocatable
-            section_out.relocatable = true;
-            // Create an accessor for the reloc section
-            ELFIO::relocation_section_accessor rel_accessor{ elf_file, reloc_find->second };
-            // Allocate space for the relocs in this section
-            section_out.relocs.resize(rel_accessor.get_entries_num());
-            // Track whether the previous reloc was a HI16 and its previous full_immediate
-            bool prev_hi = false;
-            uint32_t prev_hi_immediate = 0;
-            uint32_t prev_hi_symbol = std::numeric_limits<uint32_t>::max();
+        // Check if a bss section was found that corresponds with this section
+        auto bss_find = bss_sections_by_name.find(section_out.name);
+        if (bss_find != bss_sections_by_name.end()) {
+            section_out.bss_section_index = bss_find->second->get_index();
+        }
 
-            for (size_t i = 0; i < section_out.relocs.size(); i++) {
-                // Get the current reloc
-                ELFIO::Elf64_Addr rel_offset;
-                ELFIO::Elf_Word rel_symbol;
-                unsigned int rel_type;
-                ELFIO::Elf_Sxword bad_rel_addend; // Addends aren't encoded in the reloc, so ignore this one
-                rel_accessor.get_entry(i, rel_offset, rel_symbol, rel_type, bad_rel_addend);
+        if (section_out.relocatable) {
+            // Check if a reloc section was found that corresponds with this section
+            auto reloc_find = reloc_sections_by_name.find(section_out.name);
+            if (reloc_find != reloc_sections_by_name.end()) {
+                // Create an accessor for the reloc section
+                ELFIO::relocation_section_accessor rel_accessor{ elf_file, reloc_find->second };
+                // Allocate space for the relocs in this section
+                section_out.relocs.resize(rel_accessor.get_entries_num());
+                // Track whether the previous reloc was a HI16 and its previous full_immediate
+                bool prev_hi = false;
+                uint32_t prev_hi_immediate = 0;
+                uint32_t prev_hi_symbol = std::numeric_limits<uint32_t>::max();
 
-                RecompPort::Reloc& reloc_out = section_out.relocs[i];
+                for (size_t i = 0; i < section_out.relocs.size(); i++) {
+                    // Get the current reloc
+                    ELFIO::Elf64_Addr rel_offset;
+                    ELFIO::Elf_Word rel_symbol;
+                    unsigned int rel_type;
+                    ELFIO::Elf_Sxword bad_rel_addend; // Addends aren't encoded in the reloc, so ignore this one
+                    rel_accessor.get_entry(i, rel_offset, rel_symbol, rel_type, bad_rel_addend);
 
-                // Get the real full_immediate by extracting the immediate from the instruction
-                uint32_t instr_word = byteswap(*reinterpret_cast<const uint32_t*>(context.rom.data() + section_out.rom_addr + rel_offset - section_out.ram_addr));
-                rabbitizer::InstructionCpu instr{ instr_word, static_cast<uint32_t>(rel_offset) };
-                //context.rom section_out.rom_addr;
+                    RecompPort::Reloc& reloc_out = section_out.relocs[i];
 
-                reloc_out.address = rel_offset;
-                reloc_out.symbol_index = rel_symbol;
-                reloc_out.type = static_cast<RecompPort::RelocType>(rel_type);
-                reloc_out.needs_relocation = false;
+                    // Get the real full_immediate by extracting the immediate from the instruction
+                    uint32_t instr_word = byteswap(*reinterpret_cast<const uint32_t*>(context.rom.data() + section_out.rom_addr + rel_offset - section_out.ram_addr));
+                    rabbitizer::InstructionCpu instr{ instr_word, static_cast<uint32_t>(rel_offset) };
+                    //context.rom section_out.rom_addr;
 
-                std::string       rel_symbol_name;
-                ELFIO::Elf64_Addr rel_symbol_value;
-                ELFIO::Elf_Xword  rel_symbol_size;
-                unsigned char     rel_symbol_bind;
-                unsigned char     rel_symbol_type;
-                ELFIO::Elf_Half   rel_symbol_section_index;
-                unsigned char     rel_symbol_other;
+                    reloc_out.address = rel_offset;
+                    reloc_out.symbol_index = rel_symbol;
+                    reloc_out.type = static_cast<RecompPort::RelocType>(rel_type);
+                    reloc_out.needs_relocation = false;
 
-                bool found_rel_symbol = symbol_accessor.get_symbol(
-                    rel_symbol, rel_symbol_name, rel_symbol_value, rel_symbol_size, rel_symbol_bind, rel_symbol_type, rel_symbol_section_index, rel_symbol_other);
+                    std::string       rel_symbol_name;
+                    ELFIO::Elf64_Addr rel_symbol_value;
+                    ELFIO::Elf_Xword  rel_symbol_size;
+                    unsigned char     rel_symbol_bind;
+                    unsigned char     rel_symbol_type;
+                    ELFIO::Elf_Half   rel_symbol_section_index;
+                    unsigned char     rel_symbol_other;
 
-                reloc_out.target_section = rel_symbol_section_index;
+                    bool found_rel_symbol = symbol_accessor.get_symbol(
+                        rel_symbol, rel_symbol_name, rel_symbol_value, rel_symbol_size, rel_symbol_bind, rel_symbol_type, rel_symbol_section_index, rel_symbol_other);
 
-                bool rel_needs_relocation = false;
+                    reloc_out.target_section = rel_symbol_section_index;
 
-                if (rel_symbol_section_index < context.sections.size()) {
-                    rel_needs_relocation = context.sections[rel_symbol_section_index].relocatable;
-                }
+                    bool rel_needs_relocation = false;
 
-                // Reloc pairing, see MIPS System V ABI documentation page 4-18 (https://refspecs.linuxfoundation.org/elf/mipsabi.pdf)
-                if (reloc_out.type == RecompPort::RelocType::R_MIPS_LO16) {
-                    if (prev_hi) {
-                        if (prev_hi_symbol != rel_symbol) {
-                            fmt::print(stderr, "[WARN] Paired HI16 and LO16 relocations have different symbols\n"
-                                               "  LO16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X}\n",
-                                i, section_out.name, reloc_out.symbol_index, reloc_out.address);
+                    if (rel_symbol_section_index < context.sections.size()) {
+                        rel_needs_relocation = context.sections[rel_symbol_section_index].relocatable;
+                    }
+
+                    // Reloc pairing, see MIPS System V ABI documentation page 4-18 (https://refspecs.linuxfoundation.org/elf/mipsabi.pdf)
+                    if (reloc_out.type == RecompPort::RelocType::R_MIPS_LO16) {
+                        if (prev_hi) {
+                            if (prev_hi_symbol != rel_symbol) {
+                                fmt::print(stderr, "[WARN] Paired HI16 and LO16 relocations have different symbols\n"
+                                                    "  LO16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X}\n",
+                                    i, section_out.name, reloc_out.symbol_index, reloc_out.address);
+                            }
+                            uint32_t rel_immediate = instr.getProcessedImmediate();
+                            uint32_t full_immediate = (prev_hi_immediate << 16) + (int16_t)rel_immediate;
+
+
+                            // Set this and the previous HI16 relocs' relocated addresses
+                            section_out.relocs[i - 1].target_address = full_immediate;
+                            reloc_out.target_address = full_immediate;
                         }
+                    } else {
+                        if (prev_hi) {
+                            fmt::print(stderr, "Unpaired HI16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X}\n",
+                                i - 1, section_out.name, section_out.relocs[i - 1].symbol_index, section_out.relocs[i - 1].address);
+                            return nullptr;
+                        }
+                    }
+
+                    if (reloc_out.type == RecompPort::RelocType::R_MIPS_HI16) {
                         uint32_t rel_immediate = instr.getProcessedImmediate();
-                        uint32_t full_immediate = (prev_hi_immediate << 16) + (int16_t)rel_immediate;
-
-
-                        // Set this and the previous HI16 relocs' relocated addresses
-                        section_out.relocs[i - 1].target_address = full_immediate;
-                        reloc_out.target_address = full_immediate;
+                        prev_hi = true;
+                        prev_hi_immediate = rel_immediate;
+                        prev_hi_symbol = rel_symbol;
+                    } else {
+                        prev_hi = false;
                     }
-                } else {
-                    if (prev_hi) {
-                        fmt::print(stderr, "Unpaired HI16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X}\n",
-                            i - 1, section_out.name, section_out.relocs[i - 1].symbol_index, section_out.relocs[i - 1].address);
-                        return nullptr;
+
+                    if (reloc_out.type == RecompPort::RelocType::R_MIPS_32) {
+                        // Nothing to do here
                     }
-                }
-
-                if (reloc_out.type == RecompPort::RelocType::R_MIPS_HI16) {
-                    uint32_t rel_immediate = instr.getProcessedImmediate();
-                    prev_hi = true;
-                    prev_hi_immediate = rel_immediate;
-                    prev_hi_symbol = rel_symbol;
-                } else {
-                    prev_hi = false;
-                }
-
-                if (reloc_out.type == RecompPort::RelocType::R_MIPS_32) {
-                    // Nothing to do here
                 }
             }
 
@@ -968,7 +981,7 @@ void analyze_sections(RecompPort::Context& context, const ELFIO::elfio& elf_file
     );
 }
 
-bool read_list_file(const std::filesystem::path& filename, std::unordered_set<std::string>& entries_out) {
+bool read_list_file(const std::filesystem::path& filename, std::vector<std::string>& entries_out) {
     std::ifstream input_file{ filename };
     if (!input_file.good()) {
         return false;
@@ -977,7 +990,7 @@ bool read_list_file(const std::filesystem::path& filename, std::unordered_set<st
     std::string entry;
 
     while (input_file >> entry) {
-        entries_out.emplace(std::move(entry));
+        entries_out.emplace_back(std::move(entry));
     }
 
     return true;
@@ -1007,13 +1020,16 @@ int main(int argc, char** argv) {
     RabbitizerConfig_Cfg.pseudos.pseudoBnez = false;
     RabbitizerConfig_Cfg.pseudos.pseudoNot = false;
 
-    std::unordered_set<std::string> relocatable_sections{};
+    std::vector<std::string> relocatable_sections_ordered{};
 
     if (!config.relocatable_sections_path.empty()) {
-        if (!read_list_file(config.relocatable_sections_path, relocatable_sections)) {
+        if (!read_list_file(config.relocatable_sections_path, relocatable_sections_ordered)) {
             exit_failure("Failed to load the relocatable section list file: " + std::string(argv[4]) + "\n");
         }
     }
+
+    std::unordered_set<std::string> relocatable_sections{};
+    relocatable_sections.insert(relocatable_sections_ordered.begin(), relocatable_sections_ordered.end());
 
     if (!elf_file.load(config.elf_path.string())) {
         exit_failure("Failed to load provided elf file\n");
@@ -1031,7 +1047,7 @@ int main(int argc, char** argv) {
     context.relocatable_sections = std::move(relocatable_sections);
 
     // Read all of the sections in the elf and look for the symbol table section
-    ELFIO::section* symtab_section = read_sections(context, elf_file);
+    ELFIO::section* symtab_section = read_sections(context, config, elf_file);
 
     // Search the sections to see if any are overlays or TLB-mapped
     analyze_sections(context, elf_file);
@@ -1039,6 +1055,17 @@ int main(int argc, char** argv) {
     // If no symbol table was found then exit
     if (symtab_section == nullptr) {
         exit_failure("No symbol table section found\n");
+    }
+
+    // Functions that weren't declared properly and thus have no size in the elf
+    //context.manually_sized_funcs.emplace("guMtxF2L", 0x64);
+    //context.manually_sized_funcs.emplace("guScaleF", 0x48);
+    //context.manually_sized_funcs.emplace("guTranslateF", 0x48);
+    //context.manually_sized_funcs.emplace("guMtxIdentF", 0x48);
+    //context.manually_sized_funcs.emplace("sqrtf", 0x8);
+    //context.manually_sized_funcs.emplace("guMtxIdent", 0x4C);
+    for (const auto& func_size : config.manual_func_sizes) {
+        context.manually_sized_funcs.emplace(func_size.func_name, func_size.size_bytes);
     }
 
     // Read all of the symbols in the elf and look for the entrypoint function
@@ -1049,6 +1076,8 @@ int main(int argc, char** argv) {
     }
 
     fmt::print("Function count: {}\n", context.functions.size());
+
+    std::filesystem::create_directories(config.output_func_path);
 
     std::ofstream lookup_file{ config.output_func_path / "lookup.cpp" };
     std::ofstream func_header_file{ config.output_func_path / "funcs.h" };
@@ -1087,6 +1116,19 @@ int main(int argc, char** argv) {
         context.functions[func_find->second].stubbed = true;
     }
 
+    // Ignore any functions specified in the config file.
+    for (const std::string& ignored_func : config.ignored_funcs) {
+        // Check if the specified function exists.
+        auto func_find = context.functions_by_name.find(ignored_func);
+        if (func_find == context.functions_by_name.end()) {
+            // Function doesn't exist, present an error to the user instead of silently failing to mark it as ignored.
+            // This helps prevent typos in the config file or functions renamed between versions from causing issues.
+            exit_failure(fmt::format("Function {} is set as ignored in the config file but does not exist!", ignored_func));
+        }
+        // Mark the function as .
+        context.functions[func_find->second].ignored = true;
+    }
+
     // Apply any single-instruction patches.
     for (const RecompPort::InstructionPatch& patch : config.instruction_patches) {
         // Check if the specified function exists.
@@ -1102,7 +1144,7 @@ int main(int argc, char** argv) {
 
         // Check that the function actually contains this vram address.
         if (patch.vram < func_vram || patch.vram >= func_vram + func.words.size() * sizeof(func.words[0])) {
-            exit_failure(fmt::vformat("Function {} has an instruction patch for vram 0x{:08X} but doesn't contain that vram address!", fmt::make_format_args(patch.vram)));
+            exit_failure(fmt::format("Function {} has an instruction patch for vram 0x{:08X} but doesn't contain that vram address!", patch.func_name, (uint32_t)patch.vram));
         }
 
         // Calculate the instruction index and modify the instruction.
@@ -1119,7 +1161,7 @@ int main(int argc, char** argv) {
                 "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
             //fmt::print(lookup_file,
             //    "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
-            if (RecompPort::recompile_function(context, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section) == false) {
+            if (RecompPort::recompile_function(context, config, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section) == false) {
                 //lookup_file.clear();
                 fmt::print(stderr, "Error recompiling {}\n", func.name);
                 std::exit(EXIT_FAILURE);
@@ -1188,7 +1230,7 @@ int main(int argc, char** argv) {
                        "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
             //fmt::print(lookup_file,
             //           "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
-            if (RecompPort::recompile_function(context, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section) == false) {
+            if (RecompPort::recompile_function(context, config, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section) == false) {
                 //lookup_file.clear();
                 fmt::print(stderr, "Error recompiling {}\n", func.name);
                 std::exit(EXIT_FAILURE);
@@ -1226,12 +1268,23 @@ int main(int argc, char** argv) {
             "\n"
         );
 
+        std::unordered_map<std::string, size_t> relocatable_section_indices{};
+        size_t written_sections = 0;
+
         for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
             const auto& section = context.sections[section_index];
             const auto& section_funcs = context.section_functions[section_index];
 
+            if (section.name == ".cosection") {
+                fmt::print("");
+            }
+
             if (!section_funcs.empty()) {
                 std::string_view section_name_trimmed{ section.name };
+
+                if (section.relocatable) {
+                    relocatable_section_indices.emplace(section.name, written_sections);
+                }
 
                 while (section_name_trimmed[0] == '.') {
                     section_name_trimmed.remove_prefix(1);
@@ -1253,6 +1306,7 @@ int main(int argc, char** argv) {
                 }
 
                 fmt::print(overlay_file, "}};\n");
+                written_sections++;
             }
         }
         section_load_table += "};\n";
@@ -1260,6 +1314,24 @@ int main(int argc, char** argv) {
         fmt::print(overlay_file, "{}", section_load_table);
 
         fmt::print(overlay_file, "const size_t num_sections = {};\n", context.sections.size());
+
+
+        fmt::print(overlay_file, "static int overlay_sections_by_index[] = {{\n");
+        for (const std::string& section : relocatable_sections_ordered) {
+            // Check if this is an empty overlay
+            if (section == "*") {
+                fmt::print(overlay_file, "    -1,\n");
+            }
+            else {
+                auto find_it = relocatable_section_indices.find(section);
+                if (find_it == relocatable_section_indices.end()) {
+                    fmt::print(stderr, "Failed to find written section index of relocatable section: {}\n", section);
+                    std::exit(EXIT_FAILURE);
+                }
+                fmt::print(overlay_file, "    {},\n", relocatable_section_indices[section]);
+            }
+        }
+        fmt::print(overlay_file, "}};\n");
     }
 
     return 0;

@@ -39,14 +39,23 @@ namespace RecompPort {
         uint32_t value;
     };
 
+    struct FunctionSize {
+        std::string func_name;
+        uint32_t size_bytes;
+    };
+
     struct Config {
         int32_t entrypoint;
+        bool uses_mips3_float_mode;
         std::filesystem::path elf_path;
         std::filesystem::path output_func_path;
         std::filesystem::path relocatable_sections_path;
         std::vector<std::string> stubbed_funcs;
+        std::vector<std::string> ignored_funcs;
         DeclaredFunctionMap declared_funcs;
         std::vector<InstructionPatch> instruction_patches;
+        std::vector<FunctionSize> manual_func_sizes;
+        std::string bss_section_suffix;
 
         Config(const char* path);
         bool good() { return !bad; }
@@ -107,6 +116,7 @@ namespace RecompPort {
         std::vector<uint32_t> function_addrs;
         std::vector<Reloc> relocs;
         std::string name;
+        ELFIO::Elf_Half bss_section_index = (ELFIO::Elf_Half)-1;
         bool executable = false;
         bool relocatable = false;
     };
@@ -128,6 +138,8 @@ namespace RecompPort {
         std::vector<std::vector<size_t>> section_functions;
         // The section names that were specified as relocatable
         std::unordered_set<std::string> relocatable_sections;
+        // Functions with manual size overrides
+        std::unordered_map<std::string, size_t> manually_sized_funcs;
         int executable_section_count;
 
         Context(const ELFIO::elfio& elf_file) {
@@ -142,7 +154,7 @@ namespace RecompPort {
     };
 
     bool analyze_function(const Context& context, const Function& function, const std::vector<rabbitizer::InstructionCpu>& instructions, FunctionStats& stats);
-    bool recompile_function(const Context& context, const Function& func, const std::filesystem::path& output_path, std::span<std::vector<uint32_t>> static_funcs);
+    bool recompile_function(const Context& context, const Config& config, const Function& func, const std::filesystem::path& output_path, std::span<std::vector<uint32_t>> static_funcs);
 }
 
 #endif
