@@ -211,12 +211,20 @@ RecompPort::Config::Config(const char* path) {
 		// Input section (required)
 		const toml::value& input_data = toml::find<toml::value>(config_data, "input");
 
-		entrypoint = toml::find<int32_t>(input_data, "entrypoint");
+		if (input_data.contains("entrypoint")) {
+			entrypoint = toml::find<int32_t>(input_data, "entrypoint");
+			has_entrypoint = true;
+		}
+		else {
+			has_entrypoint = false;
+		}
 		elf_path                  = concat_if_not_empty(basedir, toml::find<std::string>(input_data, "elf_path"));
 		output_func_path          = concat_if_not_empty(basedir, toml::find<std::string>(input_data, "output_func_path"));
 		relocatable_sections_path = concat_if_not_empty(basedir, toml::find_or<std::string>(input_data, "relocatable_sections_path", ""));
 		uses_mips3_float_mode     = toml::find_or<bool>(input_data, "uses_mips3_float_mode", false);
 		bss_section_suffix        = toml::find_or<std::string>(input_data, "bss_section_suffix", ".bss");
+		single_file_output        = toml::find_or<bool>(input_data, "single_file_output", false);
+		use_absolute_symbols      = toml::find_or<bool>(input_data, "use_absolute_symbols", false);
 
 		// Patches section (optional)
 		const toml::value& patches_data = toml::find_or<toml::value>(config_data, "patches", toml::value{});

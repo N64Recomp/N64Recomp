@@ -573,7 +573,7 @@ std::unordered_set<std::string> renamed_funcs{
     "__assert",
 };
 
-bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint) {
+bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint, bool has_entrypoint, bool use_absolute_symbols) {
     bool found_entrypoint_func = false;
     ELFIO::symbol_section_accessor symbols{ elf_file, symtab_section };
     fmt::print("Num symbols: {}\n", symbols.get_symbols_num());
@@ -593,12 +593,28 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
         symbols.get_symbol(sym_index, name, value, size, bind, type,
             section_index, other);
 
+        if (section_index == ELFIO::SHN_ABS && use_absolute_symbols) {
+            uint32_t vram = static_cast<uint32_t>(value);
+            context.functions_by_vram[vram].push_back(context.functions.size());
+
+            context.functions.emplace_back(
+                vram,
+                0,
+                std::vector<uint32_t>{},
+                std::move(name),
+                0,
+                true,
+                reimplemented
+            );
+            continue;
+        }
+
         if (section_index >= context.sections.size()) {
             continue;
         }
         
         // Check if this symbol is the entrypoint
-        if (value == entrypoint && type == ELFIO::STT_FUNC) {
+        if (has_entrypoint && value == entrypoint && type == ELFIO::STT_FUNC) {
             if (found_entrypoint_func) {
                 fmt::print(stderr, "Ambiguous entrypoint: {}\n", name);
                 return false;
@@ -996,6 +1012,59 @@ bool read_list_file(const std::filesystem::path& filename, std::vector<std::stri
     return true;
 }
 
+bool compare_files(const std::filesystem::path& file1_path, const std::filesystem::path& file2_path) {
+    static std::vector<char> file1_buf(65536);
+    static std::vector<char> file2_buf(65536);
+
+    std::ifstream file1(file1_path, std::ifstream::ate | std::ifstream::binary); //open file at the end
+    std::ifstream file2(file2_path, std::ifstream::ate | std::ifstream::binary); //open file at the end
+    const std::ifstream::pos_type fileSize = file1.tellg();
+
+    file1.rdbuf()->pubsetbuf(file1_buf.data(), file1_buf.size());
+    file2.rdbuf()->pubsetbuf(file2_buf.data(), file2_buf.size());
+
+    if (fileSize != file2.tellg()) {
+        return false; //different file size
+    }
+
+    file1.seekg(0); //rewind
+    file2.seekg(0); //rewind
+
+    std::istreambuf_iterator<char> begin1(file1);
+    std::istreambuf_iterator<char> begin2(file2);
+
+    return std::equal(begin1, std::istreambuf_iterator<char>(), begin2); //Second argument is end-of-range iterator
+}
+
+bool recompile_single_function(const RecompPort::Context& context, const RecompPort::Config& config, const RecompPort::Function& func, const std::filesystem::path& output_path, std::span<std::vector<uint32_t>> static_funcs_out) {
+    // Open the temporary output file
+    std::filesystem::path temp_path = output_path;
+    temp_path.replace_extension(".tmp");
+    std::ofstream output_file{ temp_path };
+    if (!output_file.good()) {
+        fmt::print(stderr, "Failed to open file for writing: {}\n", temp_path.string() );
+        return false;
+    }
+
+    if (!RecompPort::recompile_function(context, config, func, output_file, static_funcs_out, true)) {
+        return false;
+    }
+    
+    output_file.close();
+
+    // If a file of the target name exists and it's identical to the output file, delete the output file.
+    // This prevents updating the existing file so that it doesn't need to be rebuilt.
+    if (std::filesystem::exists(output_path) && compare_files(output_path, temp_path)) {
+        std::filesystem::remove(temp_path);
+    }
+    // Otherwise, rename the new file to the target path.
+    else {
+        std::filesystem::rename(temp_path, output_path);
+    }
+
+    return true;
+}
+
 int main(int argc, char** argv) {
     auto exit_failure = [] (const std::string& error_str) {
         fmt::vprint(stderr, error_str, fmt::make_format_args());
@@ -1069,9 +1138,9 @@ int main(int argc, char** argv) {
     }
 
     // Read all of the symbols in the elf and look for the entrypoint function
-    bool found_entrypoint_func = read_symbols(context, elf_file, symtab_section, config.entrypoint);
+    bool found_entrypoint_func = read_symbols(context, elf_file, symtab_section, config.entrypoint, config.has_entrypoint, config.use_absolute_symbols);
 
-    if (!found_entrypoint_func) {
+    if (config.has_entrypoint && !found_entrypoint_func) {
         exit_failure("Could not find entrypoint function\n");
     }
 
@@ -1079,16 +1148,7 @@ int main(int argc, char** argv) {
 
     std::filesystem::create_directories(config.output_func_path);
 
-    std::ofstream lookup_file{ config.output_func_path / "lookup.cpp" };
     std::ofstream func_header_file{ config.output_func_path / "funcs.h" };
-
-    fmt::print(lookup_file,
-        //"#include <utility>\n"
-        "#include \"recomp.h\"\n"
-        //"#include \"funcs.h\"\n"
-        "\n"
-        //"std::pair<uint32_t, recomp_func_t*> funcs[] {{\n"
-    );
 
     fmt::print(func_header_file,
         "#include \"recomp.h\"\n"
@@ -1152,6 +1212,13 @@ int main(int argc, char** argv) {
         func.words[instruction_index] = byteswap(patch.value);
     }
 
+    std::ofstream single_output_file;
+    bool header_written = false;
+
+    if (config.single_file_output) {
+        single_output_file.open(config.output_func_path / config.elf_path.stem().replace_extension(".c"));
+    }
+
     //#pragma omp parallel for
     for (size_t i = 0; i < context.functions.size(); i++) {
         const auto& func = context.functions[i];
@@ -1159,18 +1226,21 @@ int main(int argc, char** argv) {
         if (!func.ignored && func.words.size() != 0) {
             fmt::print(func_header_file,
                 "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
-            //fmt::print(lookup_file,
-            //    "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
-            if (RecompPort::recompile_function(context, config, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section) == false) {
-                //lookup_file.clear();
+            bool result;
+            if (config.single_file_output) {
+                result = RecompPort::recompile_function(context, config, func, single_output_file, static_funcs_by_section, !header_written);
+                header_written = true;
+            }
+            else {
+                result = recompile_single_function(context, config, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section);
+            }
+            if (result == false) {
                 fmt::print(stderr, "Error recompiling {}\n", func.name);
                 std::exit(EXIT_FAILURE);
             }
         } else if (func.reimplemented) {
             fmt::print(func_header_file,
                        "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
-            //fmt::print(lookup_file,
-            //           "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
         }
     }
 
@@ -1228,27 +1298,40 @@ int main(int argc, char** argv) {
 
             fmt::print(func_header_file,
                        "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
-            //fmt::print(lookup_file,
-            //           "    {{ 0x{:08X}u, {} }},\n", func.vram, func.name);
-            if (RecompPort::recompile_function(context, config, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section) == false) {
-                //lookup_file.clear();
+
+            bool result;
+            if (config.single_file_output) {
+                result = RecompPort::recompile_function(context, config, func, single_output_file, static_funcs_by_section, !header_written);
+                header_written = true;
+            }
+            else {
+                result = recompile_single_function(context, config, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section);
+            }
+
+            if (result == false) {
                 fmt::print(stderr, "Error recompiling {}\n", func.name);
                 std::exit(EXIT_FAILURE);
             }
         }
     }
 
-    fmt::print(lookup_file,
-        //"}};\n"
-        //"extern const size_t num_funcs = sizeof(funcs) / sizeof(funcs[0]);\n"
-        //"\n"
-        "gpr get_entrypoint_address() {{ return (gpr)(int32_t)0x{:08X}u; }}\n"
-        "\n"
-        "const char* get_rom_name() {{ return \"{}\"; }}\n"
-        "\n",
-        static_cast<uint32_t>(config.entrypoint),
-        config.elf_path.filename().replace_extension(".z64").string()
-    );
+    if (config.has_entrypoint) {
+        std::ofstream lookup_file{ config.output_func_path / "lookup.cpp" };
+        
+        fmt::print(lookup_file,
+            "#include \"recomp.h\"\n"
+            "\n"
+        );
+
+        fmt::print(lookup_file,
+            "gpr get_entrypoint_address() {{ return (gpr)(int32_t)0x{:08X}u; }}\n"
+            "\n"
+            "const char* get_rom_name() {{ return \"{}\"; }}\n"
+            "\n",
+            static_cast<uint32_t>(config.entrypoint),
+            config.elf_path.filename().replace_extension(".z64").string()
+        );
+    }
 
     fmt::print(func_header_file,
         "\n"

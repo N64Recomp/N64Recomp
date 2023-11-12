@@ -22,8 +22,10 @@
     <ClCompile Include="rabbitizer\cplusplus\src\analysis\LoPairingInfo.cpp" />
     <ClCompile Include="rabbitizer\cplusplus\src\analysis\RegistersTracker.cpp" />
     <ClCompile Include="rabbitizer\cplusplus\src\instructions\InstrId.cpp" />
+    <ClCompile Include="rabbitizer\cplusplus\src\instructions\InstrIdType.cpp" />
     <ClCompile Include="rabbitizer\cplusplus\src\instructions\InstructionBase.cpp" />
     <ClCompile Include="rabbitizer\cplusplus\src\instructions\InstructionCpu.cpp" />
+    <ClCompile Include="rabbitizer\cplusplus\src\instructions\InstructionR3000GTE.cpp" />
     <ClCompile Include="rabbitizer\cplusplus\src\instructions\InstructionR5900.cpp" />
     <ClCompile Include="rabbitizer\cplusplus\src\instructions\InstructionRsp.cpp" />
     <ClCompile Include="rabbitizer\src\analysis\RabbitizerLoPairingInfo.c" />
@@ -35,8 +37,12 @@
     <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstrCategory.c" />
     <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstrDescriptor.c" />
     <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstrId.c" />
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstrIdType.c" />
     <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstrSuffix.c" />
     <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionCpu\RabbitizerInstructionCpu_OperandType.c" />
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionR3000GTE\RabbitizerInstructionR3000GTE.c" />
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionR3000GTE\RabbitizerInstructionR3000GTE_OperandType.c" />
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionR3000GTE\RabbitizerInstructionR3000GTE_ProcessUniqueId.c" />
     <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionR5900\RabbitizerInstructionR5900.c" />
     <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionR5900\RabbitizerInstructionR5900_OperandType.c" />
     <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionR5900\RabbitizerInstructionR5900_ProcessUniqueId.c" />
@@ -46,8 +52,10 @@
     <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstruction\RabbitizerInstruction.c" />
     <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstruction\RabbitizerInstruction_Disassemble.c" />
     <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstruction\RabbitizerInstruction_Examination.c" />
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstruction\RabbitizerInstruction_Operand.c" />
     <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstruction\RabbitizerInstruction_ProcessUniqueId.c" />
     <ClCompile Include="rabbitizer\src\instructions\RabbitizerRegister.c" />
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerRegisterDescriptor.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="rabbitizer\cplusplus\include\analysis\LoPairingInfo.hpp" />
@@ -158,7 +166,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)rabbitizer\include;$(ProjectDir)rabbitizer\cplusplus\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)rabbitizer\include;$(ProjectDir)rabbitizer\cplusplus\include;$(ProjectDir)rabbitizer\tables</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -171,7 +179,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)rabbitizer\include;$(ProjectDir)rabbitizer\cplusplus\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)rabbitizer\include;$(ProjectDir)rabbitizer\cplusplus\include;$(ProjectDir)rabbitizer\tables</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -182,7 +190,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)rabbitizer\include;$(ProjectDir)rabbitizer\cplusplus\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)rabbitizer\include;$(ProjectDir)rabbitizer\cplusplus\include;$(ProjectDir)rabbitizer\tables</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -195,7 +203,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)rabbitizer\include;$(ProjectDir)rabbitizer\cplusplus\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)rabbitizer\include;$(ProjectDir)rabbitizer\cplusplus\include;$(ProjectDir)rabbitizer\tables</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
   </ItemDefinitionGroup>

@@ -102,6 +102,30 @@
     <ClCompile Include="rabbitizer\cplusplus\src\analysis\RegistersTracker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstrIdType.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerRegisterDescriptor.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionR3000GTE\RabbitizerInstructionR3000GTE.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionR3000GTE\RabbitizerInstructionR3000GTE_OperandType.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstructionR3000GTE\RabbitizerInstructionR3000GTE_ProcessUniqueId.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\src\instructions\RabbitizerInstruction\RabbitizerInstruction_Operand.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\cplusplus\src\instructions\InstrIdType.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rabbitizer\cplusplus\src\instructions\InstructionR3000GTE.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="rabbitizer\include\instructions\RabbitizerAccessType.h">

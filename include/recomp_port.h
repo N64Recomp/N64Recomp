@@ -46,7 +46,10 @@ namespace RecompPort {
 
     struct Config {
         int32_t entrypoint;
+        bool has_entrypoint;
         bool uses_mips3_float_mode;
+        bool single_file_output;
+        bool use_absolute_symbols;
         std::filesystem::path elf_path;
         std::filesystem::path output_func_path;
         std::filesystem::path relocatable_sections_path;
@@ -154,7 +157,7 @@ namespace RecompPort {
     };
 
     bool analyze_function(const Context& context, const Function& function, const std::vector<rabbitizer::InstructionCpu>& instructions, FunctionStats& stats);
-    bool recompile_function(const Context& context, const Config& config, const Function& func, const std::filesystem::path& output_path, std::span<std::vector<uint32_t>> static_funcs);
+    bool recompile_function(const Context& context, const Config& config, const Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs, bool write_header);
 }
 
 #endif

@@ -191,6 +191,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         }
         needs_link_branch = true;
         print_unconditional_branch("{}(rdram, ctx)", jal_target_name);
+        return true;
     };
 
     if (indent) {
@@ -674,6 +675,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         break;
 
     // Cop1 compares
+    // TODO allow NaN in ordered and unordered float comparisons, default to a compare result of 1 for ordered and 0 for unordered if a NaN is present
     case InstrId::cpu_c_lt_s:
         print_line("CHECK_FR(ctx, {})", fs);
         print_line("CHECK_FR(ctx, {})", ft);
@@ -696,6 +698,12 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         print_line("c1cs = ctx->f{}.fl <= ctx->f{}.fl", fs, ft);
         break;
     case InstrId::cpu_c_ole_s:
+        print_line("CHECK_FR(ctx, {})", fs);
+        print_line("CHECK_FR(ctx, {})", ft);
+        //print_line("*(volatile int*)0 = 0;");
+        print_line("c1cs = ctx->f{}.fl <= ctx->f{}.fl", fs, ft);
+        break;
+    case InstrId::cpu_c_ule_s:
         print_line("CHECK_FR(ctx, {})", fs);
         print_line("CHECK_FR(ctx, {})", ft);
         //print_line("*(volatile int*)0 = 0;");
@@ -947,47 +955,19 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     return true;
 }
 
-bool compare_files(const std::filesystem::path& file1_path, const std::filesystem::path& file2_path) {
-    static std::vector<char> file1_buf(65536);
-    static std::vector<char> file2_buf(65536);
-
-    std::ifstream file1(file1_path, std::ifstream::ate | std::ifstream::binary); //open file at the end
-    std::ifstream file2(file2_path, std::ifstream::ate | std::ifstream::binary); //open file at the end
-    const std::ifstream::pos_type fileSize = file1.tellg();
-
-    file1.rdbuf()->pubsetbuf(file1_buf.data(), file1_buf.size());
-    file2.rdbuf()->pubsetbuf(file2_buf.data(), file2_buf.size());
-
-    if (fileSize != file2.tellg()) {
-        return false; //different file size
-    }
-
-    file1.seekg(0); //rewind
-    file2.seekg(0); //rewind
-
-    std::istreambuf_iterator<char> begin1(file1);
-    std::istreambuf_iterator<char> begin2(file2);
-
-    return std::equal(begin1, std::istreambuf_iterator<char>(), begin2); //Second argument is end-of-range iterator
-}
-
-bool RecompPort::recompile_function(const RecompPort::Context& context, const RecompPort::Config& config, const RecompPort::Function& func, const std::filesystem::path& output_path, std::span<std::vector<uint32_t>> static_funcs_out) {
+bool RecompPort::recompile_function(const RecompPort::Context& context, const RecompPort::Config& config, const RecompPort::Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool write_header) {
     //fmt::print("Recompiling {}\n", func.name);
     std::vector<rabbitizer::InstructionCpu> instructions;
 
-    // Open the output file and write the file header
-    std::filesystem::path temp_path = output_path;
-    temp_path.replace_extension(".tmp");
-    std::ofstream output_file{ temp_path };
-    if (!output_file.good()) {
-        fmt::print(stderr, "Failed to open file for writing: {}\n", temp_path.string() );
-        return false;
+    if (write_header) {
+        // Write the file header
+        fmt::print(output_file,
+            "#include \"recomp.h\"\n"
+            "#include \"disable_warnings.h\"\n"
+            "\n");
     }
 
     fmt::print(output_file,
-        "#include \"recomp.h\"\n"
-        "#include \"disable_warnings.h\"\n"
-        "\n"
         "void {}(uint8_t* rdram, recomp_context* ctx) {{\n"
         // these variables shouldn't need to be preserved across function boundaries, so make them local for more efficient output
         "    uint64_t hi = 0, lo = 0, result = 0;\n"
@@ -1070,7 +1050,7 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
 
             // Process the current instruction and check for errors
             if (process_instruction(context, config, func, stats, skipped_insns, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, reloc_index, needs_link_branch, is_branch_likely, static_funcs_out) == false) {
-                fmt::print(stderr, "Error in recompilation, clearing {}\n", output_path.string());
+                fmt::print(stderr, "Error in recompiling {}, clearing output file\n", func.name);
                 output_file.clear();
                 return false;
             }
@@ -1092,18 +1072,6 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
 
     // Terminate the function
     fmt::print(output_file, ";}}\n");
-
-    output_file.close();
-
-    // If a file of the target name exists and it's identical to the output file, delete the output file.
-    // This prevents updating the existing file so that it doesn't need to be rebuilt.
-    if (std::filesystem::exists(output_path) && compare_files(output_path, temp_path)) {
-        std::filesystem::remove(temp_path);
-    }
-    // Otherwise, rename the new file to the target path.
-    else {
-        std::filesystem::rename(temp_path, output_path);
-    }
-
+    
     return true;
 }
