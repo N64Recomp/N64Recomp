@@ -1093,7 +1093,7 @@ int main(int argc, char** argv) {
 
     if (!config.relocatable_sections_path.empty()) {
         if (!read_list_file(config.relocatable_sections_path, relocatable_sections_ordered)) {
-            exit_failure("Failed to load the relocatable section list file: " + std::string(argv[4]) + "\n");
+            exit_failure(fmt::format("Failed to load the relocatable section list file: {}\n", (const char*)config.relocatable_sections_path.u8string().c_str()));
         }
     }
 
@@ -1213,10 +1213,15 @@ int main(int argc, char** argv) {
     }
 
     std::ofstream single_output_file;
-    bool header_written = false;
 
     if (config.single_file_output) {
         single_output_file.open(config.output_func_path / config.elf_path.stem().replace_extension(".c"));
+        // Write the file header
+        fmt::print(single_output_file,
+            "#include \"recomp.h\"\n"
+            "#include \"disable_warnings.h\"\n"
+            "#include \"funcs.h\"\n"
+            "\n");
     }
 
     //#pragma omp parallel for
@@ -1228,8 +1233,7 @@ int main(int argc, char** argv) {
                 "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
             bool result;
             if (config.single_file_output) {
-                result = RecompPort::recompile_function(context, config, func, single_output_file, static_funcs_by_section, !header_written);
-                header_written = true;
+                result = RecompPort::recompile_function(context, config, func, single_output_file, static_funcs_by_section, false);
             }
             else {
                 result = recompile_single_function(context, config, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section);
@@ -1301,8 +1305,7 @@ int main(int argc, char** argv) {
 
             bool result;
             if (config.single_file_output) {
-                result = RecompPort::recompile_function(context, config, func, single_output_file, static_funcs_by_section, !header_written);
-                header_written = true;
+                result = RecompPort::recompile_function(context, config, func, single_output_file, static_funcs_by_section, false);
             }
             else {
                 result = recompile_single_function(context, config, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section);
