@@ -684,10 +684,24 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_c_olt_s:
         print_line("CHECK_FR(ctx, {})", fs);
         print_line("CHECK_FR(ctx, {})", ft);
-        //print_line("*(volatile int*)0 = 0;");
+        print_line("c1cs = ctx->f{}.fl < ctx->f{}.fl", fs, ft);
+        break;
+    case InstrId::cpu_c_ult_s:
+        print_line("CHECK_FR(ctx, {})", fs);
+        print_line("CHECK_FR(ctx, {})", ft);
         print_line("c1cs = ctx->f{}.fl < ctx->f{}.fl", fs, ft);
         break;
     case InstrId::cpu_c_lt_d:
+        print_line("CHECK_FR(ctx, {})", fs);
+        print_line("CHECK_FR(ctx, {})", ft);
+        print_line("c1cs = ctx->f{}.d < ctx->f{}.d", fs, ft);
+        break;
+    case InstrId::cpu_c_olt_d:
+        print_line("CHECK_FR(ctx, {})", fs);
+        print_line("CHECK_FR(ctx, {})", ft);
+        print_line("c1cs = ctx->f{}.d < ctx->f{}.d", fs, ft);
+        break;
+    case InstrId::cpu_c_ult_d:
         print_line("CHECK_FR(ctx, {})", fs);
         print_line("CHECK_FR(ctx, {})", ft);
         print_line("c1cs = ctx->f{}.d < ctx->f{}.d", fs, ft);
@@ -700,16 +714,24 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_c_ole_s:
         print_line("CHECK_FR(ctx, {})", fs);
         print_line("CHECK_FR(ctx, {})", ft);
-        //print_line("*(volatile int*)0 = 0;");
         print_line("c1cs = ctx->f{}.fl <= ctx->f{}.fl", fs, ft);
         break;
     case InstrId::cpu_c_ule_s:
         print_line("CHECK_FR(ctx, {})", fs);
         print_line("CHECK_FR(ctx, {})", ft);
-        //print_line("*(volatile int*)0 = 0;");
         print_line("c1cs = ctx->f{}.fl <= ctx->f{}.fl", fs, ft);
         break;
     case InstrId::cpu_c_le_d:
+        print_line("CHECK_FR(ctx, {})", fs);
+        print_line("CHECK_FR(ctx, {})", ft);
+        print_line("c1cs = ctx->f{}.d <= ctx->f{}.d", fs, ft);
+        break;
+    case InstrId::cpu_c_ole_d:
+        print_line("CHECK_FR(ctx, {})", fs);
+        print_line("CHECK_FR(ctx, {})", ft);
+        print_line("c1cs = ctx->f{}.d <= ctx->f{}.d", fs, ft);
+        break;
+    case InstrId::cpu_c_ule_d:
         print_line("CHECK_FR(ctx, {})", fs);
         print_line("CHECK_FR(ctx, {})", ft);
         print_line("c1cs = ctx->f{}.d <= ctx->f{}.d", fs, ft);
@@ -719,7 +741,37 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         print_line("CHECK_FR(ctx, {})", ft);
         print_line("c1cs = ctx->f{}.fl == ctx->f{}.fl", fs, ft);
         break;
+    case InstrId::cpu_c_ueq_s:
+        print_line("CHECK_FR(ctx, {})", fs);
+        print_line("CHECK_FR(ctx, {})", ft);
+        print_line("c1cs = ctx->f{}.fl == ctx->f{}.fl", fs, ft);
+        break;
+    case InstrId::cpu_c_ngl_s:
+        print_line("CHECK_FR(ctx, {})", fs);
+        print_line("CHECK_FR(ctx, {})", ft);
+        print_line("c1cs = ctx->f{}.fl == ctx->f{}.fl", fs, ft);
+        break;
+    case InstrId::cpu_c_seq_s:
+        print_line("CHECK_FR(ctx, {})", fs);
+        print_line("CHECK_FR(ctx, {})", ft);
+        print_line("c1cs = ctx->f{}.fl == ctx->f{}.fl", fs, ft);
+        break;
     case InstrId::cpu_c_eq_d:
+        print_line("CHECK_FR(ctx, {})", fs);
+        print_line("CHECK_FR(ctx, {})", ft);
+        print_line("c1cs = ctx->f{}.d == ctx->f{}.d", fs, ft);
+        break;
+    case InstrId::cpu_c_ueq_d:
+        print_line("CHECK_FR(ctx, {})", fs);
+        print_line("CHECK_FR(ctx, {})", ft);
+        print_line("c1cs = ctx->f{}.d == ctx->f{}.d", fs, ft);
+        break;
+    case InstrId::cpu_c_ngl_d:
+        print_line("CHECK_FR(ctx, {})", fs);
+        print_line("CHECK_FR(ctx, {})", ft);
+        print_line("c1cs = ctx->f{}.d == ctx->f{}.d", fs, ft);
+        break;
+    case InstrId::cpu_c_deq_d: // TODO rename to c_seq_d when fixed in rabbitizer
         print_line("CHECK_FR(ctx, {})", fs);
         print_line("CHECK_FR(ctx, {})", ft);
         print_line("c1cs = ctx->f{}.d == ctx->f{}.d", fs, ft);

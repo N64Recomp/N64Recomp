@@ -661,7 +661,7 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
                 context.functions_by_vram[vram].push_back(context.functions.size());
 
                 // Find the entrypoint by rom address in case it doesn't have vram as its value
-                if (rom_address == 0x1000 && type == ELFIO::STT_FUNC) {
+                if (has_entrypoint && rom_address == 0x1000 && type == ELFIO::STT_FUNC) {
                     vram = entrypoint;
                     found_entrypoint_func = true;
                     name = "recomp_entrypoint";
