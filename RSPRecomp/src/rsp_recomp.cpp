@@ -419,26 +419,26 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
             // Loads
             // TODO ld
         case InstrId::rsp_lw:
-            print_line("{}{} = RSP_MEM_W({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
+            print_line("{}{} = RSP_MEM_W_LOAD({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
             break;
         case InstrId::rsp_lh:
-            print_line("{}{} = RSP_MEM_H({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
+            print_line("{}{} = RSP_MEM_H_LOAD({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
             break;
         case InstrId::rsp_lb:
             print_line("{}{} = RSP_MEM_B({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
             break;
         case InstrId::rsp_lhu:
-            print_line("{}{} = RSP_MEM_HU({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
+            print_line("{}{} = RSP_MEM_HU_LOAD({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
             break;
         case InstrId::rsp_lbu:
             print_line("{}{} = RSP_MEM_BU({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
             break;
             // Stores
         case InstrId::rsp_sw:
-            print_line("RSP_MEM_W({}, {}{}) = {}{}", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
+            print_line("RSP_MEM_W_STORE({}, {}{}, {}{})", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
             break;
         case InstrId::rsp_sh:
-            print_line("RSP_MEM_H({}, {}{}) = {}{}", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
+            print_line("RSP_MEM_H_STORE({}, {}{}, {}{})", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
             break;
         case InstrId::rsp_sb:
             print_line("RSP_MEM_B({}, {}{}) = {}{}", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
@@ -514,16 +514,17 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
     return true;
 }
 
-void write_indirect_jumps(std::ofstream& output_file, const BranchTargets& branch_targets) {
+void write_indirect_jumps(std::ofstream& output_file, const BranchTargets& branch_targets, const std::string& output_function_name) {
     fmt::print(output_file,
         "do_indirect_jump:\n"
-        "    switch (jump_target & {:#X}) {{ \n", rsp_mem_mask);
+        "    switch ((jump_target | 0x1000) & {:#X}) {{ \n", rsp_mem_mask);
     for (uint32_t branch_target: branch_targets.indirect_targets) {
         fmt::print(output_file, "        case 0x{0:04X}: goto L_{0:04X};\n", branch_target);
     }
     fmt::print(output_file,
         "    }}\n"
-        "    return RspExitReason::UnhandledJumpTarget;\n");
+        "    printf(\"Unhandled jump target 0x%04X in microcode {}\\n\", jump_target);\n"
+        "    return RspExitReason::UnhandledJumpTarget;\n", output_function_name);
 }
 
 // TODO de-hardcode these
@@ -647,7 +648,7 @@ int main() {
     fmt::print(output_file, "    return RspExitReason::ImemOverrun;\n");
 
     // Write the section containing the indirect jump table
-    write_indirect_jumps(output_file, branch_targets);
+    write_indirect_jumps(output_file, branch_targets, output_function_name);
 
     // End the file
     fmt::print(output_file, "}}\n");
