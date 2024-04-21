@@ -546,8 +546,12 @@ std::unordered_set<std::string> renamed_funcs{
     "sqrtf",
     "memcpy",
     "memset",
+    "strcmp",
+    "strcat",
+    "strcpy",
     "strchr",
     "strlen",
+    "strtok",
     "sprintf",
     "bzero",
     "bcopy",
@@ -571,6 +575,9 @@ std::unordered_set<std::string> renamed_funcs{
     "truncf",
     "vsprintf",
     "__assert",
+    "malloc",
+    "free",
+    "realloc",
 };
 
 bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint, bool has_entrypoint, bool use_absolute_symbols) {
@@ -650,6 +657,7 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
                 name = name + "_recomp";
                 ignored = false;
             }
+
             if (section_index < context.sections.size()) {
                 auto section_offset = value - elf_file.sections[section_index]->get_address();
                 const uint32_t* words = reinterpret_cast<const uint32_t*>(elf_file.sections[section_index]->get_data() + section_offset);
@@ -668,6 +676,11 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
                     if (size == 0) {
                         num_instructions = 0x50 / 4;
                     }
+                }
+
+                // Suffix local symbols to prevent name conflicts.
+                if (bind == ELFIO::STB_LOCAL) {
+                    name = fmt::format("{}_{:08X}", name, rom_address);
                 }
                 
                 if (num_instructions > 0) {
@@ -931,6 +944,8 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
                 section_out.relocs.resize(rel_accessor.get_entries_num());
                 // Track whether the previous reloc was a HI16 and its previous full_immediate
                 bool prev_hi = false;
+                // Track whether the previous reloc was a LO16
+                bool prev_lo = false;
                 uint32_t prev_hi_immediate = 0;
                 uint32_t prev_hi_symbol = std::numeric_limits<uint32_t>::max();
 
@@ -977,9 +992,10 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
                     if (reloc_out.type == RecompPort::RelocType::R_MIPS_LO16) {
                         if (prev_hi) {
                             if (prev_hi_symbol != rel_symbol) {
-                                fmt::print(stderr, "[WARN] Paired HI16 and LO16 relocations have different symbols\n"
+                                fmt::print(stderr, "Paired HI16 and LO16 relocations have different symbols\n"
                                                     "  LO16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X}\n",
                                     i, section_out.name, reloc_out.symbol_index, reloc_out.address);
+                                return nullptr;
                             }
                             uint32_t rel_immediate = instr.getProcessedImmediate();
                             uint32_t full_immediate = (prev_hi_immediate << 16) + (int16_t)rel_immediate;
@@ -989,12 +1005,33 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
                             section_out.relocs[i - 1].target_address = full_immediate;
                             reloc_out.target_address = full_immediate;
                         }
+                        else {
+                            if (prev_lo) {
+                                uint32_t rel_immediate = instr.getProcessedImmediate();
+                                uint32_t full_immediate;
+
+                                if (prev_hi_symbol != rel_symbol) {
+                                    fmt::print(stderr, "[WARN] LO16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X} follows LO16 with different symbol\n",
+                                        i, section_out.name, reloc_out.symbol_index, reloc_out.address);
+                                }
+
+                                full_immediate = (prev_hi_immediate << 16) + (int16_t)rel_immediate;
+                                reloc_out.target_address = full_immediate;
+                            }
+                            else {
+                                fmt::print(stderr, "Unpaired LO16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X}\n",
+                                    i, section_out.name, reloc_out.symbol_index, reloc_out.address);
+                                return nullptr;
+                            }
+                        }
+                        prev_lo = true;
                     } else {
                         if (prev_hi) {
                             fmt::print(stderr, "Unpaired HI16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X}\n",
                                 i - 1, section_out.name, section_out.relocs[i - 1].symbol_index, section_out.relocs[i - 1].address);
                             return nullptr;
                         }
+                        prev_lo = false;
                     }
 
                     if (reloc_out.type == RecompPort::RelocType::R_MIPS_HI16) {
@@ -1321,16 +1358,17 @@ int main(int argc, char** argv) {
         std::vector<uint32_t> section_statics{};
         section_statics.assign(statics_set.begin(), statics_set.end());
 
-        size_t closest_func_index = 0;
         for (size_t static_func_index = 0; static_func_index < section_statics.size(); static_func_index++) {
             uint32_t static_func_addr = section_statics[static_func_index];
-            // Search for the closest function 
-            while (section_funcs[closest_func_index] < static_func_addr && closest_func_index < section_funcs.size()) {
-                closest_func_index++;
-            }
 
             // Determine the end of this static function
             uint32_t cur_func_end = static_cast<uint32_t>(section.size + section.ram_addr);
+
+            // Search for the closest function 
+            size_t closest_func_index = 0;
+            while (section_funcs[closest_func_index] < static_func_addr && closest_func_index < section_funcs.size()) {
+                closest_func_index++;
+            }
 
             // Check if there's a nonstatic function after this one
             if (closest_func_index < section_funcs.size()) {
@@ -1338,12 +1376,10 @@ int main(int argc, char** argv) {
                 cur_func_end = section_funcs[closest_func_index];
             }
 
-            uint32_t next_static_index = static_func_index + 1;
-            // Check if there's a known static function after this one
-            if (next_static_index < section_statics.size()) {
-                // If so, check if it's before the current end address
-                if (section_statics[next_static_index] < cur_func_end) {
-                    cur_func_end = section_statics[next_static_index];
+            // Check for any known statics after this function and truncate this function's size to make sure it doesn't overlap.
+            for (uint32_t checked_func : statics_set) {
+                if (checked_func > static_func_addr && checked_func < cur_func_end) {
+                    cur_func_end = checked_func;
                 }
             }
 
@@ -1366,11 +1402,26 @@ int main(int argc, char** argv) {
                        "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
 
             bool result;
+            size_t prev_num_statics = static_funcs_by_section[func.section_index].size();
+
             if (config.single_file_output) {
                 result = RecompPort::recompile_function(context, config, func, single_output_file, static_funcs_by_section, false);
             }
             else {
                 result = recompile_single_function(context, config, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section);
+            }
+
+            // Add any new static functions that were found while recompiling this one.
+            size_t cur_num_statics = static_funcs_by_section[func.section_index].size();
+            if (cur_num_statics != prev_num_statics) {
+                for (size_t new_static_index = prev_num_statics; new_static_index < cur_num_statics; new_static_index++) {
+                    uint32_t new_static_vram = static_funcs_by_section[func.section_index][new_static_index];
+
+                    if (!statics_set.contains(new_static_vram)) {
+                        statics_set.emplace(new_static_vram);
+                        section_statics.push_back(new_static_vram);
+                    }
+                }
             }
 
             if (result == false) {
@@ -1422,10 +1473,6 @@ int main(int argc, char** argv) {
         for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
             const auto& section = context.sections[section_index];
             const auto& section_funcs = context.section_functions[section_index];
-
-            if (section.name == ".cosection") {
-                fmt::print("");
-            }
 
             if (!section_funcs.empty()) {
                 std::string_view section_name_trimmed{ section.name };
