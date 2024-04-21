@@ -707,6 +707,65 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
     return found_entrypoint_func;
 }
 
+void add_manual_functions(RecompPort::Context& context, const ELFIO::elfio& elf_file, const std::vector<RecompPort::ManualFunction>& manual_funcs) {
+    auto exit_failure = [](const std::string& error_str) {
+        fmt::vprint(stderr, error_str, fmt::make_format_args());
+        std::exit(EXIT_FAILURE);
+    };
+
+    // Build a lookup from section name to section index.
+    std::unordered_map<std::string, size_t> section_indices_by_name{};
+    section_indices_by_name.reserve(context.sections.size());
+
+    for (size_t i = 0; i < context.sections.size(); i++) {
+        section_indices_by_name.emplace(context.sections[i].name, i);
+    }
+
+    for (const RecompPort::ManualFunction& cur_func_def : manual_funcs) {
+        const auto section_find_it = section_indices_by_name.find(cur_func_def.section_name);
+        if (section_find_it == section_indices_by_name.end()) {
+            exit_failure(fmt::format("Manual function {} specified with section {}, which doesn't exist!\n", cur_func_def.func_name, cur_func_def.section_name));
+        }
+        size_t section_index = section_find_it->second;
+
+        const auto func_find_it = context.functions_by_name.find(cur_func_def.func_name);
+        if (func_find_it != context.functions_by_name.end()) {
+            exit_failure(fmt::format("Manual function {} already exists!\n", cur_func_def.func_name));
+        }
+
+        if ((cur_func_def.size & 0b11) != 0) {
+            exit_failure(fmt::format("Manual function {} has a size that isn't divisible by 4!\n", cur_func_def.func_name));
+        }
+
+        auto& section = context.sections[section_index];
+        uint32_t section_offset = cur_func_def.vram - section.ram_addr;
+        uint32_t rom_address = section_offset + section.rom_addr;
+
+        std::vector<uint32_t> words;
+        words.resize(cur_func_def.size / 4);
+        const uint32_t* elf_words = reinterpret_cast<const uint32_t*>(elf_file.sections[section_index]->get_data() + section_offset);
+
+        words.assign(elf_words, elf_words + words.size());
+
+        size_t function_index = context.functions.size();
+        context.functions.emplace_back(
+            cur_func_def.vram,
+            rom_address,
+            std::move(words),
+            cur_func_def.func_name,
+            ELFIO::Elf_Half(section_index),
+            false,
+            false,
+            false
+        );
+
+        context.section_functions[section_index].push_back(function_index);
+        section.function_addrs.push_back(function_index);
+        context.functions_by_vram[cur_func_def.vram].push_back(function_index);
+        context.functions_by_name[cur_func_def.func_name] = function_index;
+    }
+}
+
 struct SegmentEntry {
     ELFIO::Elf64_Off data_offset;
     ELFIO::Elf64_Addr physical_address;
@@ -1139,6 +1198,9 @@ int main(int argc, char** argv) {
 
     // Read all of the symbols in the elf and look for the entrypoint function
     bool found_entrypoint_func = read_symbols(context, elf_file, symtab_section, config.entrypoint, config.has_entrypoint, config.use_absolute_symbols);
+
+    // Add any manual functions
+    add_manual_functions(context, elf_file, config.manual_functions);
 
     if (config.has_entrypoint && !found_entrypoint_func) {
         exit_failure("Could not find entrypoint function\n");

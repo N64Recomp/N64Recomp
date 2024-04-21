@@ -381,10 +381,10 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         print_line("{}{} = {}{} < {} ? 1 : 0", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, signed_imm_string);
         break;
     case InstrId::cpu_mult:
-        print_line("result = S64({}{}) * S64({}{}); lo = S32(result >> 0); hi = S32(result >> 32)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
+        print_line("result = S64(S32({}{})) * S64(S32({}{})); lo = S32(result >> 0); hi = S32(result >> 32)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_multu:
-        print_line("result = U64({}{}) * U64({}{}); lo = S32(result >> 0); hi = S32(result >> 32)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
+        print_line("result = U64(U32({}{})) * U64(U32({}{})); lo = S32(result >> 0); hi = S32(result >> 32)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_div:
         // Cast to 64-bits before division to prevent artihmetic exception for s32(0x80000000) / -1
@@ -398,6 +398,12 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         break;
     case InstrId::cpu_mfhi:
         print_line("{}{} = hi", ctx_gpr_prefix(rd), rd);
+        break;
+    case InstrId::cpu_mtlo:
+        print_line("lo = {}{}", ctx_gpr_prefix(rd), rd);
+        break;
+    case InstrId::cpu_mthi:
+        print_line("hi = {}{}", ctx_gpr_prefix(rd), rd);
         break;
     // Loads
     case InstrId::cpu_ld:
@@ -1093,11 +1099,6 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
                 while (reloc_index < (section.relocs.size() - 1) && section.relocs[reloc_index].address < vram) {
                     reloc_index++;
                 }
-            }
-
-
-            if (section.name == ".anseq") {
-                std::this_thread::yield();
             }
 
             // Process the current instruction and check for errors

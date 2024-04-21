@@ -17,6 +17,30 @@ struct value_error : public toml::exception {
 		std::string what_;
 };
 
+std::vector<RecompPort::ManualFunction> get_manual_funcs(const toml::value& manual_funcs_data) {
+	std::vector<RecompPort::ManualFunction> ret;
+
+	if (manual_funcs_data.type() != toml::value_t::array) {
+		return ret;
+	}
+
+	// Get the funcs array as an array type.
+	const toml::array& manual_funcs_array = manual_funcs_data.as_array();
+
+	// Reserve room for all the funcs in the map.
+	ret.reserve(manual_funcs_array.size());
+	for (const toml::value& cur_func_val : manual_funcs_array) {
+		const std::string& func_name = toml::find<std::string>(cur_func_val, "name");
+		const std::string& section_name = toml::find<std::string>(cur_func_val, "section");
+		uint32_t vram_in = toml::find<uint32_t>(cur_func_val, "vram");
+		uint32_t size = toml::find<uint32_t>(cur_func_val, "size");
+
+		ret.emplace_back(func_name, section_name, vram_in, size);
+	}
+
+	return ret;
+}
+
 std::vector<std::string> get_stubbed_funcs(const toml::value& patches_data) {
 	std::vector<std::string> stubbed_funcs{};
 
@@ -225,6 +249,12 @@ RecompPort::Config::Config(const char* path) {
 		bss_section_suffix        = toml::find_or<std::string>(input_data, "bss_section_suffix", ".bss");
 		single_file_output        = toml::find_or<bool>(input_data, "single_file_output", false);
 		use_absolute_symbols      = toml::find_or<bool>(input_data, "use_absolute_symbols", false);
+
+		// Manual functions (optional)
+		const toml::value& manual_functions_data = toml::find_or<toml::value>(input_data, "manual_funcs", toml::value{});
+		if (manual_functions_data.type() != toml::value_t::empty) {
+			manual_functions = get_manual_funcs(manual_functions_data);
+		}
 
 		// Patches section (optional)
 		const toml::value& patches_data = toml::find_or<toml::value>(config_data, "patches", toml::value{});

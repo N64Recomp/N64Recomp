@@ -44,6 +44,13 @@ namespace RecompPort {
         uint32_t size_bytes;
     };
 
+    struct ManualFunction {
+        std::string func_name;
+        std::string section_name;
+        uint32_t vram;
+        uint32_t size;
+    };
+
     struct Config {
         int32_t entrypoint;
         bool has_entrypoint;
@@ -58,6 +65,7 @@ namespace RecompPort {
         DeclaredFunctionMap declared_funcs;
         std::vector<InstructionPatch> instruction_patches;
         std::vector<FunctionSize> manual_func_sizes;
+        std::vector<ManualFunction> manual_functions;
         std::string bss_section_suffix;
 
         Config(const char* path);
