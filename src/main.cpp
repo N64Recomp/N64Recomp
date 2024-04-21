@@ -3,6 +3,7 @@
 #include <unordered_set>
 #include <span>
 #include <filesystem>
+#include <optional>
 
 #include "rabbitizer.hpp"
 #include "elfio/elfio.hpp"
@@ -611,7 +612,8 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
                 std::move(name),
                 0,
                 true,
-                reimplemented
+                reimplemented,
+                false
             );
             continue;
         }

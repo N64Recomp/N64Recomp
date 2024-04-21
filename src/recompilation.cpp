@@ -232,6 +232,8 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
                 signed_imm_string = "(int16_t)" + unsigned_imm_string;
                 reloc_handled = true;
                 break;
+            default:
+                throw std::runtime_error(fmt::format("Unexpected reloc type {} in {}\n", static_cast<int>(reloc_type), func.name));
         }
     }
 

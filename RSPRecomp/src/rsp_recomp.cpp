@@ -1,6 +1,7 @@
 #include <optional>
 #include <fstream>
 #include <array>
+#include <vector>
 #include <unordered_set>
 #include <unordered_map>
 #include <cassert>
@@ -130,10 +131,11 @@ uint32_t expected_c0_reg_value(int cop0_reg) {
         return 0; // Always acquire the semaphore
     case Cop0Reg::RSP_COP0_DPC_STATUS:
         return 0; // Good enough for the microcodes that would be recompiled (i.e. non-graphics ones)
+    default:
+        fmt::print(stderr, "Unhandled mfc0: {}\n", cop0_reg);
+        throw std::runtime_error("Unhandled mfc0");
+        return 0;
     }
-    fmt::print(stderr, "Unhandled mfc0: {}\n", cop0_reg);
-    assert(false);
-    return 0;
 }
 
 std::string_view c0_reg_write_action(int cop0_reg) {
@@ -150,10 +152,11 @@ std::string_view c0_reg_write_action(int cop0_reg) {
         return "DO_DMA_READ";
     case Cop0Reg::RSP_COP0_SP_WR_LEN:
         return "DO_DMA_WRITE";
+    default:
+        fmt::print(stderr, "Unhandled mtc0: {}\n", cop0_reg);
+        throw std::runtime_error("Unhandled mtc0");
     }
-    fmt::print(stderr, "Unhandled mtc0: {}\n", cop0_reg);
-    assert(false);
-    return "";
+
 }
 
 std::optional<int> get_rsp_element(const rabbitizer::InstructionRsp& instr) {
@@ -217,35 +220,35 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
         fmt::print(output_file, "    ");
     };
 
-    auto print_line = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts ...args) {
+    auto print_line = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts&& ...args) {
         print_indent();
-        fmt::print(output_file, fmt_str, args...);
+        fmt::print(output_file, fmt_str, std::forward<Ts>(args)...);
         fmt::print(output_file, ";\n");
     };
 
-    auto print_branch_condition = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts ...args) {
-        fmt::print(output_file, fmt_str, args...);
+    auto print_branch_condition = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts&& ...args) {
+        fmt::print(output_file, fmt_str, std::forward<Ts>(args)...);
         fmt::print(output_file, " ");
     };
 
-    auto print_unconditional_branch = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts ...args) {
+    auto print_unconditional_branch = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts&& ...args) {
         if (instr_index < instructions.size() - 1) {
             uint32_t next_vram = instr_vram + 4;
             process_instruction(instr_index + 1, instructions, output_file, branch_targets, unsupported_instructions, false, true);
         }
         print_indent();
-        fmt::print(output_file, fmt_str, args...);
+        fmt::print(output_file, fmt_str, std::forward<Ts>(args)...);
         fmt::print(output_file, ";\n");
     };
 
-    auto print_branch = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts ...args) {
+    auto print_branch = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts&& ...args) {
         fmt::print(output_file, "{{\n    ");
         if (instr_index < instructions.size() - 1) {
             uint32_t next_vram = instr_vram + 4;
             process_instruction(instr_index + 1, instructions, output_file, branch_targets, unsupported_instructions, true, true);
         }
         fmt::print(output_file, "        ");
-        fmt::print(output_file, fmt_str, args...);
+        fmt::print(output_file, fmt_str, std::forward<Ts>(args)...);
         fmt::print(output_file, ";\n    }}\n");
     };
 
@@ -315,6 +318,8 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
                 case RspOperand::Imm7:
                     // Sign extend the 7-bit immediate
                     operand_string += fmt::format("{:#X}, ", ((int8_t)(imm << 1)) >> 1);
+                    break;
+                case RspOperand::None:
                     break;
             }
         }
