@@ -386,15 +386,27 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_mult:
         print_line("result = S64(S32({}{})) * S64(S32({}{})); lo = S32(result >> 0); hi = S32(result >> 32)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
+    case InstrId::cpu_dmult:
+        print_line("DMULT(S64({}{}), S64({}{}), &lo, &hi)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
+        break;
     case InstrId::cpu_multu:
         print_line("result = U64(U32({}{})) * U64(U32({}{})); lo = S32(result >> 0); hi = S32(result >> 32)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
+        break;
+    case InstrId::cpu_dmultu:
+        print_line("DMULTU(U64({}{}), U64({}{}), &lo, &hi)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_div:
         // Cast to 64-bits before division to prevent artihmetic exception for s32(0x80000000) / -1
         print_line("lo = S32(S64(S32({}{})) / S64(S32({}{}))); hi = S32(S64(S32({}{})) % S64(S32({}{})))", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
+    case InstrId::cpu_ddiv:
+        print_line("DDIV(S64({}{}), S64({}{}), &lo, &hi)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
+        break;
     case InstrId::cpu_divu:
         print_line("lo = S32(U32({}{}) / U32({}{})); hi = S32(U32({}{}) % U32({}{}))", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
+        break;
+    case InstrId::cpu_ddivu:
+        print_line("DDIVU(U64({}{}), U64({}{}), &lo, &hi)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
     case InstrId::cpu_mflo:
         print_line("{}{} = lo", ctx_gpr_prefix(rd), rd);
@@ -928,6 +940,28 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         print_line("CHECK_FR(ctx, {})", fs);
         print_line("NAN_CHECK(ctx->f{}.d)", fs);
         print_line("ctx->f{}.fl = CVT_S_D(ctx->f{}.d)", fd, fs);
+        break;
+    case InstrId::cpu_cvt_d_l:
+        print_line("CHECK_FR(ctx, {})", fd);
+        print_line("CHECK_FR(ctx, {})", fs);
+        print_line("ctx->f{}.d = CVT_D_L(ctx->f{}.u64)", fd, fs);
+        break;
+    case InstrId::cpu_cvt_l_d:
+        print_line("CHECK_FR(ctx, {})", fd);
+        print_line("CHECK_FR(ctx, {})", fs);
+        print_line("NAN_CHECK(ctx->f{}.d)", fs);
+        print_line("ctx->f{}.u64 = CVT_L_D(ctx->f{}.d)", fd, fs);
+        break;
+    case InstrId::cpu_cvt_s_l:
+        print_line("CHECK_FR(ctx, {})", fd);
+        print_line("CHECK_FR(ctx, {})", fs);
+        print_line("ctx->f{}.fl = CVT_S_L(ctx->f{}.u64)", fd, fs);
+        break;
+    case InstrId::cpu_cvt_l_s:
+        print_line("CHECK_FR(ctx, {})", fd);
+        print_line("CHECK_FR(ctx, {})", fs);
+        print_line("NAN_CHECK(ctx->f{}.fl)", fs);
+        print_line("ctx->f{}.u64 = CVT_L_S(ctx->f{}.fl)", fd, fs);
         break;
     case InstrId::cpu_trunc_w_s:
         print_line("CHECK_FR(ctx, {})", fd);

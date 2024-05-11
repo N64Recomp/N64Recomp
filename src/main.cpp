@@ -141,10 +141,6 @@ std::unordered_set<std::string> reimplemented_funcs{
     "__osInitialize_kmc",
     "__osInitialize_isv",
     "__osRdbSend",
-    // libgcc math routines (these throw off the recompiler)
-    "__udivdi3",
-    "__divdi3",
-    "__umoddi3",
     // ido math routines
     "__ull_div",
     "__ll_div",
