@@ -505,6 +505,9 @@ std::unordered_set<std::string> ignored_funcs {
     "__divdi3",
     "__udivdi3",
     "__umoddi3",
+    "div64_64",
+    "div64_32",
+    "__moddi3",
     // ido math routines
     "__ll_div",
     "__ll_lshift",
@@ -543,6 +546,7 @@ std::unordered_set<std::string> renamed_funcs{
     "sqrtf",
     "memcpy",
     "memset",
+    "memmove",
     "strcmp",
     "strcat",
     "strcpy",
@@ -562,6 +566,8 @@ std::unordered_set<std::string> renamed_funcs{
     "floor",
     "floorf",
     "fmodf",
+    "fmod",
+    "modf",
     "lround",
     "lroundf",
     "nearbyint",
@@ -575,6 +581,8 @@ std::unordered_set<std::string> renamed_funcs{
     "malloc",
     "free",
     "realloc",
+    "rand",
+    "srand",
 };
 
 bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint, bool has_entrypoint, bool use_absolute_symbols) {
@@ -1249,6 +1257,8 @@ int main(int argc, char** argv) {
     std::ofstream func_header_file{ config.output_func_path / "funcs.h" };
 
     fmt::print(func_header_file,
+        "#ifndef __RECOMPED_FUNCS_H__\n"
+        "#define __RECOMPED_FUNCS_H__\n"
         "#include \"recomp.h\"\n"
         "\n"
         "#ifdef __cplusplus\n"
@@ -1452,6 +1462,8 @@ int main(int argc, char** argv) {
         "\n"
         "#ifdef __cplusplus\n"
         "}}\n"
+        "#endif\n"
+        "\n"
         "#endif\n"
     );
 

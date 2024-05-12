@@ -1067,6 +1067,7 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
         // Write the file header
         fmt::print(output_file,
             "#include \"recomp.h\"\n"
+            "#include \"funcs.h\"\n"
             "#include \"disable_warnings.h\"\n"
             "\n");
     }
