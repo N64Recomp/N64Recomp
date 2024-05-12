@@ -638,6 +638,14 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_break:
         print_line("do_break({})", instr_vram);
         break;
+    case InstrId::cpu_bgezall:
+        is_branch_likely = true;
+        [[fallthrough]];
+    case InstrId::cpu_bgezal:
+        print_indent();
+        print_branch_condition("if (SIGNED({}{}) >= 0)", ctx_gpr_prefix(rs), rs);
+        print_func_call(instr.getBranchVramGeneric());
+        break;
 
     // Cop1 loads/stores
     case InstrId::cpu_mtc1:
