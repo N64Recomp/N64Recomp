@@ -9,6 +9,7 @@
 #include "rabbitizer.hpp"
 #include "fmt/format.h"
 #include "fmt/ostream.h"
+#include <iostream>
 
 using InstrId = rabbitizer::InstrId::UniqueId;
 using Cop0Reg = rabbitizer::Registers::Rsp::Cop0;
@@ -532,54 +533,7 @@ void write_indirect_jumps(std::ofstream& output_file, const BranchTargets& branc
         "    return RspExitReason::UnhandledJumpTarget;\n", output_function_name);
 }
 
-// TODO de-hardcode these
-// OoT njpgdspMain
-//constexpr size_t rsp_text_offset = 0xB8BAD0;
-//constexpr size_t rsp_text_size = 0xAF0;
-//constexpr size_t rsp_text_address = 0x04001080;
-//std::string rom_file_path = "../test/oot_mq_debug.z64";
-//std::string output_file_path = "../test/rsp/njpgdspMain.cpp";
-//std::string output_function_name = "njpgdspMain";
-//const std::vector<uint32_t> extra_indirect_branch_targets{};
-//const std::unordered_set<uint32_t> unsupported_instructions{};
-
-// OoT aspMain
-//constexpr size_t rsp_text_offset = 0xB89260;
-//constexpr size_t rsp_text_size = 0xFB0;
-//constexpr size_t rsp_text_address = 0x04001000;
-//std::string rom_file_path = "../test/oot_mq_debug.z64";
-//std::string output_file_path = "../test/rsp/aspMain.cpp";
-//std::string output_function_name = "aspMain";
-//const std::vector<uint32_t> extra_indirect_branch_targets{ 0x1F68, 0x1230, 0x114C, 0x1F18, 0x1E2C, 0x14F4, 0x1E9C, 0x1CB0, 0x117C, 0x17CC, 0x11E8, 0x1AA4, 0x1B34, 0x1190, 0x1C5C, 0x1220, 0x1784, 0x1830, 0x1A20, 0x1884, 0x1A84, 0x1A94, 0x1A48, 0x1BA0 };
-//const std::unordered_set<uint32_t> unsupported_instructions{};
-
-// MM's njpgdspMain is identical to OoT's
-
-//// MM aspMain
-//constexpr size_t rsp_text_offset = 0xC40FF0;
-//constexpr size_t rsp_text_size = 0x1000;
-//constexpr size_t rsp_text_address = 0x04001000;
-//std::string rom_file_path = "../../MMRecomp/mm.us.rev1.z64"; // uncompressed rom!
-//std::string output_file_path = "../../MMRecomp/rsp/aspMain.cpp";
-//std::string output_function_name = "aspMain";
-//const std::vector<uint32_t> extra_indirect_branch_targets{ 0x1F80, 0x1250, 0x1154, 0x1094, 0x1E0C, 0x1514, 0x1E7C, 0x1C90, 0x1180, 0x1808, 0x11E8, 0x1ADC, 0x1B6C, 0x1194, 0x1EF8, 0x1240, 0x17C0, 0x186C, 0x1A58, 0x18BC, 0x1ABC, 0x1ACC, 0x1A80, 0x1BD4 };
-//const std::unordered_set<uint32_t> unsupported_instructions{};
-
-// BT n_aspMain
-constexpr size_t rsp_text_offset = 0x1E4F3B0;
-constexpr size_t rsp_text_size = 0xF80;
-constexpr size_t rsp_text_address = 0x04001080;
-std::string rom_file_path = "../../BTRecomp/banjotooie.decompressed.us.z64"; // uncompressed rom!
-std::string output_file_path = "../../BTRecomp/rsp/n_aspMain.cpp";
-std::string output_function_name = "n_aspMain";
-const std::vector<uint32_t> extra_indirect_branch_targets{
-    // dispatch table
-    0x1AE8, 0x143C, 0x1240, 0x1D84, 0x126C, 0x1B20, 0x12A8, 0x1214, 0x141C, 0x1310, 0x13CC, 0x12E4, 0x1FB0, 0x1358, 0x16EC, 0x1408
-};
-const std::unordered_set<uint32_t> unsupported_instructions{
-    // cmd_MP3
-    0x00001214
-};
+const std::unordered_set<uint32_t> unsupported_instructions{};
 
 #ifdef _MSC_VER
 inline uint32_t byteswap(uint32_t val) {
@@ -591,10 +545,100 @@ constexpr uint32_t byteswap(uint32_t val) {
 }
 #endif
 
-static_assert((rsp_text_size / instr_size) * instr_size == rsp_text_size, "RSP microcode must be a multiple of the instruction size");
+enum cli_args {
+  eRSPTextOffset,
+  eRSPTextSize,
+  eRSPTextAddress,
+  eRomFilePath,
+  eOutputFilePath,
+  eOutputFunctionName,
+  eExtraIndirectBranchTargets,
+  None
+};
 
-int main() {
-    std::array<uint32_t, rsp_text_size / sizeof(uint32_t)> instr_words{};
+cli_args convert(const std::string& arg) {
+  if (arg == "--rsp-text-offset") return eRSPTextOffset;
+  if (arg == "--rsp-text-size") return eRSPTextSize;
+  if (arg == "--rsp-text-address") return eRSPTextAddress;
+  if (arg == "--rom-file-path") return eRomFilePath;
+  if (arg == "--output-file-path") return eOutputFilePath;
+  if (arg == "--output-function-name") return eOutputFunctionName;
+  if (arg == "--extra-indirect-branch-targets") return eExtraIndirectBranchTargets;
+  return None;
+}
+
+
+//static_assert((rsp_text_size / instr_size) * instr_size == rsp_text_size, "RSP microcode must be a multiple of the instruction size");
+
+int main(int argc, char* argv[]) {
+    std::vector<uint32_t> extra_indirect_branch_targets = {};
+    size_t rsp_text_offset = 0x0;
+    size_t rsp_text_size = 0x0;
+    size_t rsp_text_address = 0x0;
+    std::string rom_file_path = "";
+    std::string output_file_path = "";
+    std::string output_function_name = "";
+    std::vector<std::string> arguments(argv + 1, argv + argc);
+    int c = 0;
+    while (0 < arguments.size()) {
+      auto value = arguments.back();
+      arguments.pop_back();
+      if (convert(value) != None) {
+        std::cout << "Invalid Argument order!" << std::endl;
+        exit(1);
+      }
+      auto argument = arguments.back();
+      arguments.pop_back();
+      switch (convert(argument)) {
+        case eRSPTextOffset:
+          rsp_text_offset = strtoull(value.erase(0, 2).c_str(), NULL, 16);
+          break;
+        case eRSPTextAddress:
+          rsp_text_address = strtoull(value.erase(0, 2).c_str(), NULL, 16);
+          break;
+        case eRSPTextSize:
+          rsp_text_size = strtoull(value.erase(0, 2).c_str(), NULL, 16);
+          break;
+        case eRomFilePath:
+          rom_file_path = value;
+          break;
+        case eOutputFilePath:
+          output_file_path = value;
+          break;
+        case eOutputFunctionName:
+          output_function_name = value;
+          break;
+        case eExtraIndirectBranchTargets:
+          {
+            std::string v = value;
+            std::string delimiter = ",";
+            while (true) {
+              auto t = v.find(delimiter);
+              if (t == 0) {
+                v.erase(t, 1);
+                t = v.find(delimiter);
+              }
+              if (t == -1) {
+                uint32_t converted = strtoul(v.erase(0, 2).c_str(), NULL, 16);
+                if (converted != 0) {
+                  extra_indirect_branch_targets.push_back(converted);
+                }
+                break;
+              }
+              std::string ev = v.substr(0, t);
+              v = v.substr(t);
+              uint32_t converted = strtoul(ev.erase(0, 2).c_str(), NULL, 16);
+              if (converted != 0) {
+                extra_indirect_branch_targets.push_back(converted);
+              }
+            }
+            break;
+          }
+        default:
+          std::cout << "Invalid Argument: " << argument << std::endl;
+      }
+    }
+    std::vector<uint32_t> instr_words(rsp_text_size/sizeof(uint32_t));
     {
         std::ifstream rom_file{ rom_file_path, std::ios_base::binary };
 
