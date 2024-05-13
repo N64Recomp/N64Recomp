@@ -1182,6 +1182,7 @@ int main(int argc, char** argv) {
     RabbitizerConfig_Cfg.pseudos.pseudoBeqz = false;
     RabbitizerConfig_Cfg.pseudos.pseudoBnez = false;
     RabbitizerConfig_Cfg.pseudos.pseudoNot = false;
+    RabbitizerConfig_Cfg.pseudos.pseudoBal = false;
 
     std::vector<std::string> relocatable_sections_ordered{};
 
