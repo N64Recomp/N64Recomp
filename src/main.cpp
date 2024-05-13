@@ -583,6 +583,10 @@ std::unordered_set<std::string> renamed_funcs{
     "realloc",
     "rand",
     "srand",
+    "random",
+    "gcvt",
+    "fcvt",
+    "ecvt",
 };
 
 bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint, bool has_entrypoint, bool use_absolute_symbols) {
