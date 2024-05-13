@@ -643,8 +643,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         [[fallthrough]];
     case InstrId::cpu_bgezal:
         print_indent();
-        print_branch_condition("if (SIGNED({}{}) >= 0)", ctx_gpr_prefix(rs), rs);
+        print_branch_condition("if (SIGNED({}{}) >= 0) {{", ctx_gpr_prefix(rs), rs);
         print_func_call(instr.getBranchVramGeneric());
+        print_line("}}");
         break;
 
     // Cop1 loads/stores
