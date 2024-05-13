@@ -9,6 +9,7 @@
 #include "rabbitizer.hpp"
 #include "fmt/format.h"
 #include "fmt/ostream.h"
+#include "toml.hpp"
 
 using InstrId = rabbitizer::InstrId::UniqueId;
 using Cop0Reg = rabbitizer::Registers::Rsp::Cop0;
@@ -565,22 +566,6 @@ void write_indirect_jumps(std::ofstream& output_file, const BranchTargets& branc
 //const std::vector<uint32_t> extra_indirect_branch_targets{ 0x1F80, 0x1250, 0x1154, 0x1094, 0x1E0C, 0x1514, 0x1E7C, 0x1C90, 0x1180, 0x1808, 0x11E8, 0x1ADC, 0x1B6C, 0x1194, 0x1EF8, 0x1240, 0x17C0, 0x186C, 0x1A58, 0x18BC, 0x1ABC, 0x1ACC, 0x1A80, 0x1BD4 };
 //const std::unordered_set<uint32_t> unsupported_instructions{};
 
-// BT n_aspMain
-constexpr size_t rsp_text_offset = 0x1E4F3B0;
-constexpr size_t rsp_text_size = 0xF80;
-constexpr size_t rsp_text_address = 0x04001080;
-std::string rom_file_path = "../../BTRecomp/banjotooie.decompressed.us.z64"; // uncompressed rom!
-std::string output_file_path = "../../BTRecomp/rsp/n_aspMain.cpp";
-std::string output_function_name = "n_aspMain";
-const std::vector<uint32_t> extra_indirect_branch_targets{
-    // dispatch table
-    0x1AE8, 0x143C, 0x1240, 0x1D84, 0x126C, 0x1B20, 0x12A8, 0x1214, 0x141C, 0x1310, 0x13CC, 0x12E4, 0x1FB0, 0x1358, 0x16EC, 0x1408
-};
-const std::unordered_set<uint32_t> unsupported_instructions{
-    // cmd_MP3
-    0x00001214
-};
-
 #ifdef _MSC_VER
 inline uint32_t byteswap(uint32_t val) {
     return _byteswap_ulong(val);
@@ -591,20 +576,113 @@ constexpr uint32_t byteswap(uint32_t val) {
 }
 #endif
 
-static_assert((rsp_text_size / instr_size) * instr_size == rsp_text_size, "RSP microcode must be a multiple of the instruction size");
+struct RSPRecompilerConfig {
+    size_t text_offset;
+    size_t text_size;
+    size_t text_address;
+    std::filesystem::path rom_file_path;
+    std::filesystem::path output_file_path;
+    std::string output_function_name;
+    std::vector<uint32_t> extra_indirect_branch_targets;
+    std::unordered_set<uint32_t> unsupported_instructions;
+};
 
-int main() {
-    std::array<uint32_t, rsp_text_size / sizeof(uint32_t)> instr_words{};
+std::filesystem::path concat_if_not_empty(const std::filesystem::path& parent, const std::filesystem::path& child) {
+	if (!child.empty()) {
+		return parent / child;
+	}
+	return child;
+}
+
+template <typename T>
+std::vector<T> toml_to_vec(const toml::value& branch_targets_data) {
+	std::vector<T> ret;
+
+	if (branch_targets_data.type() != toml::value_t::array) {
+		return ret;
+	}
+
+	// Get the funcs array as an array type.
+	const std::vector<toml::value>& branch_targets_array = branch_targets_data.as_array();
+
+	// Reserve room for all the funcs in the map.
+	ret.reserve(branch_targets_array.size());
+	for (const toml::value& cur_target_val : branch_targets_array) {
+		ret.push_back(cur_target_val.as_integer());
+	}
+
+	return ret;
+}
+
+bool read_config(const std::filesystem::path& config_path, RSPRecompilerConfig& out) {
+    std::ifstream config_file {config_path};
+    RSPRecompilerConfig ret{};
+
+	try {
+		const toml::value config_data = toml::parse(config_path);
+		std::filesystem::path basedir = std::filesystem::path{ config_path }.parent_path();
+
+		ret.text_offset           = toml::find<uint32_t>(config_data, "text_offset");
+		ret.text_size             = toml::find<uint32_t>(config_data, "text_size");
+		ret.text_address          = toml::find<uint32_t>(config_data, "text_address");
+
+		ret.rom_file_path         = concat_if_not_empty(basedir, toml::find<std::string>(config_data, "rom_file_path"));
+		ret.output_file_path      = concat_if_not_empty(basedir, toml::find<std::string>(config_data, "output_file_path"));
+		ret.output_function_name  = toml::find<std::string>(config_data, "output_function_name");
+
+		// Extra indirect branch targets (optional)
+		const toml::value& branch_targets_data = toml::find_or<toml::value>(config_data, "extra_indirect_branch_targets", toml::value{});
+		if (branch_targets_data.type() != toml::value_t::empty) {
+			ret.extra_indirect_branch_targets = toml_to_vec<uint32_t>(branch_targets_data);
+		}
+
+		// Unsupported_instructions (optional)
+		const toml::value& unsupported_instructions_data = toml::find_or<toml::value>(config_data, "unsupported_instructions_data", toml::value{});
+		if (unsupported_instructions_data.type() != toml::value_t::empty) {
+			ret.extra_indirect_branch_targets = toml_to_vec<uint32_t>(unsupported_instructions_data);
+		}
+	}
+	catch (const toml::syntax_error& err) {
+		fmt::print(stderr, "Syntax error in config file on line {}, full error:\n{}\n", err.location().line(), err.what());
+		return false;
+	}
+	catch (const toml::type_error& err) {
+		fmt::print(stderr, "Incorrect type in config file on line {}, full error:\n{}\n", err.location().line(), err.what());
+		return false;
+	}
+	catch (const std::out_of_range& err) {
+		fmt::print(stderr, "Missing value in config file, full error:\n{}\n", err.what());
+		return false;
+	}
+
+    out = ret;
+    return true;
+}
+
+int main(int argc, const char** argv) {
+    if (argc != 2) {
+        fmt::print("Usage: {} [config file]\n", argv[0]);
+        std::exit(EXIT_SUCCESS);
+    }
+
+    RSPRecompilerConfig config;
+    if (!read_config(std::filesystem::path{argv[1]}, config)) {
+        fmt::print("Failed to parse config file {}\n", argv[0]);
+        std::exit(EXIT_FAILURE);
+    }
+
+    std::vector<uint32_t> instr_words{};
+    instr_words.resize(config.text_size / sizeof(uint32_t));
     {
-        std::ifstream rom_file{ rom_file_path, std::ios_base::binary };
+        std::ifstream rom_file{ config.rom_file_path, std::ios_base::binary };
 
         if (!rom_file.good()) {
             fmt::print(stderr, "Failed to open rom file\n");
             return EXIT_FAILURE;
         }
 
-        rom_file.seekg(rsp_text_offset);
-        rom_file.read(reinterpret_cast<char*>(instr_words.data()), rsp_text_size);
+        rom_file.seekg(config.text_offset);
+        rom_file.read(reinterpret_cast<char*>(instr_words.data()), config.text_size);
     }
 
     // Disable appropriate pseudo instructions
@@ -616,7 +694,7 @@ int main() {
     // Decode the instruction words into instructions
     std::vector<rabbitizer::InstructionRsp> instrs{};
     instrs.reserve(instr_words.size());
-    uint32_t vram = rsp_text_address & rsp_mem_mask;
+    uint32_t vram = config.text_address & rsp_mem_mask;
     for (uint32_t instr_word : instr_words) {
         const rabbitizer::InstructionRsp& instr = instrs.emplace_back(byteswap(instr_word), vram);
         vram += instr_size;
@@ -626,13 +704,13 @@ int main() {
     BranchTargets branch_targets = get_branch_targets(instrs);
 
     // Add any additional indirect branch targets that may not be found directly in the code (e.g. from a jump table)
-    for (uint32_t target : extra_indirect_branch_targets) {
+    for (uint32_t target : config.extra_indirect_branch_targets) {
         branch_targets.indirect_targets.insert(target);
     }
 
     // Open output file and write beginning
-    std::filesystem::create_directories(std::filesystem::path{ output_file_path }.parent_path());
-    std::ofstream output_file(output_file_path);
+    std::filesystem::create_directories(std::filesystem::path{ config.output_file_path }.parent_path());
+    std::ofstream output_file(config.output_file_path);
     fmt::print(output_file,
         "#include \"rsp.h\"\n"
         "#include \"rsp_vu_impl.h\"\n"
@@ -643,17 +721,17 @@ int main() {
         "    uint32_t r24 = 0, r25 = 0, r26 = 0, r27 = 0, r28 = 0, r29 = 0, r30 = 0, r31 = 0;\n"
         "    uint32_t dma_dmem_address = 0, dma_dram_address = 0, jump_target = 0;\n"
         "    RSP rsp{{}};\n"
-        "    r1 = 0xFC0;\n", output_function_name);
+        "    r1 = 0xFC0;\n", config.output_function_name);
     // Write each instruction
     for (size_t instr_index = 0; instr_index < instrs.size(); instr_index++) {
-        process_instruction(instr_index, instrs, output_file, branch_targets, unsupported_instructions, false, false);
+        process_instruction(instr_index, instrs, output_file, branch_targets, config.unsupported_instructions, false, false);
     }
 
     // Terminate instruction code with a return to indicate that the microcode has run past its end
     fmt::print(output_file, "    return RspExitReason::ImemOverrun;\n");
 
     // Write the section containing the indirect jump table
-    write_indirect_jumps(output_file, branch_targets, output_function_name);
+    write_indirect_jumps(output_file, branch_targets, config.output_function_name);
 
     // End the file
     fmt::print(output_file, "}}\n");

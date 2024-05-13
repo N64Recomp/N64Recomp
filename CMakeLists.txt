@@ -85,6 +85,7 @@ target_include_directories(RSPRecomp PRIVATE
     "${CMAKE_SOURCE_DIR}/lib/rabbitizer/include"
     "${CMAKE_SOURCE_DIR}/lib/rabbitizer/cplusplus/include"
     "${CMAKE_SOURCE_DIR}/lib/fmt/include"
+    "${CMAKE_SOURCE_DIR}/lib/toml11"
     "${CMAKE_SOURCE_DIR}/include")
 
 target_link_libraries(RSPRecomp fmt rabbitizer)
