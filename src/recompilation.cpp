@@ -104,7 +104,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         }
     };
 
-    auto print_branch = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts ...args) {
+    auto print_branch = [&](uint32_t target_vram) {
         fmt::print(output_file, "{{\n    ");
         if (instr_index < instructions.size() - 1) {
             bool dummy_needs_link_branch;
@@ -117,7 +117,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             process_instruction(context, config, func, stats, skipped_insns, instr_index + 1, instructions, output_file, true, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
         }
         fmt::print(output_file, "        ");
-        fmt::vprint(output_file, fmt_str, fmt::make_format_args(args...));
+        fmt::print(output_file, "goto L_{:08X}", target_vram);
         if (needs_link_branch) {
             fmt::print(output_file, ";\n        goto after_{}", link_branch_index);
         }
@@ -610,7 +610,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_bne:
         print_indent();
         print_branch_condition("if ({}{} != {}{})", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
+        print_branch((uint32_t)instr.getBranchVramGeneric());
         break;
     case InstrId::cpu_beql:
         is_branch_likely = true;
@@ -618,7 +618,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_beq:
         print_indent();
         print_branch_condition("if ({}{} == {}{})", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
+        print_branch((uint32_t)instr.getBranchVramGeneric());
         break;
     case InstrId::cpu_bgezl:
         is_branch_likely = true;
@@ -626,7 +626,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_bgez:
         print_indent();
         print_branch_condition("if (SIGNED({}{}) >= 0)", ctx_gpr_prefix(rs), rs);
-        print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
+        print_branch((uint32_t)instr.getBranchVramGeneric());
         break;
     case InstrId::cpu_bgtzl:
         is_branch_likely = true;
@@ -634,7 +634,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_bgtz:
         print_indent();
         print_branch_condition("if (SIGNED({}{}) > 0)", ctx_gpr_prefix(rs), rs);
-        print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
+        print_branch((uint32_t)instr.getBranchVramGeneric());
         break;
     case InstrId::cpu_blezl:
         is_branch_likely = true;
@@ -642,7 +642,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_blez:
         print_indent();
         print_branch_condition("if (SIGNED({}{}) <= 0)", ctx_gpr_prefix(rs), rs);
-        print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
+        print_branch((uint32_t)instr.getBranchVramGeneric());
         break;
     case InstrId::cpu_bltzl:
         is_branch_likely = true;
@@ -650,7 +650,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_bltz:
         print_indent();
         print_branch_condition("if (SIGNED({}{}) < 0)", ctx_gpr_prefix(rs), rs);
-        print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
+        print_branch((uint32_t)instr.getBranchVramGeneric());
         break;
     case InstrId::cpu_break:
         print_line("do_break({})", instr_vram);
@@ -831,7 +831,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_bc1t:
         print_indent();
         print_branch_condition("if (c1cs)", ctx_gpr_prefix(rs), rs);
-        print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
+        print_branch((uint32_t)instr.getBranchVramGeneric());
         break;
     case InstrId::cpu_bc1fl:
         is_branch_likely = true;
@@ -839,7 +839,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_bc1f:
         print_indent();
         print_branch_condition("if (!c1cs)", ctx_gpr_prefix(rs), rs);
-        print_branch("goto L_{:08X}", (uint32_t)instr.getBranchVramGeneric());
+        print_branch((uint32_t)instr.getBranchVramGeneric());
         break;
 
     // Cop1 arithmetic
