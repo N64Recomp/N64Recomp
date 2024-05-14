@@ -532,11 +532,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             else if (branch_target >= func.vram && branch_target < func_vram_end) {
                 print_unconditional_branch("goto L_{:08X}", branch_target);
             }
-            // Otherwise, check if it's a tail call
-            else if (instr_vram == func_vram_end - 2 * sizeof(func.words[0])) {
-                fmt::print("Tail call in {} to 0x{:08X}\n", func.name, branch_target);
-                print_func_call(branch_target);
-            }
             // This may be a tail call in the middle of the control flow due to a previous check
             // For example:
             // ```c
