@@ -91,3 +91,21 @@ target_link_libraries(RSPRecomp fmt rabbitizer)
 
 target_sources(RSPRecomp PRIVATE
     ${CMAKE_SOURCE_DIR}/RSPRecomp/src/rsp_recomp.cpp)
+
+
+# TOML Test
+include(FetchContent)
+FetchContent_Declare(
+        tomlplusplus
+        GIT_REPOSITORY https://github.com/marzer/tomlplusplus.git
+        GIT_TAG v3.4.0
+)
+FetchContent_MakeAvailable(tomlplusplus)
+
+project(toml_test)
+add_executable(toml_test)
+target_sources(toml_test PRIVATE ${CMAKE_SOURCE_DIR}/tests/toml_test.cpp)
+target_include_directories(toml_test PRIVATE "${CMAKE_SOURCE_DIR}/lib/toml11")
+target_link_libraries(toml_test tomlplusplus::tomlplusplus)
+file(COPY ${CMAKE_SOURCE_DIR}/tests/test.toml DESTINATION ${CMAKE_BINARY_DIR})
+
