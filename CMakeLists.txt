@@ -1,3 +1,4 @@
+project(N64Recomp)
 cmake_minimum_required(VERSION 3.20)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 20)
@@ -9,8 +10,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_subdirectory(lib/fmt)
 
 # Rabbitizer
-project(rabbitizer)
-
 file(GLOB_RECURSE RABBITIZER_SOURCES
     "${CMAKE_SOURCE_DIR}/lib/rabbitizer/cplusplus/*.cpp"
     "${CMAKE_SOURCE_DIR}/lib/rabbitizer/src/*.c"
@@ -24,7 +23,6 @@ target_include_directories(rabbitizer PUBLIC
         "${CMAKE_SOURCE_DIR}/lib/rabbitizer/cplusplus/include")
 
 # N64 recompiler
-project(N64Recomp)
 add_executable(N64Recomp)
 
 target_sources(N64Recomp PRIVATE
@@ -41,7 +39,6 @@ target_include_directories(N64Recomp PRIVATE
     target_link_libraries(N64Recomp fmt rabbitizer)
 
 # RSP recompiler
-project(RSPRecomp)
 add_executable(RSPRecomp)
 
 target_include_directories(RSPRecomp PRIVATE
