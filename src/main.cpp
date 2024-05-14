@@ -555,6 +555,7 @@ std::unordered_set<std::string> renamed_funcs{
     "memcpy",
     "memset",
     "memmove",
+    "memcmp",
     "strcmp",
     "strcat",
     "strcpy",
