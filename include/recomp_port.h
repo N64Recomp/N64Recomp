@@ -63,6 +63,8 @@ namespace RecompPort {
         bool single_file_output;
         bool use_absolute_symbols;
         std::filesystem::path elf_path;
+        std::filesystem::path symbols_file_path;
+        std::filesystem::path rom_file_path;
         std::filesystem::path output_func_path;
         std::filesystem::path relocatable_sections_path;
         std::vector<std::string> stubbed_funcs;
@@ -130,7 +132,6 @@ namespace RecompPort {
         uint32_t symbol_index;
         uint32_t target_section;
         RelocType type;
-        bool needs_relocation;
     };
 
     struct Section {
@@ -175,6 +176,10 @@ namespace RecompPort {
             rom.reserve(8 * 1024 * 1024);
             executable_section_count = 0;
         }
+
+        static bool from_symbol_file(const std::filesystem::path& symbol_file_path, std::vector<uint8_t>&& rom, Context& out);
+
+        Context() = default;
     };
 
     bool analyze_function(const Context& context, const Function& function, const std::vector<rabbitizer::InstructionCpu>& instructions, FunctionStats& stats);

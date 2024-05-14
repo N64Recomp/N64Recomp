@@ -623,7 +623,6 @@ std::vector<T> toml_to_vec(const toml::value& branch_targets_data) {
 }
 
 bool read_config(const std::filesystem::path& config_path, RSPRecompilerConfig& out) {
-    std::ifstream config_file {config_path};
     RSPRecompilerConfig ret{};
 
 	try {
