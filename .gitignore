@@ -1,5 +1,6 @@
 # VSCode file settings
 .vscode/settings.json
+.vscode/c_cpp_properties.json
 
 # Input elf and rom files
 *.elf
