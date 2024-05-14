@@ -1304,6 +1304,8 @@ int main(int argc, char** argv) {
         "\n"
         "#ifdef __cplusplus\n"
         "extern \"C\" {{\n"
+        "#endif\n"
+        "\n"
     );
 
     std::vector<std::vector<uint32_t>> static_funcs_by_section{ context.sections.size() };
@@ -1501,8 +1503,6 @@ int main(int argc, char** argv) {
         "\n"
         "#ifdef __cplusplus\n"
         "}}\n"
-        "#endif\n"
-        "\n"
         "#endif\n"
     );
 
