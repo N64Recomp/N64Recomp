@@ -47,6 +47,8 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     uint32_t reloc_section = 0;
     uint32_t reloc_target_section_offset = 0;
 
+    uint32_t func_vram_end = func.vram + func.words.size() * sizeof(func.words[0]);
+
     // Check if this instruction has a reloc.
     if (section.relocatable && section.relocs.size() > 0 && section.relocs[reloc_index].address == instr_vram) {
         // Get the reloc data for this instruction
@@ -102,26 +104,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         } else {
             fmt::print(output_file, ";\n");
         }
-    };
-
-    auto print_branch = [&](uint32_t target_vram) {
-        fmt::print(output_file, "{{\n    ");
-        if (instr_index < instructions.size() - 1) {
-            bool dummy_needs_link_branch;
-            bool dummy_is_branch_likely;
-            size_t next_reloc_index = reloc_index;
-            uint32_t next_vram = instr_vram + 4;
-            if (reloc_index + 1 < section.relocs.size() && next_vram > section.relocs[reloc_index].address) {
-                next_reloc_index++;
-            }
-            process_instruction(context, config, func, stats, skipped_insns, instr_index + 1, instructions, output_file, true, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
-        }
-        fmt::print(output_file, "        ");
-        fmt::print(output_file, "goto L_{:08X}", target_vram);
-        if (needs_link_branch) {
-            fmt::print(output_file, ";\n        goto after_{}", link_branch_index);
-        }
-        fmt::print(output_file, ";\n    }}\n");
     };
 
     auto print_func_call = [&](uint32_t target_func_vram, bool link_branch = true) {
@@ -195,6 +177,41 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         return true;
     };
 
+    auto print_branch = [&](uint32_t branch_target) {
+        if (branch_target < func.vram || branch_target >= func_vram_end) {
+            // FIXME: how to deal with static functions?
+            if (context.functions_by_vram.find(branch_target) != context.functions_by_vram.end()) {
+                fmt::print(output_file, "{{\n    ");
+                fmt::print("Tail call in {} to 0x{:08X}\n", func.name, branch_target);
+                print_func_call(branch_target, false);
+                print_line("return");
+                fmt::print(output_file, ";\n    }}\n");
+                return;
+            }
+
+            fmt::print(stderr, "[Warn] Function {} is branching outside of the function (to 0x{:08X})\n", func.name, branch_target);
+        }
+
+        fmt::print(output_file, "{{\n    ");
+        if (instr_index < instructions.size() - 1) {
+            bool dummy_needs_link_branch;
+            bool dummy_is_branch_likely;
+            size_t next_reloc_index = reloc_index;
+            uint32_t next_vram = instr_vram + 4;
+            if (reloc_index + 1 < section.relocs.size() && next_vram > section.relocs[reloc_index].address) {
+                next_reloc_index++;
+            }
+            process_instruction(context, config, func, stats, skipped_insns, instr_index + 1, instructions, output_file, true, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
+        }
+
+        fmt::print(output_file, "        ");
+        fmt::print(output_file, "goto L_{:08X}", branch_target);
+        if (needs_link_branch) {
+            fmt::print(output_file, ";\n        goto after_{}", link_branch_index);
+        }
+        fmt::print(output_file, ";\n    }}\n");
+    };
+
     if (indent) {
         print_indent();
     }
@@ -216,8 +233,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     std::string unsigned_imm_string;
     std::string signed_imm_string;
 
-    uint32_t func_vram_end = func.vram + func.words.size() * sizeof(func.words[0]);
-    
     if (!at_reloc) {
         unsigned_imm_string = fmt::format("{:#X}", imm);
         signed_imm_string = fmt::format("{:#X}", (int16_t)imm);
@@ -519,7 +534,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             }
             // Otherwise, check if it's a tail call
             else if (instr_vram == func_vram_end - 2 * sizeof(func.words[0])) {
-                fmt::print("Tail call in {}\n", func.name);
+                fmt::print("Tail call in {} to 0x{:08X}\n", func.name, branch_target);
                 print_func_call(branch_target);
             }
             // This may be a tail call in the middle of the control flow due to a previous check
@@ -535,7 +550,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             // ```
             // FIXME: how to deal with static functions?
             else if (context.functions_by_vram.find(branch_target) != context.functions_by_vram.end()) {
-                fmt::print("Tail call in {}\n", func.name);
+                fmt::print("Tail call in {} to 0x{:08X}\n", func.name, branch_target);
                 print_func_call(branch_target, false);
                 print_line("return");
             }

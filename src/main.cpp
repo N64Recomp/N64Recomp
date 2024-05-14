@@ -501,10 +501,6 @@ std::unordered_set<std::string> ignored_funcs {
     "kdebugserver",
     "send",
 
-    // libgcc math routines (these throw off the recompiler)
-    "__divdi3",
-    "__moddi3",
-
     // ido math routines
     "__ll_div",
     "__ll_lshift",
@@ -624,11 +620,14 @@ std::unordered_set<std::string> renamed_funcs{
     "fill_inbuf",
     "flush_window",
 
+    // libgcc math routines
     "__muldi3",
+    "__divdi3",
     "__udivdi3",
     "__umoddi3",
     "div64_64",
     "div64_32",
+    "__moddi3",
 };
 
 bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint, bool has_entrypoint, bool use_absolute_symbols) {
