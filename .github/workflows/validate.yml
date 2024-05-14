@@ -1,0 +1,59 @@
+name: validate
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        type: [ Debug, Release ]
+        os: [ ubuntu-latest, windows-latest, macos-13, macos-14 ] # macOS 13 is intel and macOS 14 is arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ runner.os }}-N64Recomp-ccache
+      - name: Install Windows Dependencies
+        if: runner.os == 'Windows'
+        run: |
+          choco install ninja
+          Remove-Item -Path "C:\ProgramData\Chocolatey\bin\ccache.exe" -Force -ErrorAction SilentlyContinue
+      - name: Install Linux Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+      - name: Install macOS Dependencies
+        if: runner.os == 'macOS'
+        run: |
+            brew install ninja
+      - name: Configure Developer Command Prompt
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Build N64Recomp (Unix)
+        if: runner.os != 'Windows'
+        run: |-
+          # enable ccache
+          export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+          
+          cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
+          cmake --build cmake-build --config Debug --target N64Recomp -j 8
+      - name: Build N64Recomp (Windows)
+        if: runner.os == 'Windows'
+        run: |-
+          # enable ccache
+          set $env:PATH="$env:USERPROFILE/.cargo/bin;$env:PATH"
+          
+          cmake -DCMAKE_BUILD_TYPE=${{ matrix.type }} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
+          cmake --build cmake-build --config Debug --target N64Recomp -j 8
