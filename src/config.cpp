@@ -242,7 +242,15 @@ RecompPort::Config::Config(const char* path) {
 		else {
 			has_entrypoint = false;
 		}
-		elf_path                  = concat_if_not_empty(basedir, toml::find<std::string>(input_data, "elf_path"));
+		if (input_data.contains("elf_path")) {
+			elf_path = concat_if_not_empty(basedir, toml::find<std::string>(input_data, "elf_path"));
+		}
+		if (input_data.contains("symbols_file_path")) {
+			symbols_file_path = concat_if_not_empty(basedir, toml::find<std::string>(input_data, "symbols_file_path"));
+		}
+		if (input_data.contains("rom_file_path")) {
+			rom_file_path = concat_if_not_empty(basedir, toml::find<std::string>(input_data, "rom_file_path"));
+		}
 		output_func_path          = concat_if_not_empty(basedir, toml::find<std::string>(input_data, "output_func_path"));
 		relocatable_sections_path = concat_if_not_empty(basedir, toml::find_or<std::string>(input_data, "relocatable_sections_path", ""));
 		uses_mips3_float_mode     = toml::find_or<bool>(input_data, "uses_mips3_float_mode", false);
@@ -294,4 +302,148 @@ RecompPort::Config::Config(const char* path) {
 
 	// No errors occured, so mark this config file as good.
 	bad = false;
+}
+
+const std::unordered_map<std::string, RecompPort::RelocType> reloc_type_name_map {
+	{ "R_MIPS_NONE", RecompPort::RelocType::R_MIPS_NONE },
+	{ "R_MIPS_16", RecompPort::RelocType::R_MIPS_16 },
+	{ "R_MIPS_32", RecompPort::RelocType::R_MIPS_32 },
+	{ "R_MIPS_REL32", RecompPort::RelocType::R_MIPS_REL32 },
+	{ "R_MIPS_26", RecompPort::RelocType::R_MIPS_26 },
+	{ "R_MIPS_HI16", RecompPort::RelocType::R_MIPS_HI16 },
+	{ "R_MIPS_LO16", RecompPort::RelocType::R_MIPS_LO16 },
+	{ "R_MIPS_GPREL16", RecompPort::RelocType::R_MIPS_GPREL16 },
+};
+
+RecompPort::RelocType reloc_type_from_name(const std::string& reloc_type_name) {
+	auto find_it = reloc_type_name_map.find(reloc_type_name);
+	if (find_it != reloc_type_name_map.end()) {
+		return find_it->second;
+	}
+	return RecompPort::RelocType::R_MIPS_NONE;
+}
+
+bool RecompPort::Context::from_symbol_file(const std::filesystem::path& symbol_file_path, std::vector<uint8_t>&& rom, RecompPort::Context& out) {
+	RecompPort::Context ret{};
+
+	try {
+		const toml::value config_data = toml::parse(symbol_file_path);
+		const toml::value config_sections_value = toml::find_or<toml::value>(config_data, "section", toml::value{});
+
+		if (config_sections_value.type() != toml::value_t::array) {
+			return false;
+		}
+
+		const toml::array config_sections = config_sections_value.as_array();
+		ret.section_functions.resize(config_sections.size());
+
+		for (const toml::value& section_value : config_sections) {
+			size_t section_index = ret.sections.size();
+			
+			Section& section = ret.sections.emplace_back(Section{});
+			section.rom_addr = toml::find<uint32_t>(section_value, "rom");
+			section.ram_addr = toml::find<uint32_t>(section_value, "vram");
+			section.size = toml::find<uint32_t>(section_value, "size");
+			section.name = toml::find<toml::string>(section_value, "name");
+			section.executable = true;
+
+			const toml::array& functions = toml::find<toml::array>(section_value, "functions");
+
+			// Read functions for the section.
+			for (const toml::value& function_value : functions) {
+				size_t function_index = ret.functions.size();
+
+				Function cur_func{};
+				cur_func.name = toml::find<std::string>(function_value, "name");
+				cur_func.vram = toml::find<uint32_t>(function_value, "vram");
+				cur_func.rom = cur_func.vram - section.ram_addr + section.rom_addr;
+				cur_func.section_index = section_index;
+
+				uint32_t func_size = toml::find<uint32_t>(function_value, "size");
+
+				if (cur_func.vram & 0b11) {
+					// Function isn't word aligned in vram.
+					throw value_error(toml::detail::format_underline(
+						std::string{ std::source_location::current().function_name() } + ": function's vram address isn't word aligned!", {
+							{function_value.location(), ""}
+						}), function_value.location());
+				}
+
+				if (cur_func.rom & 0b11) {
+					// Function isn't word aligned in rom.
+					throw value_error(toml::detail::format_underline(
+						std::string{ std::source_location::current().function_name() } + ": function's rom address isn't word aligned!", {
+							{function_value.location(), ""}
+						}), function_value.location());
+				}
+
+				if (cur_func.rom + func_size > rom.size()) {
+					// Function is out of bounds of the provided rom.
+					throw value_error(toml::detail::format_underline(
+						std::string{ std::source_location::current().function_name() } + ": function is out of bounds of the provided rom!", {
+							{function_value.location(), ""}
+						}), function_value.location());
+				}
+
+				// Get the function's words from the rom.
+				cur_func.words.reserve(func_size / sizeof(uint32_t));
+				for (size_t rom_addr = cur_func.rom; rom_addr < cur_func.rom + func_size; rom_addr += sizeof(uint32_t)) {
+					cur_func.words.push_back(*reinterpret_cast<const uint32_t*>(rom.data() + rom_addr));
+				}
+
+				section.function_addrs.push_back(cur_func.vram);
+				ret.functions_by_name[cur_func.name] = function_index;
+				ret.functions_by_vram[cur_func.vram].push_back(function_index);
+				ret.section_functions[section_index].push_back(function_index);
+
+				ret.functions.emplace_back(std::move(cur_func));
+			}
+
+			// Check if relocs exist for the section and read them if so.
+			const toml::value& relocs_value = toml::find_or<toml::value>(section_value, "relocs", toml::value{});
+			if (relocs_value.type() == toml::value_t::array) {
+				// Mark the section as relocatable, since it has relocs.
+				section.relocatable = true;
+
+				// Read relocs for the section.
+				for (const toml::value& reloc_value : relocs_value.as_array()) {
+					size_t reloc_index = ret.functions.size();
+
+					Reloc cur_reloc{};
+					cur_reloc.address = toml::find<uint32_t>(reloc_value, "vram");
+					cur_reloc.target_address = toml::find<uint32_t>(reloc_value, "target_vram");
+					cur_reloc.symbol_index = (uint32_t)-1;
+					cur_reloc.target_section = section_index;
+					const std::string& reloc_type = toml::find<std::string>(reloc_value, "type");
+					cur_reloc.type = reloc_type_from_name(reloc_type);
+
+					section.relocs.emplace_back(std::move(cur_reloc));
+				}
+			}
+			else {
+				section.relocatable = false;
+			}
+
+		}
+	}
+	catch (const toml::syntax_error& err) {
+		fmt::print(stderr, "Syntax error in config file on line {}, full error:\n{}\n", err.location().line(), err.what());
+		return false;
+	}
+	catch (const toml::type_error& err) {
+		fmt::print(stderr, "Incorrect type in config file on line {}, full error:\n{}\n", err.location().line(), err.what());
+		return false;
+	}
+	catch (const value_error& err) {
+		fmt::print(stderr, "Invalid value in config file on line {}, full error:\n{}\n", err.location().line(), err.what());
+		return false;
+	}
+	catch (const std::out_of_range& err) {
+		fmt::print(stderr, "Missing value in config file, full error:\n{}\n", err.what());
+		return false;
+	}
+
+	ret.rom = std::move(rom);
+	out = std::move(ret);
+	return true;
 }
