@@ -505,6 +505,9 @@ std::unordered_set<std::string> ignored_funcs {
     "__divdi3",
     "__udivdi3",
     "__umoddi3",
+    "div64_64",
+    "div64_32",
+    "__moddi3",
     // ido math routines
     "__ll_div",
     "__ll_lshift",
@@ -534,15 +537,25 @@ std::unordered_set<std::string> ignored_funcs {
 };
 
 std::unordered_set<std::string> renamed_funcs{
+    // Math
     "sincosf",
     "sinf",
     "cosf",
     "__sinf",
     "__cosf",
+    "asinf",
+    "acosf",
+    "atanf",
+    "atan2f",
+    "tanf",
     "sqrt",
     "sqrtf",
+
+    // Memory
     "memcpy",
     "memset",
+    "memmove",
+    "memcmp",
     "strcmp",
     "strcat",
     "strcpy",
@@ -553,8 +566,12 @@ std::unordered_set<std::string> renamed_funcs{
     "bzero",
     "bcopy",
     "bcmp",
+
+    // long jumps
     "setjmp",
     "longjmp",
+
+    // Math 2
     "ldiv",
     "lldiv",
     "ceil",
@@ -562,6 +579,8 @@ std::unordered_set<std::string> renamed_funcs{
     "floor",
     "floorf",
     "fmodf",
+    "fmod",
+    "modf",
     "lround",
     "lroundf",
     "nearbyint",
@@ -570,11 +589,43 @@ std::unordered_set<std::string> renamed_funcs{
     "roundf",
     "trunc",
     "truncf",
+
+    // printf family
     "vsprintf",
+    "gcvt",
+    "fcvt",
+    "ecvt",
+
     "__assert",
+
+    // allocations
     "malloc",
     "free",
     "realloc",
+    "calloc",
+
+    // rand
+    "rand",
+    "srand",
+    "random",
+
+    // gzip
+    "huft_build",
+    "huft_free",
+    "inflate_codes",
+    "inflate_stored",
+    "inflate_fixed",
+    "inflate_dynamic",
+    "inflate_block",
+    "inflate",
+    "expand_gzip",
+    "auRomDataRead"
+    "data_write",
+    "unzip",
+    "updcrc",
+    "clear_bufs",
+    "fill_inbuf",
+    "flush_window",
 };
 
 bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint, bool has_entrypoint, bool use_absolute_symbols) {
