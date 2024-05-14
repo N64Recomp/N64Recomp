@@ -12,7 +12,7 @@ add_subdirectory(lib/fmt)
 project(rabbitizer)
 
 file(GLOB_RECURSE RABBITIZER_SOURCES
-    "${CMAKE_SOURCE_DIR}/lib/rabbitizer/*.cpp"
+    "${CMAKE_SOURCE_DIR}/lib/rabbitizer/cplusplus/*.cpp"
     "${CMAKE_SOURCE_DIR}/lib/rabbitizer/src/*.c"
 )
 
