@@ -503,7 +503,6 @@ std::unordered_set<std::string> ignored_funcs {
 
     // libgcc math routines (these throw off the recompiler)
     "__divdi3",
-    "__udivdi3",
     "__moddi3",
 
     // ido math routines
@@ -626,6 +625,7 @@ std::unordered_set<std::string> renamed_funcs{
     "flush_window",
 
     "__muldi3",
+    "__udivdi3",
     "__umoddi3",
     "div64_64",
     "div64_32",

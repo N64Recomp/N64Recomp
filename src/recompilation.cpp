@@ -124,7 +124,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         fmt::print(output_file, ";\n    }}\n");
     };
 
-    auto print_func_call = [&](uint32_t target_func_vram) {
+    auto print_func_call = [&](uint32_t target_func_vram, bool link_branch = true) {
         const auto matching_funcs_find = context.functions_by_vram.find(target_func_vram);
         std::string jal_target_name;
         uint32_t section_vram_start = section.ram_addr;
@@ -190,7 +190,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
                 return false;
             }
         }
-        needs_link_branch = true;
+        needs_link_branch = link_branch;
         print_unconditional_branch("{}(rdram, ctx)", jal_target_name);
         return true;
     };
@@ -492,7 +492,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_swr:
         print_line("do_swr(rdram, {}, {}{}, {}{})", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
         break;
-        
+
     // Branches
     case InstrId::cpu_jal:
         print_func_call(instr.getBranchVramGeneric());
@@ -511,7 +511,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         {
             uint32_t branch_target = instr.getBranchVramGeneric();
             if (branch_target == instr_vram) {
-                print_line("void pause_self(uint8_t *rdram); pause_self(rdram)");
+                print_line("pause_self(rdram)");
             }
             // Check if the branch is within this function
             else if (branch_target >= func.vram && branch_target < func_vram_end) {
@@ -521,6 +521,23 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             else if (instr_vram == func_vram_end - 2 * sizeof(func.words[0])) {
                 fmt::print("Tail call in {}\n", func.name);
                 print_func_call(branch_target);
+            }
+            // This may be a tail call in the middle of the control flow due to a previous check
+            // For example:
+            // ```c
+            // void test() {
+            //     if (SOME_CONDITION) {
+            //         do_a();
+            //     } else {
+            //         do_b();
+            //     }
+            // }
+            // ```
+            // FIXME: how to deal with static functions?
+            else if (context.functions_by_vram.find(branch_target) != context.functions_by_vram.end()) {
+                fmt::print("Tail call in {}\n", func.name);
+                print_func_call(branch_target, false);
+                print_line("return");
             }
             else {
                 fmt::print(stderr, "Unhandled branch in {} at 0x{:08X} to 0x{:08X}\n", func.name, instr_vram, branch_target);
@@ -536,7 +553,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
                 [instr_vram](const RecompPort::JumpTable& jtbl) {
                     return jtbl.jr_vram == instr_vram;
                 });
-            
+
             if (jtbl_find_result != stats.jump_tables.end()) {
                 const RecompPort::JumpTable& cur_jtbl = *jtbl_find_result;
                 bool dummy_needs_link_branch, dummy_is_branch_likely;
