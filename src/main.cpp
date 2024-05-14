@@ -1300,14 +1300,10 @@ int main(int argc, char** argv) {
     std::ofstream func_header_file{ config.output_func_path / "funcs.h" };
 
     fmt::print(func_header_file,
-        "#ifndef __RECOMPED_FUNCS_H__\n"
-        "#define __RECOMPED_FUNCS_H__\n"
         "#include \"recomp.h\"\n"
         "\n"
         "#ifdef __cplusplus\n"
         "extern \"C\" {{\n"
-        "#endif\n"
-        "\n"
     );
 
     std::vector<std::vector<uint32_t>> static_funcs_by_section{ context.sections.size() };
