@@ -460,10 +460,12 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
             break;
         case InstrId::rsp_jr:
             print_line("jump_target = {}{}", ctx_gpr_prefix(rs), rs);
+            print_line("debug_file = __FILE__; debug_line = __LINE__");
             print_unconditional_branch("goto do_indirect_jump");
             break;
         case InstrId::rsp_jalr:
             print_line("jump_target = {}{}; {}{} = 0x{:8X}", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rd), rd, instr_vram + 2 * instr_size);
+            print_line("debug_file = __FILE__; debug_line = __LINE__");
             print_unconditional_branch("goto do_indirect_jump");
             break;
         case InstrId::rsp_bne:
@@ -529,7 +531,13 @@ void write_indirect_jumps(std::ofstream& output_file, const BranchTargets& branc
     }
     fmt::print(output_file,
         "    }}\n"
-        "    printf(\"Unhandled jump target 0x%04X in microcode {}\\n\", jump_target);\n"
+        "    printf(\"Unhandled jump target 0x%04X in microcode {}, coming from [%s:%d]\\n\", jump_target, debug_file, debug_line);\n"
+        "    printf(\"Register dump: r0  = %08X r1  = %08X r2  = %08X r3  = %08X r4  = %08X r5  = %08X r6  = %08X r7  = %08X\\n\"\n"
+        "           \"               r8  = %08X r9  = %08X r10 = %08X r11 = %08X r12 = %08X r13 = %08X r14 = %08X r15 = %08X\\n\"\n"
+        "           \"               r16 = %08X r17 = %08X r18 = %08X r19 = %08X r20 = %08X r21 = %08X r22 = %08X r23 = %08X\\n\"\n"
+        "           \"               r24 = %08X r25 = %08X r26 = %08X r27 = %08X r28 = %08X r29 = %08X r30 = %08X r31 = %08X\\n\",\n"
+        "           0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16,\n"
+        "           r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r29, r30, r31);\n"
         "    return RspExitReason::UnhandledJumpTarget;\n", output_function_name);
 }
 
@@ -720,6 +728,7 @@ int main(int argc, const char** argv) {
         "    uint32_t r16 = 0, r17 = 0, r18 = 0, r19 = 0, r20 = 0, r21 = 0, r22 = 0, r23 = 0;\n"
         "    uint32_t r24 = 0, r25 = 0, r26 = 0, r27 = 0, r28 = 0, r29 = 0, r30 = 0, r31 = 0;\n"
         "    uint32_t dma_dmem_address = 0, dma_dram_address = 0, jump_target = 0;\n"
+        "    const char * debug_file = NULL; int debug_line = 0;\n"
         "    RSP rsp{{}};\n"
         "    r1 = 0xFC0;\n", config.output_function_name);
     // Write each instruction
