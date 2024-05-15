@@ -59,6 +59,7 @@ target_include_directories(rabbitizer PRIVATE
 add_subdirectory(lib/fmt)
 
 # tomlplusplus
+set(TOML_ENABLE_FORMATTERS OFF)
 add_subdirectory(lib/tomlplusplus)
 
 # N64 recompiler
