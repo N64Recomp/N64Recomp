@@ -5,9 +5,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 # set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
-# fmtlib
-add_subdirectory(lib/fmt)
-
 # Rabbitizer
 project(rabbitizer)
 add_library(rabbitizer STATIC)
@@ -51,19 +48,18 @@ target_sources(rabbitizer PRIVATE
     "${CMAKE_SOURCE_DIR}/lib/rabbitizer/src/instructions/RabbitizerRegister.c"
     "${CMAKE_SOURCE_DIR}/lib/rabbitizer/src/instructions/RabbitizerRegisterDescriptor.c")
 
-target_include_directories(rabbitizer PRIVATE
+target_include_directories(rabbitizer PUBLIC
     "${CMAKE_SOURCE_DIR}/lib/rabbitizer/include"
-    "${CMAKE_SOURCE_DIR}/lib/rabbitizer/cplusplus/include"
+    "${CMAKE_SOURCE_DIR}/lib/rabbitizer/cplusplus/include")
+
+target_include_directories(rabbitizer PRIVATE
     "${CMAKE_SOURCE_DIR}/lib/rabbitizer/tables")
 
-# toml++
-include(FetchContent)
-FetchContent_Declare(
-        tomlplusplus
-        GIT_REPOSITORY https://github.com/marzer/tomlplusplus.git
-        GIT_TAG v3.4.0
-)
-FetchContent_MakeAvailable(tomlplusplus)
+# fmtlib
+add_subdirectory(lib/fmt)
+
+# tomlplusplus
+add_subdirectory(lib/tomlplusplus)
 
 # N64 recompiler
 project(N64Recomp)
@@ -76,25 +72,20 @@ target_sources(N64Recomp PRIVATE
     ${CMAKE_SOURCE_DIR}/src/recompilation.cpp)
 
 target_include_directories(N64Recomp PRIVATE
-    "${CMAKE_SOURCE_DIR}/lib/rabbitizer/include"
-    "${CMAKE_SOURCE_DIR}/lib/rabbitizer/cplusplus/include"
     "${CMAKE_SOURCE_DIR}/lib/ELFIO"
-    "${CMAKE_SOURCE_DIR}/lib/fmt/include"
     "${CMAKE_SOURCE_DIR}/include")
 
-    target_link_libraries(N64Recomp fmt rabbitizer tomlplusplus::tomlplusplus)
+target_link_libraries(N64Recomp fmt rabbitizer tomlplusplus::tomlplusplus)
 
 # RSP recompiler
 project(RSPRecomp)
 add_executable(RSPRecomp)
 
 target_include_directories(RSPRecomp PRIVATE
-    "${CMAKE_SOURCE_DIR}/lib/rabbitizer/include"
-    "${CMAKE_SOURCE_DIR}/lib/rabbitizer/cplusplus/include"
-    "${CMAKE_SOURCE_DIR}/lib/fmt/include"
-    "${CMAKE_SOURCE_DIR}/include")
+    "${CMAKE_SOURCE_DIR}/include"
+    "${CMAKE_SOURCE_DIR}/lib/toml11")
 
-target_link_libraries(RSPRecomp fmt rabbitizer tomlplusplus::tomlplusplus)
+target_link_libraries(RSPRecomp fmt rabbitizer)
 
 target_sources(RSPRecomp PRIVATE
     ${CMAKE_SOURCE_DIR}/RSPRecomp/src/rsp_recomp.cpp)

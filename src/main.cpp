@@ -1379,19 +1379,47 @@ int main(int argc, char** argv) {
             exit_failure("Failed to load symbols file\n");
         }
 
-        for (RecompPort::Function& func : context.functions) {
+        auto rename_function = [&context](size_t func_index, const std::string& new_name) {
+            RecompPort::Function& func = context.functions[func_index];
+
+            context.functions_by_name.erase(func.name);
+            func.name = new_name;
+            context.functions_by_name[func.name] = func_index;
+        };
+
+        for (size_t func_index = 0; func_index < context.functions.size(); func_index++) {
+            RecompPort::Function& func = context.functions[func_index];
             if (reimplemented_funcs.contains(func.name)) {
+                rename_function(func_index, func.name + "_recomp");
                 func.reimplemented = true;
-                func.name = func.name + "_recomp";
                 func.ignored = true;
             } else if (ignored_funcs.contains(func.name)) {
-                func.name = func.name + "_recomp";
+                rename_function(func_index, func.name + "_recomp");
                 func.ignored = true;
             } else if (renamed_funcs.contains(func.name)) {
-                func.name = func.name + "_recomp";
+                rename_function(func_index, func.name + "_recomp");
                 func.ignored = false;
             }
         }
+
+
+        if (config.has_entrypoint) {
+            bool found_entrypoint = false;
+
+            for (uint32_t func_index : context.functions_by_vram[config.entrypoint]) {
+                auto& func = context.functions[func_index];
+                if (func.rom == 0x1000) {
+                    rename_function(func_index, "recomp_entrypoint");
+                    found_entrypoint = true;
+                    break;
+                }
+            }
+
+            if (!found_entrypoint) {
+                exit_failure("No entrypoint provided in symbol file\n");
+            }
+        }
+
     }
     else {
         exit_failure("Config file must provide either an elf or a symbols file\n");
