@@ -26,10 +26,10 @@
             src = pkgs.fetchFromGitHub {
                   owner = "Mr-Wiseguy";
                   repo = "N64Recomp";
-                  rev = "d7b223fde51c651d2e1aa856efaf19793a77e5e7";
+                  rev = "26c5c2cbb844b0f6a3f7c0d1440273e499ee2194";
                   deepClone = true;
                   fetchSubmodules = true;
-                  hash = "sha256-TWr6ctsT3VaSRvsTfVBC5sBPCx4b2rvUuuZFUGO6kH4=";
+                  hash = "sha256-Kw8Zdo4cbLib5L5v5meAn6gq2WEpmueNvEDTBQOtHdk=";
                 };
             nativeBuildInputs = [pkgs.cmake];
 
