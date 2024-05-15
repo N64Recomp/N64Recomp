@@ -48,7 +48,7 @@ std::vector<std::string> get_stubbed_funcs(const toml::table* patches_data) {
                 stubbed_funcs.push_back(*el);
             }
             else {
-                throw toml::parse_error{ "Invalid stubbed function", el.source()};
+                throw toml::parse_error("Invalid stubbed function", el.source());
             }
         });
     }
@@ -196,7 +196,6 @@ std::vector<RecompPort::InstructionPatch> get_instruction_patches(const toml::ta
                 const toml::table& cur_patch = *el.as_table();
 
                 // Get the vram and make sure it's 4-byte aligned.
-                auto testval = cur_patch["vram"];
                 std::optional<uint32_t> vram = cur_patch["vram"].value<uint32_t>();
                 std::optional<std::string> func_name = cur_patch["func"].value<std::string>();
                 std::optional<uint32_t> value = cur_patch["value"].value<uint32_t>();
@@ -484,8 +483,6 @@ bool RecompPort::Context::from_symbol_file(const std::filesystem::path& symbol_f
                     const toml::array* relocs_array = relocs_value.as_array();
                     relocs_array->for_each([&ret, &rom, &section, section_index](auto&& reloc_el) {
                         if constexpr (toml::is_table<decltype(reloc_el)>) {
-                            size_t reloc_index = ret.functions.size();
-
                             std::optional<uint32_t> vram = reloc_el["vram"].template value<uint32_t>();
                             std::optional<uint32_t> target_vram = reloc_el["target_vram"].template value<uint32_t>();
                             std::optional<std::string> type_string = reloc_el["type"].template value<std::string>();
@@ -508,7 +505,7 @@ bool RecompPort::Context::from_symbol_file(const std::filesystem::path& symbol_f
                             cur_reloc.target_section = section_index;
                             cur_reloc.type = reloc_type;
 
-                            section.relocs.emplace_back(std::move(cur_reloc));
+                            section.relocs.emplace_back(cur_reloc);
                         }
                         else {
                             throw toml::parse_error("Invalid reloc entry", reloc_el.source());
