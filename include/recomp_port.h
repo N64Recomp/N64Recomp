@@ -44,7 +44,7 @@ namespace RecompPort {
         std::string func_name;
         uint32_t size_bytes;
 
-        FunctionSize(const std::string& func_name, uint32_t size_bytes) : func_name(func_name), size_bytes(size_bytes) {}
+        FunctionSize(const std::string& func_name, uint32_t size_bytes) : func_name(std::move(func_name)), size_bytes(size_bytes) {}
     };
 
     struct ManualFunction {
@@ -53,7 +53,7 @@ namespace RecompPort {
         uint32_t vram;
         uint32_t size;
 
-        ManualFunction(const std::string& func_name, std::string section_name, uint32_t vram, uint32_t size) : func_name(func_name), section_name(std::move(section_name)), vram(vram), size(size) {}
+        ManualFunction(const std::string& func_name, std::string section_name, uint32_t vram, uint32_t size) : func_name(std::move(func_name)), section_name(std::move(section_name)), vram(vram), size(size) {}
     };
 
     struct Config {
