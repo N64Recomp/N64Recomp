@@ -5,11 +5,12 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <cassert>
+#include <iostream>
 #include <filesystem>
 #include "rabbitizer.hpp"
 #include "fmt/format.h"
 #include "fmt/ostream.h"
-#include "toml.hpp"
+#include <toml++/toml.hpp>
 
 using InstrId = rabbitizer::InstrId::UniqueId;
 using Cop0Reg = rabbitizer::Registers::Rsp::Cop0;
@@ -603,64 +604,97 @@ std::filesystem::path concat_if_not_empty(const std::filesystem::path& parent, c
 }
 
 template <typename T>
-std::vector<T> toml_to_vec(const toml::value& branch_targets_data) {
+std::vector<T> toml_to_vec(const toml::array* array) {
 	std::vector<T> ret;
 
-	if (branch_targets_data.type() != toml::value_t::array) {
-		return ret;
-	}
-
-	// Get the funcs array as an array type.
-	const std::vector<toml::value>& branch_targets_array = branch_targets_data.as_array();
-
 	// Reserve room for all the funcs in the map.
-	ret.reserve(branch_targets_array.size());
-	for (const toml::value& cur_target_val : branch_targets_array) {
-		ret.push_back(cur_target_val.as_integer());
-	}
+	ret.reserve(array->size());
+    array->for_each([&ret](auto&& el) {
+        if constexpr (toml::is_integer<decltype(el)>) {
+            ret.push_back(*el);
+        }
+    });
 
 	return ret;
+}
+
+template <typename T>
+std::unordered_set<T> toml_to_set(const toml::array* array) {
+    std::unordered_set<T> ret;
+
+    array->for_each([&ret](auto&& el) {
+        if constexpr (toml::is_integer<decltype(el)>) {
+            ret.insert(*el);
+        }
+    });
+
+    return ret;
 }
 
 bool read_config(const std::filesystem::path& config_path, RSPRecompilerConfig& out) {
     RSPRecompilerConfig ret{};
 
 	try {
-		const toml::value config_data = toml::parse(config_path);
+        const toml::table config_data = toml::parse_file(config_path.u8string());
 		std::filesystem::path basedir = std::filesystem::path{ config_path }.parent_path();
 
-		ret.text_offset           = toml::find<uint32_t>(config_data, "text_offset");
-		ret.text_size             = toml::find<uint32_t>(config_data, "text_size");
-		ret.text_address          = toml::find<uint32_t>(config_data, "text_address");
+        std::optional<uint32_t> text_offset = config_data["text_offset"].value<uint32_t>();
+        if (!text_offset.has_value()) {
+            throw toml::parse_error("Missing text_offset in config file", {});
+        }
 
-		ret.rom_file_path         = concat_if_not_empty(basedir, toml::find<std::string>(config_data, "rom_file_path"));
-		ret.output_file_path      = concat_if_not_empty(basedir, toml::find<std::string>(config_data, "output_file_path"));
-		ret.output_function_name  = toml::find<std::string>(config_data, "output_function_name");
+        std::optional<uint32_t> text_size = config_data["text_size"].value<uint32_t>();
+        if (!text_size.has_value()) {
+            throw toml::parse_error("Missing text_size in config file", {});
+        }
+
+        std::optional<uint32_t> text_address = config_data["text_address"].value<uint32_t>();
+        if (!text_address.has_value()) {
+            throw toml::parse_error("Missing text_address in config file", {});
+        }
+
+        std::optional<std::string> rom_file_path = config_data["rom_file_path"].value<std::string>();
+        if (rom_file_path.has_value()) {
+            ret.rom_file_path = concat_if_not_empty(basedir, rom_file_path.value());
+        }
+        else {
+            throw toml::parse_error("Missing rom_file_path in config file", {});
+        }
+
+        std::optional<std::string> output_file_path = config_data["output_file_path"].value<std::string>();
+        if (output_file_path.has_value()) {
+            ret.output_file_path = concat_if_not_empty(basedir, output_file_path.value());
+        }
+        else {
+            throw toml::parse_error("Missing output_file_path in config file", {});
+        }
+
+        std::optional<std::string> output_function_name = config_data["output_function_name"].value<std::string>();
+        if (output_function_name.has_value()) {
+            ret.output_function_name = output_function_name.value();
+        }
+        else {
+            throw toml::parse_error("Missing output_function_name in config file", {});
+        }
 
 		// Extra indirect branch targets (optional)
-		const toml::value& branch_targets_data = toml::find_or<toml::value>(config_data, "extra_indirect_branch_targets", toml::value{});
-		if (branch_targets_data.type() != toml::value_t::empty) {
-			ret.extra_indirect_branch_targets = toml_to_vec<uint32_t>(branch_targets_data);
-		}
+        const toml::node_view branch_targets_data = config_data["extra_indirect_branch_targets"];
+        if (branch_targets_data.is_array()) {
+            const toml::array* branch_targets_array = branch_targets_data.as_array();
+            ret.extra_indirect_branch_targets = toml_to_vec<uint32_t>(branch_targets_array);
+        }
 
 		// Unsupported_instructions (optional)
-		const toml::value& unsupported_instructions_data = toml::find_or<toml::value>(config_data, "unsupported_instructions_data", toml::value{});
-		if (unsupported_instructions_data.type() != toml::value_t::empty) {
-			ret.extra_indirect_branch_targets = toml_to_vec<uint32_t>(unsupported_instructions_data);
-		}
+        const toml::node_view unsupported_instructions_data = config_data["unsupported_instructions"];
+        if (unsupported_instructions_data.is_array()) {
+            const toml::array* unsupported_instructions_array = unsupported_instructions_data.as_array();
+            ret.unsupported_instructions = toml_to_set<uint32_t>(unsupported_instructions_array);
+        }
 	}
-	catch (const toml::syntax_error& err) {
-		fmt::print(stderr, "Syntax error in config file on line {}, full error:\n{}\n", err.location().line(), err.what());
-		return false;
-	}
-	catch (const toml::type_error& err) {
-		fmt::print(stderr, "Incorrect type in config file on line {}, full error:\n{}\n", err.location().line(), err.what());
-		return false;
-	}
-	catch (const std::out_of_range& err) {
-		fmt::print(stderr, "Missing value in config file, full error:\n{}\n", err.what());
-		return false;
-	}
+    catch (const toml::parse_error& err) {
+        std::cerr << "Syntax error parsing toml: " << *err.source().path << " (" << err.source().begin <<  "):\n" << err.description() << std::endl;
+        return false;
+    }
 
     out = ret;
     return true;

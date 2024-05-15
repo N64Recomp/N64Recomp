@@ -81,11 +81,9 @@ target_link_libraries(N64Recomp fmt rabbitizer tomlplusplus::tomlplusplus)
 project(RSPRecomp)
 add_executable(RSPRecomp)
 
-target_include_directories(RSPRecomp PRIVATE
-    "${CMAKE_SOURCE_DIR}/include"
-    "${CMAKE_SOURCE_DIR}/lib/toml11")
+target_include_directories(RSPRecomp PRIVATE "${CMAKE_SOURCE_DIR}/include")
 
-target_link_libraries(RSPRecomp fmt rabbitizer)
+target_link_libraries(RSPRecomp fmt rabbitizer tomlplusplus::tomlplusplus)
 
 target_sources(RSPRecomp PRIVATE
     ${CMAKE_SOURCE_DIR}/RSPRecomp/src/rsp_recomp.cpp)

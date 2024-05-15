@@ -19,11 +19,11 @@ std::vector<RecompPort::ManualFunction> get_manual_funcs(const toml::array* manu
             if (func_name.has_value() && section_name.has_value() && vram_in.has_value() && size.has_value()) {
                 ret.emplace_back(func_name.value(), section_name.value(), vram_in.value(), size.value());
             } else {
-                fmt::print(stderr, "Missing required value in manual_funcs array\n");
+                throw toml::parse_error("Missing required value in manual_funcs array", {});
             }
         }
         else {
-            fmt::print(stderr, "Missing required value in manual_funcs array\n");
+            throw toml::parse_error("Missing required value in manual_funcs array", {});
         }
     });
 
@@ -252,7 +252,7 @@ RecompPort::Config::Config(const char* path) {
                 has_entrypoint = true;
             }
             else {
-                throw toml::parse_error { "Invalid entrypoint", entrypoint_data.node()->source() };
+                throw toml::parse_error("Invalid entrypoint", entrypoint_data.node()->source());
             }
         }
         else {
@@ -279,8 +279,7 @@ RecompPort::Config::Config(const char* path) {
             output_func_path = concat_if_not_empty(basedir, output_func_path_opt.value());
         }
         else {
-            fmt::print(stderr, "Missing value in config file:\n{}\n", "output_func_path");
-            return;
+            throw toml::parse_error("Missing output_func_path in config file", {});
         }
 
         std::optional<std::string> relocatable_sections_path_opt = input_data["relocatable_sections_path"].value<std::string>();
