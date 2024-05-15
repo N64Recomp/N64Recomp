@@ -23,14 +23,7 @@
           N64Recomp = pkgs.stdenv.mkDerivation {
             pname = "N64Recomp";
             version = "1.0.0";
-            src = pkgs.fetchFromGitHub {
-                  owner = "Mr-Wiseguy";
-                  repo = "N64Recomp";
-                  rev = "26c5c2cbb844b0f6a3f7c0d1440273e499ee2194";
-                  deepClone = true;
-                  fetchSubmodules = true;
-                  hash = "sha256-Kw8Zdo4cbLib5L5v5meAn6gq2WEpmueNvEDTBQOtHdk=";
-                };
+            src = ./.;
             nativeBuildInputs = [pkgs.cmake];
 
             installPhase = ''
