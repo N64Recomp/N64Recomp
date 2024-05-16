@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.20)
-project(Zelda64Recompiled)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -85,6 +84,7 @@ target_include_directories(RSPRecomp PRIVATE
     "${CMAKE_SOURCE_DIR}/lib/rabbitizer/include"
     "${CMAKE_SOURCE_DIR}/lib/rabbitizer/cplusplus/include"
     "${CMAKE_SOURCE_DIR}/lib/fmt/include"
+    "${CMAKE_SOURCE_DIR}/lib/toml11"
     "${CMAKE_SOURCE_DIR}/include")
 
 target_link_libraries(RSPRecomp fmt rabbitizer)

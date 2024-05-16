@@ -1,5 +1,6 @@
 # VSCode file settings
 .vscode/settings.json
+.vscode/c_cpp_properties.json
 
 # Input elf and rom files
 *.elf
@@ -50,3 +51,5 @@ test/RT64
 # Runtime files
 imgui.ini
 rt64.log
+.idea
+cmake-build*

@@ -4,6 +4,7 @@
 #include <span>
 #include <string_view>
 #include <cstdint>
+#include <utility>
 #include <vector>
 #include <unordered_map>
 #include <span>
@@ -42,6 +43,8 @@ namespace RecompPort {
     struct FunctionSize {
         std::string func_name;
         uint32_t size_bytes;
+
+        FunctionSize(const std::string& func_name, uint32_t size_bytes) : func_name(func_name), size_bytes(size_bytes) {}
     };
 
     struct ManualFunction {
@@ -49,6 +52,8 @@ namespace RecompPort {
         std::string section_name;
         uint32_t vram;
         uint32_t size;
+
+        ManualFunction(const std::string& func_name, std::string section_name, uint32_t vram, uint32_t size) : func_name(func_name), section_name(std::move(section_name)), vram(vram), size(size) {}
     };
 
     struct Config {
@@ -82,11 +87,16 @@ namespace RecompPort {
         uint32_t addu_vram;
         uint32_t jr_vram;
         std::vector<uint32_t> entries;
+
+        JumpTable(uint32_t vram, uint32_t addend_reg, uint32_t rom, uint32_t lw_vram, uint32_t addu_vram, uint32_t jr_vram, std::vector<uint32_t>&& entries)
+                : vram(vram), addend_reg(addend_reg), rom(rom), lw_vram(lw_vram), addu_vram(addu_vram), jr_vram(jr_vram), entries(std::move(entries)) {}
     };
 
     struct AbsoluteJump {
         uint32_t jump_target;
         uint32_t instruction_vram;
+
+        AbsoluteJump(uint32_t jump_target, uint32_t instruction_vram) : jump_target(jump_target), instruction_vram(instruction_vram) {}
     };
 
     struct Function {
@@ -98,6 +108,9 @@ namespace RecompPort {
         bool ignored;
         bool reimplemented;
         bool stubbed;
+
+        Function(uint32_t vram, uint32_t rom, std::vector<uint32_t> words, std::string name, ELFIO::Elf_Half section_index, bool ignored = false, bool reimplemented = false, bool stubbed = false)
+                : vram(vram), rom(rom), words(std::move(words)), name(std::move(name)), section_index(section_index), ignored(ignored), reimplemented(reimplemented), stubbed(stubbed) {}
     };
 
     enum class RelocType : uint8_t {
