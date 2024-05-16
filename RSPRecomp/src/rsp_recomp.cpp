@@ -639,18 +639,27 @@ bool read_config(const std::filesystem::path& config_path, RSPRecompilerConfig& 
 		std::filesystem::path basedir = std::filesystem::path{ config_path }.parent_path();
 
         std::optional<uint32_t> text_offset = config_data["text_offset"].value<uint32_t>();
-        if (!text_offset.has_value()) {
-            throw toml::parse_error("Missing text_offset in config file", {});
+        if (text_offset.has_value()) {
+            ret.text_offset = text_offset.value();
+        }
+        else {
+            throw toml::parse_error("Missing text_offset in config file", config_data.source());
         }
 
         std::optional<uint32_t> text_size = config_data["text_size"].value<uint32_t>();
-        if (!text_size.has_value()) {
-            throw toml::parse_error("Missing text_size in config file", {});
+        if (text_size.has_value()) {
+            ret.text_size = text_size.value();
+        }
+        else {
+            throw toml::parse_error("Missing text_size in config file", config_data.source());
         }
 
         std::optional<uint32_t> text_address = config_data["text_address"].value<uint32_t>();
-        if (!text_address.has_value()) {
-            throw toml::parse_error("Missing text_address in config file", {});
+        if (text_address.has_value()) {
+            ret.text_address = text_address.value();
+        }
+        else {
+            throw toml::parse_error("Missing text_address in config file", config_data.source());
         }
 
         std::optional<std::string> rom_file_path = config_data["rom_file_path"].value<std::string>();
@@ -658,7 +667,7 @@ bool read_config(const std::filesystem::path& config_path, RSPRecompilerConfig& 
             ret.rom_file_path = concat_if_not_empty(basedir, rom_file_path.value());
         }
         else {
-            throw toml::parse_error("Missing rom_file_path in config file", {});
+            throw toml::parse_error("Missing rom_file_path in config file", config_data.source());
         }
 
         std::optional<std::string> output_file_path = config_data["output_file_path"].value<std::string>();
@@ -666,7 +675,7 @@ bool read_config(const std::filesystem::path& config_path, RSPRecompilerConfig& 
             ret.output_file_path = concat_if_not_empty(basedir, output_file_path.value());
         }
         else {
-            throw toml::parse_error("Missing output_file_path in config file", {});
+            throw toml::parse_error("Missing output_file_path in config file", config_data.source());
         }
 
         std::optional<std::string> output_function_name = config_data["output_function_name"].value<std::string>();
@@ -674,7 +683,7 @@ bool read_config(const std::filesystem::path& config_path, RSPRecompilerConfig& 
             ret.output_function_name = output_function_name.value();
         }
         else {
-            throw toml::parse_error("Missing output_function_name in config file", {});
+            throw toml::parse_error("Missing output_function_name in config file", config_data.source());
         }
 
 		// Extra indirect branch targets (optional)

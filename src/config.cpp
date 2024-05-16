@@ -19,11 +19,11 @@ std::vector<RecompPort::ManualFunction> get_manual_funcs(const toml::array* manu
             if (func_name.has_value() && section_name.has_value() && vram_in.has_value() && size.has_value()) {
                 ret.emplace_back(func_name.value(), section_name.value(), vram_in.value(), size.value());
             } else {
-                throw toml::parse_error("Missing required value in manual_funcs array", {});
+                throw toml::parse_error("Missing required value in manual_funcs array", el.source());
             }
         }
         else {
-            throw toml::parse_error("Missing required value in manual_funcs array", {});
+            throw toml::parse_error("Missing required value in manual_funcs array", el.source());
         }
     });
 
@@ -279,7 +279,7 @@ RecompPort::Config::Config(const char* path) {
             output_func_path = concat_if_not_empty(basedir, output_func_path_opt.value());
         }
         else {
-            throw toml::parse_error("Missing output_func_path in config file", {});
+            throw toml::parse_error("Missing output_func_path in config file", input_data.node()->source());
         }
 
         std::optional<std::string> relocatable_sections_path_opt = input_data["relocatable_sections_path"].value<std::string>();
