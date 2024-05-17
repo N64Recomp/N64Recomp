@@ -5,11 +5,12 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <cassert>
+#include <iostream>
 #include <filesystem>
 #include "rabbitizer.hpp"
 #include "fmt/format.h"
 #include "fmt/ostream.h"
-#include "toml.hpp"
+#include <toml++/toml.hpp>
 
 using InstrId = rabbitizer::InstrId::UniqueId;
 using Cop0Reg = rabbitizer::Registers::Rsp::Cop0;
@@ -541,39 +542,6 @@ void write_indirect_jumps(std::ofstream& output_file, const BranchTargets& branc
         "    return RspExitReason::UnhandledJumpTarget;\n", output_function_name);
 }
 
-// TODO de-hardcode these
-// OoT njpgdspMain
-//constexpr size_t rsp_text_offset = 0xB8BAD0;
-//constexpr size_t rsp_text_size = 0xAF0;
-//constexpr size_t rsp_text_address = 0x04001080;
-//std::string rom_file_path = "../test/oot_mq_debug.z64";
-//std::string output_file_path = "../test/rsp/njpgdspMain.cpp";
-//std::string output_function_name = "njpgdspMain";
-//const std::vector<uint32_t> extra_indirect_branch_targets{};
-//const std::unordered_set<uint32_t> unsupported_instructions{};
-
-// OoT aspMain
-//constexpr size_t rsp_text_offset = 0xB89260;
-//constexpr size_t rsp_text_size = 0xFB0;
-//constexpr size_t rsp_text_address = 0x04001000;
-//std::string rom_file_path = "../test/oot_mq_debug.z64";
-//std::string output_file_path = "../test/rsp/aspMain.cpp";
-//std::string output_function_name = "aspMain";
-//const std::vector<uint32_t> extra_indirect_branch_targets{ 0x1F68, 0x1230, 0x114C, 0x1F18, 0x1E2C, 0x14F4, 0x1E9C, 0x1CB0, 0x117C, 0x17CC, 0x11E8, 0x1AA4, 0x1B34, 0x1190, 0x1C5C, 0x1220, 0x1784, 0x1830, 0x1A20, 0x1884, 0x1A84, 0x1A94, 0x1A48, 0x1BA0 };
-//const std::unordered_set<uint32_t> unsupported_instructions{};
-
-// MM's njpgdspMain is identical to OoT's
-
-//// MM aspMain
-//constexpr size_t rsp_text_offset = 0xC40FF0;
-//constexpr size_t rsp_text_size = 0x1000;
-//constexpr size_t rsp_text_address = 0x04001000;
-//std::string rom_file_path = "../../MMRecomp/mm.us.rev1.z64"; // uncompressed rom!
-//std::string output_file_path = "../../MMRecomp/rsp/aspMain.cpp";
-//std::string output_function_name = "aspMain";
-//const std::vector<uint32_t> extra_indirect_branch_targets{ 0x1F80, 0x1250, 0x1154, 0x1094, 0x1E0C, 0x1514, 0x1E7C, 0x1C90, 0x1180, 0x1808, 0x11E8, 0x1ADC, 0x1B6C, 0x1194, 0x1EF8, 0x1240, 0x17C0, 0x186C, 0x1A58, 0x18BC, 0x1ABC, 0x1ACC, 0x1A80, 0x1BD4 };
-//const std::unordered_set<uint32_t> unsupported_instructions{};
-
 #ifdef _MSC_VER
 inline uint32_t byteswap(uint32_t val) {
     return _byteswap_ulong(val);
@@ -603,65 +571,106 @@ std::filesystem::path concat_if_not_empty(const std::filesystem::path& parent, c
 }
 
 template <typename T>
-std::vector<T> toml_to_vec(const toml::value& branch_targets_data) {
+std::vector<T> toml_to_vec(const toml::array* array) {
 	std::vector<T> ret;
 
-	if (branch_targets_data.type() != toml::value_t::array) {
-		return ret;
-	}
-
-	// Get the funcs array as an array type.
-	const std::vector<toml::value>& branch_targets_array = branch_targets_data.as_array();
-
 	// Reserve room for all the funcs in the map.
-	ret.reserve(branch_targets_array.size());
-	for (const toml::value& cur_target_val : branch_targets_array) {
-		ret.push_back(cur_target_val.as_integer());
-	}
+	ret.reserve(array->size());
+    array->for_each([&ret](auto&& el) {
+        if constexpr (toml::is_integer<decltype(el)>) {
+            ret.push_back(*el);
+        }
+    });
 
 	return ret;
 }
 
+template <typename T>
+std::unordered_set<T> toml_to_set(const toml::array* array) {
+    std::unordered_set<T> ret;
+
+    array->for_each([&ret](auto&& el) {
+        if constexpr (toml::is_integer<decltype(el)>) {
+            ret.insert(*el);
+        }
+    });
+
+    return ret;
+}
+
 bool read_config(const std::filesystem::path& config_path, RSPRecompilerConfig& out) {
-    std::ifstream config_file {config_path};
     RSPRecompilerConfig ret{};
 
 	try {
-		const toml::value config_data = toml::parse(config_path);
+        const toml::table config_data = toml::parse_file(config_path.u8string());
 		std::filesystem::path basedir = std::filesystem::path{ config_path }.parent_path();
 
-		ret.text_offset           = toml::find<uint32_t>(config_data, "text_offset");
-		ret.text_size             = toml::find<uint32_t>(config_data, "text_size");
-		ret.text_address          = toml::find<uint32_t>(config_data, "text_address");
+        std::optional<uint32_t> text_offset = config_data["text_offset"].value<uint32_t>();
+        if (text_offset.has_value()) {
+            ret.text_offset = text_offset.value();
+        }
+        else {
+            throw toml::parse_error("Missing text_offset in config file", config_data.source());
+        }
 
-		ret.rom_file_path         = concat_if_not_empty(basedir, toml::find<std::string>(config_data, "rom_file_path"));
-		ret.output_file_path      = concat_if_not_empty(basedir, toml::find<std::string>(config_data, "output_file_path"));
-		ret.output_function_name  = toml::find<std::string>(config_data, "output_function_name");
+        std::optional<uint32_t> text_size = config_data["text_size"].value<uint32_t>();
+        if (text_size.has_value()) {
+            ret.text_size = text_size.value();
+        }
+        else {
+            throw toml::parse_error("Missing text_size in config file", config_data.source());
+        }
+
+        std::optional<uint32_t> text_address = config_data["text_address"].value<uint32_t>();
+        if (text_address.has_value()) {
+            ret.text_address = text_address.value();
+        }
+        else {
+            throw toml::parse_error("Missing text_address in config file", config_data.source());
+        }
+
+        std::optional<std::string> rom_file_path = config_data["rom_file_path"].value<std::string>();
+        if (rom_file_path.has_value()) {
+            ret.rom_file_path = concat_if_not_empty(basedir, rom_file_path.value());
+        }
+        else {
+            throw toml::parse_error("Missing rom_file_path in config file", config_data.source());
+        }
+
+        std::optional<std::string> output_file_path = config_data["output_file_path"].value<std::string>();
+        if (output_file_path.has_value()) {
+            ret.output_file_path = concat_if_not_empty(basedir, output_file_path.value());
+        }
+        else {
+            throw toml::parse_error("Missing output_file_path in config file", config_data.source());
+        }
+
+        std::optional<std::string> output_function_name = config_data["output_function_name"].value<std::string>();
+        if (output_function_name.has_value()) {
+            ret.output_function_name = output_function_name.value();
+        }
+        else {
+            throw toml::parse_error("Missing output_function_name in config file", config_data.source());
+        }
 
 		// Extra indirect branch targets (optional)
-		const toml::value& branch_targets_data = toml::find_or<toml::value>(config_data, "extra_indirect_branch_targets", toml::value{});
-		if (branch_targets_data.type() != toml::value_t::empty) {
-			ret.extra_indirect_branch_targets = toml_to_vec<uint32_t>(branch_targets_data);
-		}
+        const toml::node_view branch_targets_data = config_data["extra_indirect_branch_targets"];
+        if (branch_targets_data.is_array()) {
+            const toml::array* branch_targets_array = branch_targets_data.as_array();
+            ret.extra_indirect_branch_targets = toml_to_vec<uint32_t>(branch_targets_array);
+        }
 
 		// Unsupported_instructions (optional)
-		const toml::value& unsupported_instructions_data = toml::find_or<toml::value>(config_data, "unsupported_instructions_data", toml::value{});
-		if (unsupported_instructions_data.type() != toml::value_t::empty) {
-			ret.extra_indirect_branch_targets = toml_to_vec<uint32_t>(unsupported_instructions_data);
-		}
+        const toml::node_view unsupported_instructions_data = config_data["unsupported_instructions"];
+        if (unsupported_instructions_data.is_array()) {
+            const toml::array* unsupported_instructions_array = unsupported_instructions_data.as_array();
+            ret.unsupported_instructions = toml_to_set<uint32_t>(unsupported_instructions_array);
+        }
 	}
-	catch (const toml::syntax_error& err) {
-		fmt::print(stderr, "Syntax error in config file on line {}, full error:\n{}\n", err.location().line(), err.what());
-		return false;
-	}
-	catch (const toml::type_error& err) {
-		fmt::print(stderr, "Incorrect type in config file on line {}, full error:\n{}\n", err.location().line(), err.what());
-		return false;
-	}
-	catch (const std::out_of_range& err) {
-		fmt::print(stderr, "Missing value in config file, full error:\n{}\n", err.what());
-		return false;
-	}
+    catch (const toml::parse_error& err) {
+        std::cerr << "Syntax error parsing toml: " << *err.source().path << " (" << err.source().begin <<  "):\n" << err.description() << std::endl;
+        return false;
+    }
 
     out = ret;
     return true;
