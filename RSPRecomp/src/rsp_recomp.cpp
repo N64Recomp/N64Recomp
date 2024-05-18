@@ -309,7 +309,7 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
                     operand_string += fmt::format("{}, ", vs);
                     break;
                 case RspOperand::De:
-                    operand_string += fmt::format("{}, ", instr.GetRsp_de());
+                    operand_string += fmt::format("{}, ", instr.GetRsp_de() & 7);
                     break;
                 case RspOperand::Rt:
                     operand_string += fmt::format("{}{}, ", ctx_gpr_prefix(rt), rt);
