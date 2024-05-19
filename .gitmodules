@@ -7,6 +7,6 @@
 [submodule "lib/fmt"]
 	path = lib/fmt
 	url = https://github.com/fmtlib/fmt
-[submodule "lib/toml11"]
-	path = lib/toml11
-	url = https://github.com/ToruNiina/toml11
+[submodule "lib/tomlplusplus"]
+	path = lib/tomlplusplus
+	url = https://github.com/marzer/tomlplusplus

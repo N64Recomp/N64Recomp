@@ -44,7 +44,7 @@ namespace RecompPort {
         std::string func_name;
         uint32_t size_bytes;
 
-        FunctionSize(const std::string& func_name, uint32_t size_bytes) : func_name(func_name), size_bytes(size_bytes) {}
+        FunctionSize(const std::string& func_name, uint32_t size_bytes) : func_name(std::move(func_name)), size_bytes(size_bytes) {}
     };
 
     struct ManualFunction {
@@ -53,7 +53,7 @@ namespace RecompPort {
         uint32_t vram;
         uint32_t size;
 
-        ManualFunction(const std::string& func_name, std::string section_name, uint32_t vram, uint32_t size) : func_name(func_name), section_name(std::move(section_name)), vram(vram), size(size) {}
+        ManualFunction(const std::string& func_name, std::string section_name, uint32_t vram, uint32_t size) : func_name(std::move(func_name)), section_name(std::move(section_name)), vram(vram), size(size) {}
     };
 
     struct Config {
@@ -63,6 +63,8 @@ namespace RecompPort {
         bool single_file_output;
         bool use_absolute_symbols;
         std::filesystem::path elf_path;
+        std::filesystem::path symbols_file_path;
+        std::filesystem::path rom_file_path;
         std::filesystem::path output_func_path;
         std::filesystem::path relocatable_sections_path;
         std::vector<std::string> stubbed_funcs;
@@ -111,6 +113,7 @@ namespace RecompPort {
 
         Function(uint32_t vram, uint32_t rom, std::vector<uint32_t> words, std::string name, ELFIO::Elf_Half section_index, bool ignored = false, bool reimplemented = false, bool stubbed = false)
                 : vram(vram), rom(rom), words(std::move(words)), name(std::move(name)), section_index(section_index), ignored(ignored), reimplemented(reimplemented), stubbed(stubbed) {}
+        Function() = default;
     };
 
     enum class RelocType : uint8_t {
@@ -130,7 +133,6 @@ namespace RecompPort {
         uint32_t symbol_index;
         uint32_t target_section;
         RelocType type;
-        bool needs_relocation;
     };
 
     struct Section {
@@ -175,6 +177,10 @@ namespace RecompPort {
             rom.reserve(8 * 1024 * 1024);
             executable_section_count = 0;
         }
+
+        static bool from_symbol_file(const std::filesystem::path& symbol_file_path, std::vector<uint8_t>&& rom, Context& out);
+
+        Context() = default;
     };
 
     bool analyze_function(const Context& context, const Function& function, const std::vector<rabbitizer::InstructionCpu>& instructions, FunctionStats& stats);
