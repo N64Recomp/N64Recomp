@@ -7,6 +7,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
 # Rabbitizer
+add_library(rabbitizer STATIC)
+
 target_sources(rabbitizer PRIVATE
     "${CMAKE_SOURCE_DIR}/lib/rabbitizer/cplusplus/src/analysis/LoPairingInfo.cpp"
     "${CMAKE_SOURCE_DIR}/lib/rabbitizer/cplusplus/src/analysis/RegistersTracker.cpp"
