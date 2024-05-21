@@ -369,6 +369,8 @@ std::unordered_set<std::string> ignored_funcs {
     // exceptasm functions
     "__osExceptionPreamble",
     "__osException",
+    "__ptExceptionPreamble",
+    "__ptException",
     "send_mesg",
     "handle_CpU",
     "__osEnqueueAndYield",
@@ -527,6 +529,45 @@ std::unordered_set<std::string> ignored_funcs {
     "func_8025C29C",
     "func_8025C240",
     "func_8025C288",
+
+    // rmonregs
+    "LoadStoreSU",
+    "LoadStoreVU",
+    "SetUpForRCPop",
+    "CleanupFromRCPop",
+    "__rmonGetGRegisters",
+    "__rmonSetGRegisters",
+    "__rmonGetFRegisters",
+    "__rmonSetFRegisters",
+    "rmonGetRcpRegister",
+    "__rmonGetSRegs",
+    "__rmonSetSRegs",
+    "__rmonGetVRegs",
+    "__rmonSetVRegs",
+    "__rmonGetRegisterContents",
+
+    // rmonbrk
+    "SetTempBreakpoint",
+    "ClearTempBreakpoint",
+    "__rmonSetBreak",
+    "__rmonListBreak",
+    "__rmonClearBreak",
+    "__rmonGetBranchTarget",
+    "IsJump",
+    "__rmonSetSingleStep",
+    "__rmonGetExceptionStatus",
+    "rmonSendBreakMessage",
+    "__rmonHitBreak",
+    "__rmonHitSpBreak",
+    "__rmonHitCpuFault",
+    "rmonFindFaultedThreads",
+
+    // kdebugserver
+    "string_to_u32",
+    "send_packet",
+    "clear_IP6",
+    "send",
+    "kdebugserver",
 };
 
 std::unordered_set<std::string> renamed_funcs{
