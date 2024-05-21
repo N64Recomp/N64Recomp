@@ -247,7 +247,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             // FIXME: how to deal with static functions?
             if (context.functions_by_vram.find(branch_target) != context.functions_by_vram.end()) {
                 fmt::print(output_file, "{{\n    ");
-                fmt::print("Tail call in {} to 0x{:08X}\n", func.name, branch_target);
+                fmt::print("[INFO] Tail call in {} to 0x{:08X}\n", func.name, branch_target);
                 print_func_call(branch_target, false, true);
                 print_line("    return");
                 fmt::print(output_file, "    }}\n");
@@ -612,7 +612,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             // ```
             // FIXME: how to deal with static functions?
             else if (context.functions_by_vram.find(branch_target) != context.functions_by_vram.end()) {
-                fmt::print("Tail call in {} to 0x{:08X}\n", func.name, branch_target);
+                fmt::print("[INFO] Tail call in {} to 0x{:08X}\n", func.name, branch_target);
                 print_func_call(branch_target, false);
                 print_line("return");
             }
@@ -667,13 +667,13 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
 
             bool is_tail_call = instr_vram == func_vram_end - 2 * sizeof(func.words[0]);
             if (is_tail_call) {
-                fmt::print("Indirect tail call in {}\n", func.name);
+                fmt::print("[INFO] Indirect tail call in {}\n", func.name);
                 print_unconditional_branch("LOOKUP_FUNC({}{})(rdram, ctx)", ctx_gpr_prefix(rs), rs);
                 print_line("return");
                 break;
             }
 
-            fmt::print(stderr, "No jump table found for jr at 0x{:08X} and not tail call\n", instr_vram);
+            fmt::print(stderr, "[WARN] No jump table found for jr at 0x{:08X} and not tail call\n", instr_vram);
         }
         break;
     case InstrId::cpu_syscall:
