@@ -51,7 +51,12 @@ enum class BinaryOpType {
     Srl64,
     Sra32,
     Sra64,
+    // Comparisons
+    Equal,
     Less,
+    LessEq,
+    Greater,
+    GreaterEq,
     // Loads
     LD,
     LW,
@@ -64,6 +69,9 @@ enum class BinaryOpType {
     LDR,
     LWL,
     LWR,
+    // Fixed result
+    True,
+    False,
 
     COUNT,
 };
@@ -198,6 +206,7 @@ public:
     void process_unary_op(std::ostream& output_file, const UnaryOp& op, const InstructionContext& ctx);
 private:
     void get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string);
+    void get_binary_expr_string(const BinaryOp& op, const InstructionContext& ctx, const std::string& output, std::string& expr_string);
     void get_notation(BinaryOpType op_type, std::string& func_string, std::string& infix_string);
 };
 
@@ -212,41 +221,47 @@ std::vector<BinaryOpFields> c_op_fields = []() {
     auto setup_op = [&ret, &ops_setup](BinaryOpType op_type, const std::string& func_string, const std::string& infix_string) {
         size_t index = static_cast<size_t>(op_type);
         // Prevent setting up an operation twice.
-        assert(ops_setup[index] == false, "Operation already setup!");
+        assert(ops_setup[index] == false && "Operation already setup!");
         ops_setup[index] = true;
         ret[index] = { func_string, infix_string };
     };
 
-    setup_op(BinaryOpType::Add32, "ADD32",  "");
-    setup_op(BinaryOpType::Sub32, "SUB32",  "");
-    setup_op(BinaryOpType::Add64, "",       "+");
-    setup_op(BinaryOpType::Sub64, "",       "-");
-    setup_op(BinaryOpType::And64, "",       "&");
-    setup_op(BinaryOpType::Or64,  "",       "|");
-    setup_op(BinaryOpType::Nor64, "~",      "|");
-    setup_op(BinaryOpType::Xor64, "",       "^");
-    setup_op(BinaryOpType::Sll32, "S32",    "<<");
-    setup_op(BinaryOpType::Sll64, "",       "<<");
-    setup_op(BinaryOpType::Srl32, "S32",    ">>");
-    setup_op(BinaryOpType::Srl64, "",       ">>");
-    setup_op(BinaryOpType::Sra32, "S32",    ">>"); // Arithmetic aspect will be taken care of by unary op for first operand.
-    setup_op(BinaryOpType::Sra64, "",       ">>"); // Arithmetic aspect will be taken care of by unary op for first operand.
-    setup_op(BinaryOpType::Less,  "",       "<");
-    setup_op(BinaryOpType::LD,    "LD",     "");
-    setup_op(BinaryOpType::LW,    "MEM_W",  "");
-    setup_op(BinaryOpType::LWU,   "MEM_WU", "");
-    setup_op(BinaryOpType::LH,    "MEM_H",  "");
-    setup_op(BinaryOpType::LHU,   "MEM_HU", "");
-    setup_op(BinaryOpType::LB,    "MEM_B",  "");
-    setup_op(BinaryOpType::LBU,   "MEM_BU", "");
-    setup_op(BinaryOpType::LDL,   "do_ldl", "");
-    setup_op(BinaryOpType::LDR,   "do_ldr", "");
-    setup_op(BinaryOpType::LWL,   "do_lwl", "");
-    setup_op(BinaryOpType::LWR,   "do_lwr", "");
+    setup_op(BinaryOpType::Add32,     "ADD32",  "");
+    setup_op(BinaryOpType::Sub32,     "SUB32",  "");
+    setup_op(BinaryOpType::Add64,     "",       "+");
+    setup_op(BinaryOpType::Sub64,     "",       "-");
+    setup_op(BinaryOpType::And64,     "",       "&");
+    setup_op(BinaryOpType::Or64,      "",       "|");
+    setup_op(BinaryOpType::Nor64,     "~",      "|");
+    setup_op(BinaryOpType::Xor64,     "",       "^");
+    setup_op(BinaryOpType::Sll32,     "S32",    "<<");
+    setup_op(BinaryOpType::Sll64,     "",       "<<");
+    setup_op(BinaryOpType::Srl32,     "S32",    ">>");
+    setup_op(BinaryOpType::Srl64,     "",       ">>");
+    setup_op(BinaryOpType::Sra32,     "S32",    ">>"); // Arithmetic aspect will be taken care of by unary op for first operand.
+    setup_op(BinaryOpType::Sra64,     "",       ">>"); // Arithmetic aspect will be taken care of by unary op for first operand.
+    setup_op(BinaryOpType::Equal,     "",       "==");
+    setup_op(BinaryOpType::Less,      "",       "<");
+    setup_op(BinaryOpType::LessEq,    "",       "<=");
+    setup_op(BinaryOpType::Greater,   "",       ">");
+    setup_op(BinaryOpType::GreaterEq, "",       ">=");
+    setup_op(BinaryOpType::LD,        "LD",     "");
+    setup_op(BinaryOpType::LW,        "MEM_W",  "");
+    setup_op(BinaryOpType::LWU,       "MEM_WU", "");
+    setup_op(BinaryOpType::LH,        "MEM_H",  "");
+    setup_op(BinaryOpType::LHU,       "MEM_HU", "");
+    setup_op(BinaryOpType::LB,        "MEM_B",  "");
+    setup_op(BinaryOpType::LBU,       "MEM_BU", "");
+    setup_op(BinaryOpType::LDL,       "do_ldl", "");
+    setup_op(BinaryOpType::LDR,       "do_ldr", "");
+    setup_op(BinaryOpType::LWL,       "do_lwl", "");
+    setup_op(BinaryOpType::LWR,       "do_lwr", "");
+    setup_op(BinaryOpType::True,      "", "");
+    setup_op(BinaryOpType::False,     "", "");
 
     // Ensure every operation has been setup.
     for (char is_set : ops_setup) {
-        assert(is_set, "Operation has not been setup!");
+        assert(is_set && "Operation has not been setup!");
     }
 
     return ret;
@@ -339,39 +354,53 @@ void CGenerator::get_notation(BinaryOpType op_type, std::string& func_string, st
     infix_string = c_op_fields[static_cast<size_t>(op_type)].infix_string;
 }
 
-void CGenerator::process_binary_op(std::ostream& output_file, const BinaryOp& op, const InstructionContext& ctx) {
-    // Thread local variables to prevent allocations when possible.
-    // TODO these thread locals probably don't actually help right now, so figure out a better way to prevent allocations.
-    thread_local std::string output{};
+void CGenerator::get_binary_expr_string(const BinaryOp& op, const InstructionContext& ctx, const std::string& output, std::string& expr_string) {
     thread_local std::string input_a{};
     thread_local std::string input_b{};
     thread_local std::string func_string{};
     thread_local std::string infix_string{};
     bool is_infix;
-    get_operand_string(op.output, UnaryOpType::None, ctx, output);
     get_operand_string(op.operands[0], op.operand_operations[0], ctx, input_a);
     get_operand_string(op.operands[1], op.operand_operations[1], ctx, input_b);
     get_notation(op.type, func_string, infix_string);
     // Not strictly necessary, just here to have parity with the old recompiler output.
     if (op.type == BinaryOpType::Less) {
-        fmt::print(output_file, "{} = {} {} {} ? 1 : 0;\n", output, input_a, infix_string, input_b);
+        expr_string = fmt::format("{} {} {} ? 1 : 0", input_a, infix_string, input_b);
     }
     // TODO encode these ops to avoid needing special handling.
     else if (op.type == BinaryOpType::LWL || op.type == BinaryOpType::LWR || op.type == BinaryOpType::LDL || op.type == BinaryOpType::LDR) {
-        fmt::print(output_file, "{} = {}(rdram, {}, {}, {});\n", output, func_string, output, input_a, input_b);
+        expr_string = fmt::format("{}(rdram, {}, {}, {})", func_string, output, input_a, input_b);
     }
     else if (!func_string.empty() && !infix_string.empty()) {
-        fmt::print(output_file, "{} = {}({} {} {});\n", output, func_string, input_a, infix_string, input_b);
+        expr_string = fmt::format("{}({} {} {})", func_string, input_a, infix_string, input_b);
     }
     else if (!func_string.empty()) {
-        fmt::print(output_file, "{} = {}({}, {});\n", output, func_string, input_a, input_b);
+        expr_string = fmt::format("{}({}, {})", func_string, input_a, input_b);
     }
     else if (!infix_string.empty()) {
-        fmt::print(output_file, "{} = {} {} {};\n", output, input_a, infix_string, input_b);
+        expr_string = fmt::format("{} {} {}", input_a, infix_string, input_b);
     }
     else {
-        assert(false, "Binary operation must have either a function or infix!");
+        // Handle special cases
+        if (op.type == BinaryOpType::True) {
+            expr_string = "1";
+        }
+        else if (op.type == BinaryOpType::False) {
+            expr_string = "0";
+        }
+        assert(false && "Binary operation must have either a function or infix!");
     }
+}
+
+void CGenerator::process_binary_op(std::ostream& output_file, const BinaryOp& op, const InstructionContext& ctx) {
+    // Thread local variables to prevent allocations when possible.
+    // TODO these thread locals probably don't actually help right now, so figure out a better way to prevent allocations.
+    thread_local std::string output{};
+    thread_local std::string expression{};
+    get_operand_string(op.output, UnaryOpType::None, ctx, output);
+    get_binary_expr_string(op, ctx, output, expression);
+
+    fmt::print(output_file, "{} = {};\n", output, expression);
 }
 
 void CGenerator::process_unary_op(std::ostream& output_file, const UnaryOp& op, const InstructionContext& ctx) {
