@@ -10,6 +10,92 @@
 
 #include "recomp_port.h"
 
+enum class JalResolutionResult {
+    NoMatch,
+    Match,
+    CreateStatic,
+    Ambiguous,
+    Error
+};
+
+JalResolutionResult resolve_jal(const RecompPort::Context& context, size_t cur_section_index, uint32_t target_func_vram, size_t& matched_function_index) {
+    // Look for symbols with the target vram address
+    const RecompPort::Section& cur_section = context.sections[cur_section_index];
+    const auto matching_funcs_find = context.functions_by_vram.find(target_func_vram);
+    uint32_t section_vram_start = cur_section.ram_addr;
+    uint32_t section_vram_end = cur_section.ram_addr + cur_section.size;
+    bool in_current_section = target_func_vram >= section_vram_start && target_func_vram < section_vram_end;
+    bool needs_static = false;
+    bool exact_match_found = false;
+
+    // Use a thread local to prevent reallocation across runs and to allow multi-threading in the future.
+    thread_local std::vector<size_t> matched_funcs{};
+    matched_funcs.clear();
+
+    // Evaluate any functions with the target address to see if they're potential candidates for JAL resolution.
+    if (matching_funcs_find != context.functions_by_vram.end()) {
+        for (size_t target_func_index : matching_funcs_find->second) {
+            const auto& target_func = context.functions[target_func_index];
+
+            // Zero-sized symbol handling. unless there's only one matching target.
+            if (target_func.words.empty()) {
+                // Allow zero-sized symbols between 0x8F000000 and 0x90000000 for use with patches.
+                // TODO make this configurable or come up with a more sensible solution for dealing with manual symbols for patches.
+                if (target_func.vram < 0x8F000000 || target_func.vram > 0x90000000) {
+                    continue;
+                }
+            }
+
+            // Immediately accept a function in the same section as this one, since it must also be loaded if the current function is.
+            if (target_func.section_index == cur_section_index) {
+                exact_match_found = true;
+                matched_funcs.clear();
+                matched_funcs.push_back(target_func_index);
+                break;
+            }
+
+            // If the function's section isn't relocatable, add the function as a candidate.
+            const auto& target_func_section = context.sections[target_func.section_index];
+            if (!target_func_section.relocatable) {
+                matched_funcs.push_back(target_func_index);
+            }
+        }
+    }
+
+    // If the target vram is in the current section, only allow exact matches.
+    if (in_current_section) {
+        // If an exact match was found, use it.
+        if (exact_match_found) {
+            matched_function_index = matched_funcs[0];
+            return JalResolutionResult::Match;
+        }
+        // Otherwise, create a static function at the target address.
+        else {
+            return JalResolutionResult::CreateStatic;
+        }
+    }
+    // Otherwise, disambiguate based on the matches found.
+    else {
+        // If there were no matches then JAL resolution has failed.
+        // A static can't be created as the target section is unknown.
+        if (matched_funcs.size() == 0) {
+            return JalResolutionResult::NoMatch;
+        }
+        // If there was an exact match, use it.
+        else if (matched_funcs.size() == 1) {
+            matched_function_index = matched_funcs[0];
+            return JalResolutionResult::Match;
+        }
+        // If there's more than one match, use an indirect jump to resolve the function at runtime.
+        else {
+            return JalResolutionResult::Ambiguous;
+        }
+    }
+
+    // This should never be hit, so return an error.
+    return JalResolutionResult::Error;
+}
+
 using InstrId = rabbitizer::InstrId::UniqueId;
 using Cop0Reg = rabbitizer::Registers::Cpu::Cop0;
 
@@ -31,6 +117,7 @@ enum class UnaryOpType {
     Lui,
     Mask5, // Mask to 5 bits
     Mask6, // Mask to 5 bits
+    ToInt32, // Functionally equivalent to ToS32, only exists for parity with old codegen
 };
 
 enum class BinaryOpType {
@@ -78,6 +165,8 @@ enum class Operand {
     ImmS16, // 16-bit immediate, signed
     Sa, // Shift amount
     Sa32, // Shift amount plus 32
+    Hi,
+    Lo,
 
     Base = Rs, // Alias for Rs for loads
 };
@@ -100,7 +189,11 @@ struct BinaryOp {
 };
 
 const std::unordered_map<InstrId, UnaryOp> unary_ops {
-    { InstrId::cpu_lui, { UnaryOpType::Lui, Operand::Rt, Operand::ImmU16 } },
+    { InstrId::cpu_lui,  { UnaryOpType::Lui,  Operand::Rt, Operand::ImmU16 } },
+    { InstrId::cpu_mthi, { UnaryOpType::None, Operand::Hi, Operand::Rs } },
+    { InstrId::cpu_mtlo, { UnaryOpType::None, Operand::Lo, Operand::Rs } },
+    { InstrId::cpu_mfhi, { UnaryOpType::None, Operand::Rd, Operand::Hi } },
+    { InstrId::cpu_mflo, { UnaryOpType::None, Operand::Rd, Operand::Lo } },
 };
 
 const std::unordered_map<InstrId, BinaryOp> binary_ops {
@@ -188,6 +281,7 @@ class CGenerator {
 public:
     CGenerator() = default;
     void process_binary_op(std::ostream& output_file, const BinaryOp& op, const InstructionContext& ctx);
+    void process_unary_op(std::ostream& output_file, const UnaryOp& op, const InstructionContext& ctx);
 private:
     void get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string);
     void get_notation(BinaryOpType op_type, std::string& func_string, std::string& infix_string);
@@ -204,7 +298,7 @@ std::vector<BinaryOpFields> c_op_fields = []() {
     auto setup_op = [&ret, &ops_setup](BinaryOpType op_type, const std::string& func_string, const std::string& infix_string) {
         size_t index = static_cast<size_t>(op_type);
         // Prevent setting up an operation twice.
-        assert(ops_setup[index] == false, "Operation already setup!");
+        assert(ops_setup[index] == false && "Operation already setup!");
         ops_setup[index] = true;
         ret[index] = { func_string, infix_string };
     };
@@ -238,7 +332,7 @@ std::vector<BinaryOpFields> c_op_fields = []() {
 
     // Ensure every operation has been setup.
     for (char is_set : ops_setup) {
-        assert(is_set, "Operation has not been setup!");
+        assert(is_set && "Operation has not been setup!");
     }
 
     return ret;
@@ -283,6 +377,12 @@ void CGenerator::get_operand_string(Operand operand, UnaryOpType operation, cons
         case Operand::Sa32:
             operand_string = fmt::format("({} + 32)", context.sa);
             break;
+        case Operand::Hi:
+            operand_string = "hi";
+            break;
+        case Operand::Lo:
+            operand_string = "lo";
+            break;
     }
     switch (operation) {
         case UnaryOpType::None:
@@ -306,14 +406,16 @@ void CGenerator::get_operand_string(Operand operand, UnaryOpType operation, cons
             assert(false);
             break;
         case UnaryOpType::Lui:
-            assert(false);
-            // operand_string = "S32(" + operand_string + ")"; 
+            operand_string = "S32(" + operand_string + " << 16)"; 
             break;
         case UnaryOpType::Mask5:
             operand_string = "(" + operand_string + " & 31)";
             break;
         case UnaryOpType::Mask6:
             operand_string = "(" + operand_string + " & 63)";
+            break;
+        case UnaryOpType::ToInt32:
+            operand_string = "(int32_t)" + operand_string; 
             break;
     }
 }
@@ -354,94 +456,19 @@ void CGenerator::process_binary_op(std::ostream& output_file, const BinaryOp& op
         fmt::print(output_file, "{} = {} {} {};\n", output, input_a, infix_string, input_b);
     }
     else {
-        assert(false, "Binary operation must have either a function or infix!");
+        assert(false && "Binary operation must have either a function or infix!");
     }
 }
 
-enum class JalResolutionResult {
-    NoMatch,
-    Match,
-    CreateStatic,
-    Ambiguous,
-    Error
-};
-
-JalResolutionResult resolve_jal(const RecompPort::Context& context, size_t cur_section_index, uint32_t target_func_vram, size_t& matched_function_index) {
-    // Look for symbols with the target vram address
-    const RecompPort::Section& cur_section = context.sections[cur_section_index];
-    const auto matching_funcs_find = context.functions_by_vram.find(target_func_vram);
-    uint32_t section_vram_start = cur_section.ram_addr;
-    uint32_t section_vram_end = cur_section.ram_addr + cur_section.size;
-    bool in_current_section = target_func_vram >= section_vram_start && target_func_vram < section_vram_end;
-    bool needs_static = false;
-    bool exact_match_found = false;
-
-    // Use a thread local to prevent reallocation across runs and to allow multi-threading in the future.
-    thread_local std::vector<size_t> matched_funcs{};
-    matched_funcs.clear();
-
-    // Evaluate any functions with the target address to see if they're potential candidates for JAL resolution.
-    if (matching_funcs_find != context.functions_by_vram.end()) {
-        for (size_t target_func_index : matching_funcs_find->second) {
-            const auto& target_func = context.functions[target_func_index];
-
-            // Zero-sized symbol handling. unless there's only one matching target.
-            if (target_func.words.empty()) {
-                // Allow zero-sized symbols between 0x8F000000 and 0x90000000 for use with patches.
-                // TODO make this configurable or come up with a more sensible solution for dealing with manual symbols for patches.
-                if (target_func.vram < 0x8F000000 || target_func.vram > 0x90000000) {
-                    continue;
-                }
-            }
-
-            // Immediately accept a function in the same section as this one, since it must also be loaded if the current function is.
-            if (target_func.section_index == cur_section_index) {
-                exact_match_found = true;
-                matched_funcs.clear();
-                matched_funcs.push_back(target_func_index);
-                break;
-            }
-
-            // If the function's section isn't relocatable, add the function as a candidate.
-            const auto& target_func_section = context.sections[target_func.section_index];
-            if (!target_func_section.relocatable) {
-                matched_funcs.push_back(target_func_index);
-            }
-        }
-    }
-
-    // If the target vram is in the current section, only allow exact matches.
-    if (in_current_section) {
-        // If an exact match was found, use it.
-        if (exact_match_found) {
-            matched_function_index = matched_funcs[0];
-            return JalResolutionResult::Match;
-        }
-        // Otherwise, create a static function at the target address.
-        else {
-            return JalResolutionResult::CreateStatic;
-        }
-    }
-    // Otherwise, disambiguate based on the matches found.
-    else {
-        // If there were no matches then JAL resolution has failed.
-        // A static can't be created as the target section is unknown.
-        if (matched_funcs.size() == 0) {
-            return JalResolutionResult::NoMatch;
-        }
-        // If there was an exact match, use it.
-        else if (matched_funcs.size() == 1) {
-            matched_function_index = matched_funcs[0];
-            return JalResolutionResult::Match;
-        }
-        // If there's more than one match, use an indirect jump to resolve the function at runtime.
-        else {
-            return JalResolutionResult::Ambiguous;
-        }
-    }
-
-    // This should never be hit, so return an error.
-    return JalResolutionResult::Error;
+void CGenerator::process_unary_op(std::ostream& output_file, const UnaryOp& op, const InstructionContext& ctx) {
+    // Thread local variables to prevent allocations when possible.
+    // TODO these thread locals probably don't actually help right now, so figure out a better way to prevent allocations.
+    thread_local std::string output{};
+    thread_local std::string input{};
+    bool is_infix;
+    get_operand_string(op.output, UnaryOpType::None, ctx, output);
+    get_operand_string(op.input, op.operation, ctx, input);
+    fmt::print(output_file, "{} = {};\n", output, input);
 }
 
 // Major TODO, this function grew very organically and needs to be cleaned up. Ideally, it'll get split up into some sort of lookup table grouped by similar instruction types.
@@ -750,9 +777,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             break;
         }
     // Arithmetic
-    case InstrId::cpu_lui:
-        print_line("{}{} = S32({} << 16)", ctx_gpr_prefix(rt), rt, unsigned_imm_string);
-        break;
     case InstrId::cpu_add:
     case InstrId::cpu_addu:
         {
@@ -792,18 +816,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         break;
     case InstrId::cpu_ddivu:
         print_line("DDIVU(U64({}{}), U64({}{}), &lo, &hi)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        break;
-    case InstrId::cpu_mflo:
-        print_line("{}{} = lo", ctx_gpr_prefix(rd), rd);
-        break;
-    case InstrId::cpu_mfhi:
-        print_line("{}{} = hi", ctx_gpr_prefix(rd), rd);
-        break;
-    case InstrId::cpu_mtlo:
-        print_line("lo = {}{}", ctx_gpr_prefix(rs), rs);
-        break;
-    case InstrId::cpu_mthi:
-        print_line("hi = {}{}", ctx_gpr_prefix(rs), rs);
         break;
     // Stores
     case InstrId::cpu_sd:
@@ -1447,21 +1459,30 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         break;
     }
 
-    auto find_it = binary_ops.find(instr.getUniqueId());
-    if (find_it != binary_ops.end()) {
+    InstructionContext instruction_context{};
+    instruction_context.rd = rd;
+    instruction_context.rs = rs;
+    instruction_context.rt = rt;
+    instruction_context.sa = sa;
+    instruction_context.fd = fd;
+    instruction_context.fs = fs;
+    instruction_context.ft = ft;
+    instruction_context.cop1_cs = cop1_cs;
+    instruction_context.imm16 = imm;
+
+    auto find_binary_it = binary_ops.find(instr.getUniqueId());
+    if (find_binary_it != binary_ops.end()) {
         CGenerator generator{};
-        InstructionContext instruction_context{};
-        instruction_context.rd = rd;
-        instruction_context.rs = rs;
-        instruction_context.rt = rt;
-        instruction_context.sa = sa;
-        instruction_context.fd = fd;
-        instruction_context.fs = fs;
-        instruction_context.ft = ft;
-        instruction_context.cop1_cs = cop1_cs;
-        instruction_context.imm16 = imm;
         print_indent();
-        generator.process_binary_op(output_file, find_it->second, instruction_context);
+        generator.process_binary_op(output_file, find_binary_it->second, instruction_context);
+        handled = true;
+    }
+
+    auto find_unary_it = unary_ops.find(instr.getUniqueId());
+    if (find_unary_it != unary_ops.end()) {
+        CGenerator generator{};
+        print_indent();
+        generator.process_unary_op(output_file, find_unary_it->second, instruction_context);
         handled = true;
     }
 
