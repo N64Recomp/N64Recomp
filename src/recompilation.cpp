@@ -31,6 +31,7 @@ enum class UnaryOpType {
     Lui,
     Mask5, // Mask to 5 bits
     Mask6, // Mask to 5 bits
+    ToInt32, // Functionally equivalent to ToS32, only exists for parity with old codegen
 };
 
 enum class BinaryOpType {
@@ -78,6 +79,8 @@ enum class Operand {
     ImmS16, // 16-bit immediate, signed
     Sa, // Shift amount
     Sa32, // Shift amount plus 32
+    Hi,
+    Lo,
 
     Base = Rs, // Alias for Rs for loads
 };
@@ -100,7 +103,11 @@ struct BinaryOp {
 };
 
 const std::unordered_map<InstrId, UnaryOp> unary_ops {
-    { InstrId::cpu_lui, { UnaryOpType::Lui, Operand::Rt, Operand::ImmU16 } },
+    { InstrId::cpu_lui,  { UnaryOpType::Lui,  Operand::Rt, Operand::ImmU16 } },
+    { InstrId::cpu_mthi, { UnaryOpType::None, Operand::Hi, Operand::Rs } },
+    { InstrId::cpu_mtlo, { UnaryOpType::None, Operand::Lo, Operand::Rs } },
+    { InstrId::cpu_mfhi, { UnaryOpType::None, Operand::Rd, Operand::Hi } },
+    { InstrId::cpu_mflo, { UnaryOpType::None, Operand::Rd, Operand::Lo } },
 };
 
 const std::unordered_map<InstrId, BinaryOp> binary_ops {
@@ -188,6 +195,7 @@ class CGenerator {
 public:
     CGenerator() = default;
     void process_binary_op(std::ostream& output_file, const BinaryOp& op, const InstructionContext& ctx);
+    void process_unary_op(std::ostream& output_file, const UnaryOp& op, const InstructionContext& ctx);
 private:
     void get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string);
     void get_notation(BinaryOpType op_type, std::string& func_string, std::string& infix_string);
@@ -283,6 +291,12 @@ void CGenerator::get_operand_string(Operand operand, UnaryOpType operation, cons
         case Operand::Sa32:
             operand_string = fmt::format("({} + 32)", context.sa);
             break;
+        case Operand::Hi:
+            operand_string = "hi";
+            break;
+        case Operand::Lo:
+            operand_string = "lo";
+            break;
     }
     switch (operation) {
         case UnaryOpType::None:
@@ -306,14 +320,16 @@ void CGenerator::get_operand_string(Operand operand, UnaryOpType operation, cons
             assert(false);
             break;
         case UnaryOpType::Lui:
-            assert(false);
-            // operand_string = "S32(" + operand_string + ")"; 
+            operand_string = "S32(" + operand_string + " << 16)"; 
             break;
         case UnaryOpType::Mask5:
             operand_string = "(" + operand_string + " & 31)";
             break;
         case UnaryOpType::Mask6:
             operand_string = "(" + operand_string + " & 63)";
+            break;
+        case UnaryOpType::ToInt32:
+            operand_string = "(int32_t)" + operand_string; 
             break;
     }
 }
@@ -356,6 +372,17 @@ void CGenerator::process_binary_op(std::ostream& output_file, const BinaryOp& op
     else {
         assert(false, "Binary operation must have either a function or infix!");
     }
+}
+
+void CGenerator::process_unary_op(std::ostream& output_file, const UnaryOp& op, const InstructionContext& ctx) {
+    // Thread local variables to prevent allocations when possible.
+    // TODO these thread locals probably don't actually help right now, so figure out a better way to prevent allocations.
+    thread_local std::string output{};
+    thread_local std::string input{};
+    bool is_infix;
+    get_operand_string(op.output, UnaryOpType::None, ctx, output);
+    get_operand_string(op.input, op.operation, ctx, input);
+    fmt::print(output_file, "{} = {};\n", output, input);
 }
 
 // Major TODO, this function grew very organically and needs to be cleaned up. Ideally, it'll get split up into some sort of lookup table grouped by similar instruction types.
@@ -694,9 +721,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             break;
         }
     // Arithmetic
-    case InstrId::cpu_lui:
-        print_line("{}{} = S32({} << 16)", ctx_gpr_prefix(rt), rt, unsigned_imm_string);
-        break;
     case InstrId::cpu_add:
     case InstrId::cpu_addu:
         {
@@ -736,18 +760,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         break;
     case InstrId::cpu_ddivu:
         print_line("DDIVU(U64({}{}), U64({}{}), &lo, &hi)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        break;
-    case InstrId::cpu_mflo:
-        print_line("{}{} = lo", ctx_gpr_prefix(rd), rd);
-        break;
-    case InstrId::cpu_mfhi:
-        print_line("{}{} = hi", ctx_gpr_prefix(rd), rd);
-        break;
-    case InstrId::cpu_mtlo:
-        print_line("lo = {}{}", ctx_gpr_prefix(rs), rs);
-        break;
-    case InstrId::cpu_mthi:
-        print_line("hi = {}{}", ctx_gpr_prefix(rs), rs);
         break;
     // Stores
     case InstrId::cpu_sd:
@@ -1367,21 +1379,30 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         break;
     }
 
-    auto find_it = binary_ops.find(instr.getUniqueId());
-    if (find_it != binary_ops.end()) {
+    InstructionContext instruction_context{};
+    instruction_context.rd = rd;
+    instruction_context.rs = rs;
+    instruction_context.rt = rt;
+    instruction_context.sa = sa;
+    instruction_context.fd = fd;
+    instruction_context.fs = fs;
+    instruction_context.ft = ft;
+    instruction_context.cop1_cs = cop1_cs;
+    instruction_context.imm16 = imm;
+
+    auto find_binary_it = binary_ops.find(instr.getUniqueId());
+    if (find_binary_it != binary_ops.end()) {
         CGenerator generator{};
-        InstructionContext instruction_context{};
-        instruction_context.rd = rd;
-        instruction_context.rs = rs;
-        instruction_context.rt = rt;
-        instruction_context.sa = sa;
-        instruction_context.fd = fd;
-        instruction_context.fs = fs;
-        instruction_context.ft = ft;
-        instruction_context.cop1_cs = cop1_cs;
-        instruction_context.imm16 = imm;
         print_indent();
-        generator.process_binary_op(output_file, find_it->second, instruction_context);
+        generator.process_binary_op(output_file, find_binary_it->second, instruction_context);
+        handled = true;
+    }
+
+    auto find_unary_it = unary_ops.find(instr.getUniqueId());
+    if (find_unary_it != unary_ops.end()) {
+        CGenerator generator{};
+        print_indent();
+        generator.process_unary_op(output_file, find_unary_it->second, instruction_context);
         handled = true;
     }
 
