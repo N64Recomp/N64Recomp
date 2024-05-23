@@ -1,6 +1,8 @@
 #include <vector>
 #include <set>
 #include <unordered_set>
+#include <unordered_map>
+#include <cassert>
 
 #include "rabbitizer.hpp"
 #include "fmt/format.h"
@@ -16,6 +18,344 @@ std::string_view ctx_gpr_prefix(int reg) {
         return "ctx->r";
     }
     return "";
+}
+
+enum class UnaryOpType {
+    None,
+    ToS32,
+    ToU32,
+    ToS64,
+    ToU64,
+    NegateS32,
+    NegateS64,
+    Lui,
+    Mask5, // Mask to 5 bits
+    Mask6, // Mask to 5 bits
+};
+
+enum class BinaryOpType {
+    // Addition/subtraction
+    Add32,
+    Sub32,
+    Add64,
+    Sub64,
+    // Bitwise
+    And64,
+    Or64,
+    Nor64,
+    Xor64,
+    Sll32,
+    Sll64,
+    Srl32,
+    Srl64,
+    Sra32,
+    Sra64,
+    Less,
+    // Loads
+    LD,
+    LW,
+    LWU,
+    LH,
+    LHU,
+    LB,
+    LBU,
+    LDL,
+    LDR,
+    LWL,
+    LWR,
+
+    COUNT,
+};
+
+enum class Operand {
+    Rd, // GPR
+    Rs, // GPR
+    Rt, // GPR
+    Fd, // FPR
+    Fs, // FPR
+    Ft, // FPR
+    ImmU16, // 16-bit immediate, unsigned
+    ImmS16, // 16-bit immediate, signed
+    Sa, // Shift amount
+    Sa32, // Shift amount plus 32
+
+    Base = Rs, // Alias for Rs for loads
+};
+
+struct UnaryOp {
+    UnaryOpType operation;
+    Operand output;
+    Operand input;
+};
+
+struct BinaryOp {
+    // The type of binary operation this represents.
+    BinaryOpType type;
+    // Operation to apply to each operand before applying the binary operation to them.
+    UnaryOpType operand_operations[2];
+    // The output operand.
+    Operand output;
+    // The source of the input operands.
+    Operand operands[2];
+};
+
+const std::unordered_map<InstrId, UnaryOp> unary_ops {
+    { InstrId::cpu_lui, { UnaryOpType::Lui, Operand::Rt, Operand::ImmU16 } },
+};
+
+const std::unordered_map<InstrId, BinaryOp> binary_ops {
+    // Addition/subtraction
+    { InstrId::cpu_addu,   { BinaryOpType::Add32, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    { InstrId::cpu_add,    { BinaryOpType::Add32, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    { InstrId::cpu_negu,   { BinaryOpType::Sub32, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} }, // pseudo op for subu
+    { InstrId::cpu_subu,   { BinaryOpType::Sub32, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    { InstrId::cpu_sub,    { BinaryOpType::Sub32, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    { InstrId::cpu_daddu,  { BinaryOpType::Add64, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    { InstrId::cpu_dadd,   { BinaryOpType::Add64, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    { InstrId::cpu_dsubu,  { BinaryOpType::Sub64, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    { InstrId::cpu_dsub,   { BinaryOpType::Sub64, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    // Addition/subtraction (immediate)
+    { InstrId::cpu_addi,   { BinaryOpType::Add32, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmS16 }} },
+    { InstrId::cpu_addiu,  { BinaryOpType::Add32, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmS16 }} },
+    { InstrId::cpu_daddi,  { BinaryOpType::Add64, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmS16 }} },
+    { InstrId::cpu_daddiu, { BinaryOpType::Add64, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmS16 }} },
+    // Bitwise
+    { InstrId::cpu_and,    { BinaryOpType::And64, { UnaryOpType::None, UnaryOpType::None },  Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    { InstrId::cpu_or,     { BinaryOpType::Or64,  { UnaryOpType::None, UnaryOpType::None },  Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    { InstrId::cpu_nor,    { BinaryOpType::Nor64, { UnaryOpType::None, UnaryOpType::None },  Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    { InstrId::cpu_xor,    { BinaryOpType::Xor64, { UnaryOpType::None, UnaryOpType::None },  Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    // Bitwise (immediate)
+    { InstrId::cpu_andi,   { BinaryOpType::And64, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmU16 }} },
+    { InstrId::cpu_ori,    { BinaryOpType::Or64,  { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmU16 }} },
+    { InstrId::cpu_xori,   { BinaryOpType::Xor64, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmU16 }} },
+    // Shifts
+    /* BUG Should mask after (change op to Sll32 and input op to ToU32) */
+    { InstrId::cpu_sllv,   { BinaryOpType::Sll64, { UnaryOpType::ToS32, UnaryOpType::Mask5 }, Operand::Rd, { Operand::Rt, Operand::Rs }} },
+    { InstrId::cpu_dsllv,  { BinaryOpType::Sll64, { UnaryOpType::None,  UnaryOpType::Mask6 }, Operand::Rd, { Operand::Rt, Operand::Rs }} },
+    { InstrId::cpu_srlv,   { BinaryOpType::Srl32, { UnaryOpType::ToU32, UnaryOpType::Mask5 }, Operand::Rd, { Operand::Rt, Operand::Rs }} },
+    { InstrId::cpu_dsrlv,  { BinaryOpType::Srl64, { UnaryOpType::ToU64, UnaryOpType::Mask6 }, Operand::Rd, { Operand::Rt, Operand::Rs }} },
+    /* BUG Should mask after (change op to Sra32 and input op to ToS64) */
+    { InstrId::cpu_srav,   { BinaryOpType::Sra64, { UnaryOpType::ToS32, UnaryOpType::Mask5 }, Operand::Rd, { Operand::Rt, Operand::Rs }} },
+    { InstrId::cpu_dsrav,  { BinaryOpType::Sra64, { UnaryOpType::ToS64, UnaryOpType::Mask6 }, Operand::Rd, { Operand::Rt, Operand::Rs }} },
+    // Shifts (immediate)
+    /* BUG Should mask after (change op to Sll32 and input op to ToU32) */
+    { InstrId::cpu_sll,    { BinaryOpType::Sll64, { UnaryOpType::ToS32, UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa }} },
+    { InstrId::cpu_dsll,   { BinaryOpType::Sll64, { UnaryOpType::None,  UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa }} },
+    { InstrId::cpu_dsll32, { BinaryOpType::Sll64, { UnaryOpType::None,  UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa32 }} },
+    { InstrId::cpu_srl,    { BinaryOpType::Srl32, { UnaryOpType::ToU32, UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa }} },
+    { InstrId::cpu_dsrl,   { BinaryOpType::Srl64, { UnaryOpType::ToU64, UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa }} },
+    { InstrId::cpu_dsrl32, { BinaryOpType::Srl64, { UnaryOpType::ToU64, UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa32 }} },
+    /* BUG should cast after (change op to Sra32 and input op to ToS64) */
+    { InstrId::cpu_sra,    { BinaryOpType::Sra64, { UnaryOpType::ToS32, UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa }} },
+    { InstrId::cpu_dsra,   { BinaryOpType::Sra64, { UnaryOpType::ToS64, UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa }} },
+    { InstrId::cpu_dsra32, { BinaryOpType::Sra64, { UnaryOpType::ToS64, UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa32 }} },
+    // Comparisons
+    { InstrId::cpu_slt,   { BinaryOpType::Less, { UnaryOpType::ToS64, UnaryOpType::ToS64 }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    { InstrId::cpu_sltu,  { BinaryOpType::Less, { UnaryOpType::ToU64, UnaryOpType::ToU64 }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    // Comparisons (immediate)
+    { InstrId::cpu_slti,  { BinaryOpType::Less, { UnaryOpType::ToS64, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmS16 }} },
+    { InstrId::cpu_sltiu, { BinaryOpType::Less, { UnaryOpType::ToU64, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmS16 }} },
+    // Loads
+    { InstrId::cpu_ld,  { BinaryOpType::LD,  { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
+    { InstrId::cpu_lw,  { BinaryOpType::LW,  { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
+    { InstrId::cpu_lwu, { BinaryOpType::LWU, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
+    { InstrId::cpu_lh,  { BinaryOpType::LH,  { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
+    { InstrId::cpu_lhu, { BinaryOpType::LHU, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
+    { InstrId::cpu_lb,  { BinaryOpType::LB,  { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
+    { InstrId::cpu_lbu, { BinaryOpType::LBU, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
+    { InstrId::cpu_ldl, { BinaryOpType::LDL, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
+    { InstrId::cpu_ldr, { BinaryOpType::LDR, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
+    { InstrId::cpu_lwl, { BinaryOpType::LWL, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
+    { InstrId::cpu_lwr, { BinaryOpType::LWR, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
+};
+
+struct InstructionContext {
+    int rd;
+    int rs;
+    int rt;
+    int sa;
+
+    int fd;
+    int fs;
+    int ft;
+
+    int cop1_cs;
+
+    uint16_t imm16;
+};
+
+class CGenerator {
+public:
+    CGenerator() = default;
+    void process_binary_op(std::ostream& output_file, const BinaryOp& op, const InstructionContext& ctx);
+private:
+    void get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string);
+    void get_notation(BinaryOpType op_type, std::string& func_string, std::string& infix_string);
+};
+
+struct BinaryOpFields { std::string func_string; std::string infix_string; };
+
+std::vector<BinaryOpFields> c_op_fields = []() {
+    std::vector<BinaryOpFields> ret{};
+    ret.resize(static_cast<size_t>(BinaryOpType::COUNT));
+    std::vector<char> ops_setup{};
+    ops_setup.resize(static_cast<size_t>(BinaryOpType::COUNT));
+
+    auto setup_op = [&ret, &ops_setup](BinaryOpType op_type, const std::string& func_string, const std::string& infix_string) {
+        size_t index = static_cast<size_t>(op_type);
+        // Prevent setting up an operation twice.
+        assert(ops_setup[index] == false, "Operation already setup!");
+        ops_setup[index] = true;
+        ret[index] = { func_string, infix_string };
+    };
+
+    setup_op(BinaryOpType::Add32, "ADD32",  "");
+    setup_op(BinaryOpType::Sub32, "SUB32",  "");
+    setup_op(BinaryOpType::Add64, "",       "+");
+    setup_op(BinaryOpType::Sub64, "",       "-");
+    setup_op(BinaryOpType::And64, "",       "&");
+    setup_op(BinaryOpType::Or64,  "",       "|");
+    setup_op(BinaryOpType::Nor64, "~",      "|");
+    setup_op(BinaryOpType::Xor64, "",       "^");
+    setup_op(BinaryOpType::Sll32, "S32",    "<<");
+    setup_op(BinaryOpType::Sll64, "",       "<<");
+    setup_op(BinaryOpType::Srl32, "S32",    ">>");
+    setup_op(BinaryOpType::Srl64, "",       ">>");
+    setup_op(BinaryOpType::Sra32, "S32",    ">>"); // Arithmetic aspect will be taken care of by unary op for first operand.
+    setup_op(BinaryOpType::Sra64, "",       ">>"); // Arithmetic aspect will be taken care of by unary op for first operand.
+    setup_op(BinaryOpType::Less,  "",       "<");
+    setup_op(BinaryOpType::LD,    "LD",     "");
+    setup_op(BinaryOpType::LW,    "MEM_W",  "");
+    setup_op(BinaryOpType::LWU,   "MEM_WU", "");
+    setup_op(BinaryOpType::LH,    "MEM_H",  "");
+    setup_op(BinaryOpType::LHU,   "MEM_HU", "");
+    setup_op(BinaryOpType::LB,    "MEM_B",  "");
+    setup_op(BinaryOpType::LBU,   "MEM_BU", "");
+    setup_op(BinaryOpType::LDL,   "do_ldl", "");
+    setup_op(BinaryOpType::LDR,   "do_ldr", "");
+    setup_op(BinaryOpType::LWL,   "do_lwl", "");
+    setup_op(BinaryOpType::LWR,   "do_lwr", "");
+
+    // Ensure every operation has been setup.
+    for (char is_set : ops_setup) {
+        assert(is_set, "Operation has not been setup!");
+    }
+
+    return ret;
+}();
+
+std::string gpr_to_string(int gpr_index) {
+    if (gpr_index == 0) {
+        return "0";
+    }
+    return fmt::format("ctx->r{}", gpr_index);
+}
+
+void CGenerator::get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string) {
+    switch (operand) {
+        case Operand::Rd:
+            operand_string = gpr_to_string(context.rd);
+            break;
+        case Operand::Rs:
+            operand_string = gpr_to_string(context.rs);
+            break;
+        case Operand::Rt:
+            operand_string = gpr_to_string(context.rt);
+            break;
+        case Operand::Fd:
+            assert(false);
+            break;
+        case Operand::Fs:
+            assert(false);
+            break;
+        case Operand::Ft:
+            assert(false);
+            break;
+        case Operand::ImmU16:
+            operand_string = fmt::format("{:#X}", context.imm16);
+            break;
+        case Operand::ImmS16:
+            operand_string = fmt::format("{:#X}", (int16_t)context.imm16);
+            break;
+        case Operand::Sa:
+            operand_string = std::to_string(context.sa);
+            break;
+        case Operand::Sa32:
+            operand_string = fmt::format("({} + 32)", context.sa);
+            break;
+    }
+    switch (operation) {
+        case UnaryOpType::None:
+            break;
+        case UnaryOpType::ToS32:
+            operand_string = "S32(" + operand_string + ")"; 
+            break;
+        case UnaryOpType::ToU32:
+            operand_string = "U32(" + operand_string + ")"; 
+            break;
+        case UnaryOpType::ToS64:
+            operand_string = "SIGNED(" + operand_string + ")"; 
+            break;
+        case UnaryOpType::ToU64:
+            // Nothing to do here, they're already U64
+            break;
+        case UnaryOpType::NegateS32:
+            assert(false);
+            break;
+        case UnaryOpType::NegateS64:
+            assert(false);
+            break;
+        case UnaryOpType::Lui:
+            assert(false);
+            // operand_string = "S32(" + operand_string + ")"; 
+            break;
+        case UnaryOpType::Mask5:
+            operand_string = "(" + operand_string + " & 31)";
+            break;
+        case UnaryOpType::Mask6:
+            operand_string = "(" + operand_string + " & 63)";
+            break;
+    }
+}
+
+void CGenerator::get_notation(BinaryOpType op_type, std::string& func_string, std::string& infix_string) {
+    func_string = c_op_fields[static_cast<size_t>(op_type)].func_string;
+    infix_string = c_op_fields[static_cast<size_t>(op_type)].infix_string;
+}
+
+void CGenerator::process_binary_op(std::ostream& output_file, const BinaryOp& op, const InstructionContext& ctx) {
+    // Thread local variables to prevent allocations when possible.
+    // TODO these thread locals probably don't actually help right now, so figure out a better way to prevent allocations.
+    thread_local std::string output{};
+    thread_local std::string input_a{};
+    thread_local std::string input_b{};
+    thread_local std::string func_string{};
+    thread_local std::string infix_string{};
+    bool is_infix;
+    get_operand_string(op.output, UnaryOpType::None, ctx, output);
+    get_operand_string(op.operands[0], op.operand_operations[0], ctx, input_a);
+    get_operand_string(op.operands[1], op.operand_operations[1], ctx, input_b);
+    get_notation(op.type, func_string, infix_string);
+    // Not strictly necessary, just here to have parity with the old recompiler output.
+    if (op.type == BinaryOpType::Less) {
+        fmt::print(output_file, "{} = {} {} {} ? 1 : 0;\n", output, input_a, infix_string, input_b);
+    }
+    // TODO encode these ops to avoid needing special handling.
+    else if (op.type == BinaryOpType::LWL || op.type == BinaryOpType::LWR || op.type == BinaryOpType::LDL || op.type == BinaryOpType::LDR) {
+        fmt::print(output_file, "{} = {}(rdram, {}, {}, {});\n", output, func_string, output, input_a, input_b);
+    }
+    else if (!func_string.empty() && !infix_string.empty()) {
+        fmt::print(output_file, "{} = {}({} {} {});\n", output, func_string, input_a, infix_string, input_b);
+    }
+    else if (!func_string.empty()) {
+        fmt::print(output_file, "{} = {}({}, {});\n", output, func_string, input_a, input_b);
+    }
+    else if (!infix_string.empty()) {
+        fmt::print(output_file, "{} = {} {} {};\n", output, input_a, infix_string, input_b);
+    }
+    else {
+        assert(false, "Binary operation must have either a function or infix!");
+    }
 }
 
 enum class JalResolutionResult {
@@ -376,6 +716,8 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         }
     }
 
+    bool handled = true;
+
     switch (instr.getUniqueId()) {
     case InstrId::cpu_nop:
         fmt::print(output_file, "\n");
@@ -425,101 +767,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
                 print_line("gpr jr_addend_{:08X} = {}{}", cur_jtbl.jr_vram, ctx_gpr_prefix(cur_jtbl.addend_reg), cur_jtbl.addend_reg);
             }
         }
-        print_line("{}{} = ADD32({}{}, {}{})", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        break;
-    case InstrId::cpu_daddu:
-        print_line("{}{} = {}{} + {}{}", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        break;
-    case InstrId::cpu_negu: // pseudo instruction for subu x, 0, y
-    case InstrId::cpu_sub:
-    case InstrId::cpu_subu:
-        print_line("{}{} = SUB32({}{}, {}{})", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        break;
-    case InstrId::cpu_addi:
-    case InstrId::cpu_addiu:
-        print_line("{}{} = ADD32({}{}, {})", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, signed_imm_string);
-        break;
-    case InstrId::cpu_daddi:
-    case InstrId::cpu_daddiu:
-        print_line("{}{} = {}{} + {}", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, signed_imm_string);
-        break;
-    case InstrId::cpu_and:
-        print_line("{}{} = {}{} & {}{}", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        break;
-    case InstrId::cpu_andi:
-        print_line("{}{} = {}{} & {}", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, unsigned_imm_string);
-        break;
-    case InstrId::cpu_or:
-        print_line("{}{} = {}{} | {}{}", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        break;
-    case InstrId::cpu_ori:
-        print_line("{}{} = {}{} | {}", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, unsigned_imm_string);
-        break;
-    case InstrId::cpu_nor:
-        print_line("{}{} = ~({}{} | {}{})", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        break;
-    case InstrId::cpu_xor:
-        print_line("{}{} = {}{} ^ {}{}", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        break;
-    case InstrId::cpu_xori:
-        print_line("{}{} = {}{} ^ {}", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, unsigned_imm_string);
-        break;
-    case InstrId::cpu_sll:
-        print_line("{}{} = S32({}{}) << {}", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, sa);
-        break;
-    case InstrId::cpu_dsll:
-        print_line("{}{} = {}{} << {}", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, sa);
-        break;
-    case InstrId::cpu_dsll32:
-        print_line("{}{} = ((gpr)({}{})) << ({} + 32)", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, sa);
-        break;
-    case InstrId::cpu_sllv:
-        print_line("{}{} = S32({}{}) << ({}{} & 31)", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs);
-        break;
-    case InstrId::cpu_dsllv:
-        print_line("{}{} = {}{} << ({}{} & 63)", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs);
-        break;
-    case InstrId::cpu_sra:
-        print_line("{}{} = S32({}{}) >> {}", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, sa);
-        break;
-    case InstrId::cpu_dsra:
-        print_line("{}{} = SIGNED({}{}) >> {}", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, sa);
-        break;
-    case InstrId::cpu_dsra32:
-        print_line("{}{} = SIGNED({}{}) >> ({} + 32)", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, sa);
-        break;
-    case InstrId::cpu_srav:
-        print_line("{}{} = S32({}{}) >> ({}{} & 31)", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs);
-        break;
-    case InstrId::cpu_dsrav:
-        print_line("{}{} = SIGNED({}{}) >> ({}{} & 63)", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs);
-        break;
-    case InstrId::cpu_srl:
-        print_line("{}{} = S32(U32({}{}) >> {})", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, sa);
-        break;
-    case InstrId::cpu_dsrl:
-        print_line("{}{} = {}{} >> {}", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, sa);
-        break;
-    case InstrId::cpu_dsrl32:
-        print_line("{}{} = ((gpr)({}{})) >> ({} + 32)", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, sa);
-        break;
-    case InstrId::cpu_srlv:
-        print_line("{}{} = S32(U32({}{}) >> ({}{} & 31))", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs);
-        break;
-    case InstrId::cpu_dsrlv:
-        print_line("{}{} = {}{} >> ({}{} & 63))", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs);
-        break;
-    case InstrId::cpu_slt:
-        print_line("{}{} = SIGNED({}{}) < SIGNED({}{}) ? 1 : 0", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        break;
-    case InstrId::cpu_slti:
-        print_line("{}{} = SIGNED({}{}) < {} ? 1 : 0", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, signed_imm_string);
-        break;
-    case InstrId::cpu_sltu:
-        print_line("{}{} = {}{} < {}{} ? 1 : 0", ctx_gpr_prefix(rd), rd, ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        break;
-    case InstrId::cpu_sltiu:
-        print_line("{}{} = {}{} < {} ? 1 : 0", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rs), rs, signed_imm_string);
         break;
     case InstrId::cpu_mult:
         print_line("result = S64(S32({}{})) * S64(S32({}{})); lo = S32(result >> 0); hi = S32(result >> 32)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
@@ -558,25 +805,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_mthi:
         print_line("hi = {}{}", ctx_gpr_prefix(rs), rs);
         break;
-    // Loads
-    case InstrId::cpu_ld:
-        print_line("{}{} = LD({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
-        break;
-    case InstrId::cpu_lw:
-        print_line("{}{} = MEM_W({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
-        break;
-    case InstrId::cpu_lh:
-        print_line("{}{} = MEM_H({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
-        break;
-    case InstrId::cpu_lb:
-        print_line("{}{} = MEM_B({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
-        break;
-    case InstrId::cpu_lhu:
-        print_line("{}{} = MEM_HU({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
-        break;
-    case InstrId::cpu_lbu:
-        print_line("{}{} = MEM_BU({}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
-        break;
     // Stores
     case InstrId::cpu_sd:
         print_line("SD({}{}, {}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
@@ -604,12 +832,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     // LWR x + 1 -> 00000000 012389AB
     // LWR x + 2 -> 00000000 0189ABCD
     // LWR x + 3 -> FFFFFFFF 89ABCDEF
-    case InstrId::cpu_lwl:
-        print_line("{}{} = do_lwl(rdram, {}{}, {}, {}{})", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
-        break;
-    case InstrId::cpu_lwr:
-        print_line("{}{} = do_lwr(rdram, {}{}, {}, {}{})", ctx_gpr_prefix(rt), rt, ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
-        break;
     // Unaligned stores
     // examples:
     // reg =        11111111 01234567
@@ -1221,6 +1443,29 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         print_line("ctx->f{}.u32l = S32(floor(ctx->f{}.d))", fd, fs);
         break;
     default:
+        handled = false;
+        break;
+    }
+
+    auto find_it = binary_ops.find(instr.getUniqueId());
+    if (find_it != binary_ops.end()) {
+        CGenerator generator{};
+        InstructionContext instruction_context{};
+        instruction_context.rd = rd;
+        instruction_context.rs = rs;
+        instruction_context.rt = rt;
+        instruction_context.sa = sa;
+        instruction_context.fd = fd;
+        instruction_context.fs = fs;
+        instruction_context.ft = ft;
+        instruction_context.cop1_cs = cop1_cs;
+        instruction_context.imm16 = imm;
+        print_indent();
+        generator.process_binary_op(output_file, find_it->second, instruction_context);
+        handled = true;
+    }
+
+    if (!handled) {
         fmt::print(stderr, "Unhandled instruction: {}\n", instr.getOpcodeName());
         return false;
     }
