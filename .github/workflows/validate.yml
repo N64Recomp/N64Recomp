@@ -23,7 +23,7 @@ jobs:
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: ${{ runner.os }}-N64Recomp-ccache
+          key: ${{ runner.os }}-N64Recomp-ccache-${{ matrix.type }}
       - name: Install Windows Dependencies
         if: runner.os == 'Windows'
         run: |
@@ -47,8 +47,8 @@ jobs:
           # enable ccache
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
           
-          cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
-          cmake --build cmake-build --config Debug --target N64Recomp -j 8
+          cmake -DCMAKE_BUILD_TYPE=${{ matrix.type }} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
+          cmake --build cmake-build --config ${{ matrix.type }} --target N64Recomp -j 8
       - name: Build N64Recomp (Windows)
         if: runner.os == 'Windows'
         run: |-
@@ -56,4 +56,4 @@ jobs:
           set $env:PATH="$env:USERPROFILE/.cargo/bin;$env:PATH"
           
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.type }} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
-          cmake --build cmake-build --config Debug --target N64Recomp -j 8
+          cmake --build cmake-build --config ${{ matrix.type }} --target N64Recomp -j 8
