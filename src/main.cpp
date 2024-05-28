@@ -1499,6 +1499,41 @@ int main(int argc, char** argv) {
         func.words[instruction_index] = byteswap(patch.value);
     }
 
+    // Apply any function hooks.
+    for (const RecompPort::FunctionHook& patch : config.function_hooks) {
+        // Check if the specified function exists.
+        auto func_find = context.functions_by_name.find(patch.func_name);
+        if (func_find == context.functions_by_name.end()) {
+            // Function doesn't exist, present an error to the user instead of silently failing to stub it out.
+            // This helps prevent typos in the config file or functions renamed between versions from causing issues.
+            exit_failure(fmt::format("Function {} has a function hook but does not exist!", patch.func_name));
+        }
+
+        RecompPort::Function& func = context.functions[func_find->second];
+        int32_t func_vram = func.vram;
+
+        // Check that the function actually contains this vram address.
+        if (patch.after_vram < func_vram || patch.after_vram >= func_vram + func.words.size() * sizeof(func.words[0])) {
+            exit_failure(fmt::format("Function {} has a function hook for vram 0x{:08X} but doesn't contain that vram address!", patch.func_name, (uint32_t)patch.after_vram));
+        }
+
+        // No after_vram means this will be placed at the start of the function
+        size_t instruction_index = func.words.size();
+
+        // Calculate the instruction index.
+        if (patch.after_vram != 0) {
+          instruction_index = (static_cast<size_t>(patch.after_vram) - func_vram) / sizeof(uint32_t);
+        }
+
+        // Check if a function hook already exits for that instruction index.
+        auto hook_find = func.function_hooks.find(instruction_index);
+        if (hook_find != func.function_hooks.end()) {
+            exit_failure(fmt::format("Function {} already has a function hook for vram 0x{:08X}!", patch.func_name, (uint32_t)patch.after_vram));
+        }
+
+        func.function_hooks[instruction_index] = patch.text;
+    }
+
     std::ofstream single_output_file;
 
     if (config.single_file_output) {

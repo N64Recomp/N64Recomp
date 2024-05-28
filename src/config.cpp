@@ -5,10 +5,10 @@
 #include "recomp_port.h"
 
 std::vector<RecompPort::ManualFunction> get_manual_funcs(const toml::array* manual_funcs_array) {
-	std::vector<RecompPort::ManualFunction> ret;
+    std::vector<RecompPort::ManualFunction> ret;
 
-	// Reserve room for all the funcs in the map.
-	ret.reserve(manual_funcs_array->size());
+    // Reserve room for all the funcs in the map.
+    ret.reserve(manual_funcs_array->size());
     manual_funcs_array->for_each([&ret](auto&& el) {
         if constexpr (toml::is_table<decltype(el)>) {
             std::optional<std::string> func_name = el["name"].template value<std::string>();
@@ -27,13 +27,13 @@ std::vector<RecompPort::ManualFunction> get_manual_funcs(const toml::array* manu
         }
     });
 
-	return ret;
+    return ret;
 }
 
 std::vector<std::string> get_stubbed_funcs(const toml::table* patches_data) {
-	std::vector<std::string> stubbed_funcs{};
+    std::vector<std::string> stubbed_funcs{};
 
-	// Check if the stubs array exists.
+    // Check if the stubs array exists.
     const toml::node_view stubs_data = (*patches_data)["stubs"];
 
     if (stubs_data.is_array()) {
@@ -53,13 +53,13 @@ std::vector<std::string> get_stubbed_funcs(const toml::table* patches_data) {
         });
     }
 
-	return stubbed_funcs;
+    return stubbed_funcs;
 }
 
 std::vector<std::string> get_ignored_funcs(const toml::table* patches_data) {
-	std::vector<std::string> ignored_funcs{};
+    std::vector<std::string> ignored_funcs{};
 
-	// Check if the ignored funcs array exists.
+    // Check if the ignored funcs array exists.
     const toml::node_view ignored_funcs_data = (*patches_data)["ignored"];
 
     if (ignored_funcs_data.is_array()) {
@@ -76,16 +76,16 @@ std::vector<std::string> get_ignored_funcs(const toml::table* patches_data) {
         });
     }
 
-	return ignored_funcs;
+    return ignored_funcs;
 }
 
 std::unordered_map<std::string, RecompPort::FunctionArgType> arg_type_map{
-	{"u32", RecompPort::FunctionArgType::u32},
-	{"s32", RecompPort::FunctionArgType::s32},
+    {"u32", RecompPort::FunctionArgType::u32},
+    {"s32", RecompPort::FunctionArgType::s32},
 };
 
 std::vector<RecompPort::FunctionArgType> parse_args(const toml::array* args_in) {
-	std::vector<RecompPort::FunctionArgType> ret(args_in->size());
+    std::vector<RecompPort::FunctionArgType> ret(args_in->size());
 
     args_in->for_each([&ret](auto&& el) {
         if constexpr (toml::is_string<decltype(el)>) {
@@ -104,13 +104,13 @@ std::vector<RecompPort::FunctionArgType> parse_args(const toml::array* args_in) 
         }
     });
 
-	return ret;
+    return ret;
 }
 
 RecompPort::DeclaredFunctionMap get_declared_funcs(const toml::table* patches_data) {
-	RecompPort::DeclaredFunctionMap declared_funcs{};
+    RecompPort::DeclaredFunctionMap declared_funcs{};
 
-	// Check if the func array exists.
+    // Check if the func array exists.
     const toml::node_view funcs_data = (*patches_data)["func"];
 
     if (funcs_data.is_array()) {
@@ -138,13 +138,13 @@ RecompPort::DeclaredFunctionMap get_declared_funcs(const toml::table* patches_da
         });
     }
 
-	return declared_funcs;
+    return declared_funcs;
 }
 
 std::vector<RecompPort::FunctionSize> get_func_sizes(const toml::table* patches_data) {
-	std::vector<RecompPort::FunctionSize> func_sizes{};
+    std::vector<RecompPort::FunctionSize> func_sizes{};
 
-	// Check if the func size array exists.
+    // Check if the func size array exists.
     const toml::node_view funcs_data = (*patches_data)["function_sizes"];
     if (funcs_data.is_array()) {
         const toml::array* sizes_array = funcs_data.as_array();
@@ -177,13 +177,13 @@ std::vector<RecompPort::FunctionSize> get_func_sizes(const toml::table* patches_
         });
     }
 
-	return func_sizes;
+    return func_sizes;
 }
 
 std::vector<RecompPort::InstructionPatch> get_instruction_patches(const toml::table* patches_data) {
-	std::vector<RecompPort::InstructionPatch> ret;
+    std::vector<RecompPort::InstructionPatch> ret;
 
-	// Check if the instruction patch array exists.
+    // Check if the instruction patch array exists.
     const toml::node_view insn_patch_data = (*patches_data)["instruction"];
 
     if (insn_patch_data.is_array()) {
@@ -221,20 +221,64 @@ std::vector<RecompPort::InstructionPatch> get_instruction_patches(const toml::ta
         });
     }
 
-	return ret;
+    return ret;
+}
+
+std::vector<RecompPort::FunctionHook> get_function_hooks(const toml::table* patches_data) {
+    std::vector<RecompPort::FunctionHook> ret;
+
+    // Check if the function hook array exists.
+    const toml::node_view func_hook_data = (*patches_data)["hook"];
+
+    if (func_hook_data.is_array()) {
+        const toml::array* func_hook_array = func_hook_data.as_array();
+        ret.reserve(func_hook_array->size());
+
+        // Copy all the hooks into the output vector.
+        func_hook_array->for_each([&ret](auto&& el) {
+            if constexpr (toml::is_table<decltype(el)>) {
+                const toml::table& cur_hook = *el.as_table();
+
+                // Get the vram and make sure it's 4-byte aligned.
+                std::optional<uint32_t> after_vram = cur_hook["after_vram"].value<uint32_t>();
+                std::optional<std::string> func_name = cur_hook["func"].value<std::string>();
+                std::optional<std::string> text = cur_hook["text"].value<std::string>();
+
+                if (!func_name.has_value() || !text.has_value()) {
+                    throw toml::parse_error("Function hook is missing required value(s)", el.source());
+                }
+
+                if (after_vram.has_value() && after_vram.value() & 0b11) {
+                    // Not properly aligned, so throw an error (and make it look like a normal toml one).
+                    throw toml::parse_error("after_vram is not word-aligned", el.source());
+                }
+
+                ret.push_back(RecompPort::FunctionHook{
+                    .func_name = func_name.value(),
+                    .after_vram = after_vram.has_value() ? (int32_t)after_vram.value() : 0,
+                    .text = text.value(),
+                });
+            }
+            else {
+                throw toml::parse_error("Invalid function hook entry", el.source());
+            }
+        });
+    }
+
+    return ret;
 }
 
 std::filesystem::path concat_if_not_empty(const std::filesystem::path& parent, const std::filesystem::path& child) {
-	if (!child.empty()) {
-		return parent / child;
-	}
-	return child;
+    if (!child.empty()) {
+        return parent / child;
+    }
+    return child;
 }
 
 RecompPort::Config::Config(const char* path) {
-	// Start this config out as bad so that it has to finish parsing without errors to be good.
-	entrypoint = 0;
-	bad = true;
+    // Start this config out as bad so that it has to finish parsing without errors to be good.
+    entrypoint = 0;
+    bad = true;
     toml::table config_data{};
 
     try {
@@ -348,6 +392,9 @@ RecompPort::Config::Config(const char* path) {
 
             // Manual function sizes (optional)
             manual_func_sizes = get_func_sizes(table);
+
+            // Fonction hooks (optional)
+            function_hooks = get_function_hooks(table);
         }
     }
     catch (const toml::parse_error& err) {
@@ -355,34 +402,34 @@ RecompPort::Config::Config(const char* path) {
         return;
     }
 
-	// No errors occured, so mark this config file as good.
-	bad = false;
+    // No errors occured, so mark this config file as good.
+    bad = false;
 }
 
 const std::unordered_map<std::string, RecompPort::RelocType> reloc_type_name_map {
-	{ "R_MIPS_NONE", RecompPort::RelocType::R_MIPS_NONE },
-	{ "R_MIPS_16", RecompPort::RelocType::R_MIPS_16 },
-	{ "R_MIPS_32", RecompPort::RelocType::R_MIPS_32 },
-	{ "R_MIPS_REL32", RecompPort::RelocType::R_MIPS_REL32 },
-	{ "R_MIPS_26", RecompPort::RelocType::R_MIPS_26 },
-	{ "R_MIPS_HI16", RecompPort::RelocType::R_MIPS_HI16 },
-	{ "R_MIPS_LO16", RecompPort::RelocType::R_MIPS_LO16 },
-	{ "R_MIPS_GPREL16", RecompPort::RelocType::R_MIPS_GPREL16 },
+    { "R_MIPS_NONE", RecompPort::RelocType::R_MIPS_NONE },
+    { "R_MIPS_16", RecompPort::RelocType::R_MIPS_16 },
+    { "R_MIPS_32", RecompPort::RelocType::R_MIPS_32 },
+    { "R_MIPS_REL32", RecompPort::RelocType::R_MIPS_REL32 },
+    { "R_MIPS_26", RecompPort::RelocType::R_MIPS_26 },
+    { "R_MIPS_HI16", RecompPort::RelocType::R_MIPS_HI16 },
+    { "R_MIPS_LO16", RecompPort::RelocType::R_MIPS_LO16 },
+    { "R_MIPS_GPREL16", RecompPort::RelocType::R_MIPS_GPREL16 },
 };
 
 RecompPort::RelocType reloc_type_from_name(const std::string& reloc_type_name) {
-	auto find_it = reloc_type_name_map.find(reloc_type_name);
-	if (find_it != reloc_type_name_map.end()) {
-		return find_it->second;
-	}
-	return RecompPort::RelocType::R_MIPS_NONE;
+    auto find_it = reloc_type_name_map.find(reloc_type_name);
+    if (find_it != reloc_type_name_map.end()) {
+        return find_it->second;
+    }
+    return RecompPort::RelocType::R_MIPS_NONE;
 }
 
 bool RecompPort::Context::from_symbol_file(const std::filesystem::path& symbol_file_path, std::vector<uint8_t>&& rom, RecompPort::Context& out) {
-	RecompPort::Context ret{};
+    RecompPort::Context ret{};
 
-	try {
-		const toml::table config_data = toml::parse_file(symbol_file_path.u8string());
+    try {
+        const toml::table config_data = toml::parse_file(symbol_file_path.u8string());
         const toml::node_view config_sections_value = config_data["section"];
 
         if (!config_sections_value.is_array()) {
@@ -518,13 +565,13 @@ bool RecompPort::Context::from_symbol_file(const std::filesystem::path& symbol_f
                 throw toml::parse_error("Invalid section entry", el.source());
             }
         });
-	}
+    }
     catch (const toml::parse_error& err) {
         std::cerr << "Syntax error parsing toml: " << *err.source().path << " (" << err.source().begin <<  "):\n" << err.description() << std::endl;
         return false;
     }
 
-	ret.rom = std::move(rom);
-	out = std::move(ret);
-	return true;
+    ret.rom = std::move(rom);
+    out = std::move(ret);
+    return true;
 }

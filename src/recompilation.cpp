@@ -1078,6 +1078,11 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         return false;
     }
 
+    auto hook_find = func.function_hooks.find(instr_index);
+    if (hook_find != func.function_hooks.end()) {
+        fmt::print(output_file, "{}\n", hook_find->second);
+    }
+
     // TODO is this used?
     if (emit_link_branch) {
         fmt::print(output_file, "    after_{}:\n", link_branch_index);
@@ -1111,6 +1116,11 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
         // Use a set to sort and deduplicate labels
         std::set<uint32_t> branch_labels;
         instructions.reserve(func.words.size());
+
+        auto hook_find = func.function_hooks.find(func.words.size());
+        if (hook_find != func.function_hooks.end()) {
+            fmt::print(output_file, "{}\n", hook_find->second);
+        }
 
         // First pass, disassemble each instruction and collect branch labels
         uint32_t vram = func.vram;

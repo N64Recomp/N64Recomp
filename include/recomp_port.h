@@ -40,6 +40,12 @@ namespace RecompPort {
         uint32_t value;
     };
 
+    struct FunctionHook {
+        std::string func_name;
+        int32_t after_vram;
+        std::string text;
+    };
+
     struct FunctionSize {
         std::string func_name;
         uint32_t size_bytes;
@@ -71,6 +77,7 @@ namespace RecompPort {
         std::vector<std::string> ignored_funcs;
         DeclaredFunctionMap declared_funcs;
         std::vector<InstructionPatch> instruction_patches;
+        std::vector<FunctionHook> function_hooks;
         std::vector<FunctionSize> manual_func_sizes;
         std::vector<ManualFunction> manual_functions;
         std::string bss_section_suffix;
@@ -110,6 +117,7 @@ namespace RecompPort {
         bool ignored;
         bool reimplemented;
         bool stubbed;
+        std::unordered_map<int32_t, std::string> function_hooks;
 
         Function(uint32_t vram, uint32_t rom, std::vector<uint32_t> words, std::string name, ELFIO::Elf_Half section_index, bool ignored = false, bool reimplemented = false, bool stubbed = false)
                 : vram(vram), rom(rom), words(std::move(words)), name(std::move(name)), section_index(section_index), ignored(ignored), reimplemented(reimplemented), stubbed(stubbed) {}
