@@ -106,7 +106,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         }
     };
 
-    auto print_func_call = [&](uint32_t target_func_vram, bool link_branch = true) {
+    auto print_func_call = [&](uint32_t target_func_vram, bool link_branch = true, bool indent = false) {
         const auto matching_funcs_find = context.functions_by_vram.find(target_func_vram);
         std::string jal_target_name;
         uint32_t section_vram_start = section.ram_addr;
@@ -173,7 +173,11 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             }
         }
         needs_link_branch = link_branch;
-        print_unconditional_branch("{}(rdram, ctx)", jal_target_name);
+        if (indent) {
+            print_unconditional_branch("    {}(rdram, ctx)", jal_target_name);
+        } else {
+            print_unconditional_branch("{}(rdram, ctx)", jal_target_name);
+        }
         return true;
     };
 
@@ -183,9 +187,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             if (context.functions_by_vram.find(branch_target) != context.functions_by_vram.end()) {
                 fmt::print(output_file, "{{\n    ");
                 fmt::print("Tail call in {} to 0x{:08X}\n", func.name, branch_target);
-                print_func_call(branch_target, false);
-                print_line("return");
-                fmt::print(output_file, ";\n    }}\n");
+                print_func_call(branch_target, false, true);
+                print_line("    return");
+                fmt::print(output_file, "    }}\n");
                 return;
             }
 
@@ -1080,7 +1084,10 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
 
     auto hook_find = func.function_hooks.find(instr_index);
     if (hook_find != func.function_hooks.end()) {
-        fmt::print(output_file, "{}\n", hook_find->second);
+        if (indent) {
+            print_indent();
+        }
+        fmt::print(output_file, "    {}\n", hook_find->second);
     }
 
     // TODO is this used?
@@ -1108,7 +1115,7 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
         // these variables shouldn't need to be preserved across function boundaries, so make them local for more efficient output
         "    uint64_t hi = 0, lo = 0, result = 0;\n"
         "    unsigned int rounding_mode = DEFAULT_ROUNDING_MODE;\n"
-        "    int c1cs = 0; \n", // cop1 conditional signal
+        "    int c1cs = 0;\n", // cop1 conditional signal
         func.name);
 
     // Skip analysis and recompilation of this function is stubbed.
@@ -1117,9 +1124,9 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
         std::set<uint32_t> branch_labels;
         instructions.reserve(func.words.size());
 
-        auto hook_find = func.function_hooks.find(func.words.size());
+        auto hook_find = func.function_hooks.find(-1);
         if (hook_find != func.function_hooks.end()) {
-            fmt::print(output_file, "{}\n", hook_find->second);
+            fmt::print(output_file, "    {}\n", hook_find->second);
         }
 
         // First pass, disassemble each instruction and collect branch labels

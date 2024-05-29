@@ -1518,7 +1518,7 @@ int main(int argc, char** argv) {
         }
 
         // No after_vram means this will be placed at the start of the function
-        size_t instruction_index = func.words.size();
+        size_t instruction_index = -1;
 
         // Calculate the instruction index.
         if (patch.after_vram != 0) {
