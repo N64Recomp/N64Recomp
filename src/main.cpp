@@ -628,6 +628,7 @@ std::unordered_set<std::string> renamed_funcs{
     "div64_64",
     "div64_32",
     "__moddi3",
+    "_matherr",
 };
 
 bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint, bool has_entrypoint, bool use_absolute_symbols) {
