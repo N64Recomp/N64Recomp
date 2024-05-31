@@ -1736,18 +1736,22 @@ int main(int argc, char** argv) {
 
 
         fmt::print(overlay_file, "static int overlay_sections_by_index[] = {{\n");
-        for (const std::string& section : relocatable_sections_ordered) {
-            // Check if this is an empty overlay
-            if (section == "*") {
-                fmt::print(overlay_file, "    -1,\n");
-            }
-            else {
-                auto find_it = relocatable_section_indices.find(section);
-                if (find_it == relocatable_section_indices.end()) {
-                    fmt::print(stderr, "Failed to find written section index of relocatable section: {}\n", section);
-                    std::exit(EXIT_FAILURE);
+        if (relocatable_sections_ordered.empty()) {
+            fmt::print(overlay_file, "    -1,\n");
+        } else {
+            for (const std::string& section : relocatable_sections_ordered) {
+                // Check if this is an empty overlay
+                if (section == "*") {
+                    fmt::print(overlay_file, "    -1,\n");
                 }
-                fmt::print(overlay_file, "    {},\n", relocatable_section_indices[section]);
+                else {
+                    auto find_it = relocatable_section_indices.find(section);
+                    if (find_it == relocatable_section_indices.end()) {
+                        fmt::print(stderr, "Failed to find written section index of relocatable section: {}\n", section);
+                        std::exit(EXIT_FAILURE);
+                    }
+                    fmt::print(overlay_file, "    {},\n", relocatable_section_indices[section]);
+                }
             }
         }
         fmt::print(overlay_file, "}};\n");
