@@ -42,7 +42,7 @@ namespace RecompPort {
 
     struct FunctionHook {
         std::string func_name;
-        int32_t after_vram;
+        int32_t before_vram;
         std::string text;
     };
 

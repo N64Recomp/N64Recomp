@@ -1514,22 +1514,22 @@ int main(int argc, char** argv) {
         int32_t func_vram = func.vram;
 
         // Check that the function actually contains this vram address.
-        if (patch.after_vram < func_vram || patch.after_vram >= func_vram + func.words.size() * sizeof(func.words[0])) {
-            exit_failure(fmt::format("Function {} has a function hook for vram 0x{:08X} but doesn't contain that vram address!", patch.func_name, (uint32_t)patch.after_vram));
+        if (patch.before_vram < func_vram || patch.before_vram >= func_vram + func.words.size() * sizeof(func.words[0])) {
+            exit_failure(fmt::format("Function {} has a function hook for vram 0x{:08X} but doesn't contain that vram address!", patch.func_name, (uint32_t)patch.before_vram));
         }
 
         // No after_vram means this will be placed at the start of the function
         size_t instruction_index = -1;
 
         // Calculate the instruction index.
-        if (patch.after_vram != 0) {
-          instruction_index = (static_cast<size_t>(patch.after_vram) - func_vram) / sizeof(uint32_t);
+        if (patch.before_vram != 0) {
+          instruction_index = (static_cast<size_t>(patch.before_vram) - func_vram) / sizeof(uint32_t);
         }
 
         // Check if a function hook already exits for that instruction index.
         auto hook_find = func.function_hooks.find(instruction_index);
         if (hook_find != func.function_hooks.end()) {
-            exit_failure(fmt::format("Function {} already has a function hook for vram 0x{:08X}!", patch.func_name, (uint32_t)patch.after_vram));
+            exit_failure(fmt::format("Function {} already has a function hook for vram 0x{:08X}!", patch.func_name, (uint32_t)patch.before_vram));
         }
 
         func.function_hooks[instruction_index] = patch.text;

@@ -240,7 +240,7 @@ std::vector<RecompPort::FunctionHook> get_function_hooks(const toml::table* patc
                 const toml::table& cur_hook = *el.as_table();
 
                 // Get the vram and make sure it's 4-byte aligned.
-                std::optional<uint32_t> after_vram = cur_hook["after_vram"].value<uint32_t>();
+                std::optional<uint32_t> before_vram = cur_hook["before_vram"].value<uint32_t>();
                 std::optional<std::string> func_name = cur_hook["func"].value<std::string>();
                 std::optional<std::string> text = cur_hook["text"].value<std::string>();
 
@@ -248,14 +248,14 @@ std::vector<RecompPort::FunctionHook> get_function_hooks(const toml::table* patc
                     throw toml::parse_error("Function hook is missing required value(s)", el.source());
                 }
 
-                if (after_vram.has_value() && after_vram.value() & 0b11) {
+                if (before_vram.has_value() && before_vram.value() & 0b11) {
                     // Not properly aligned, so throw an error (and make it look like a normal toml one).
-                    throw toml::parse_error("after_vram is not word-aligned", el.source());
+                    throw toml::parse_error("before_vram is not word-aligned", el.source());
                 }
 
                 ret.push_back(RecompPort::FunctionHook{
                     .func_name = func_name.value(),
-                    .after_vram = after_vram.has_value() ? (int32_t)after_vram.value() : 0,
+                    .before_vram = before_vram.has_value() ? (int32_t)before_vram.value() : 0,
                     .text = text.value(),
                 });
             }

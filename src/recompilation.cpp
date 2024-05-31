@@ -24,22 +24,32 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     const auto& instr = instructions[instr_index];
     needs_link_branch = false;
     is_branch_likely = false;
+    uint32_t instr_vram = instr.getVram();
+
+    auto print_indent = [&]() {
+        fmt::print(output_file, "    ");
+    };
+
+    auto hook_find = func.function_hooks.find(instr_index);
+    if (hook_find != func.function_hooks.end()) {
+        fmt::print(output_file, "    {}\n", hook_find->second);
+        if (indent) {
+            print_indent();
+        }
+    }
 
     // Output a comment with the original instruction
     if (instr.isBranch() || instr.getUniqueId() == InstrId::cpu_j) {
-        fmt::print(output_file, "    // {}\n", instr.disassemble(0, fmt::format("L_{:08X}", (uint32_t)instr.getBranchVramGeneric())));
+        fmt::print(output_file, "    // 0x{:08X}: {}\n", instr_vram, instr.disassemble(0, fmt::format("L_{:08X}", (uint32_t)instr.getBranchVramGeneric())));
     } else if (instr.getUniqueId() == InstrId::cpu_jal) {
-        fmt::print(output_file, "    // {}\n", instr.disassemble(0, fmt::format("0x{:08X}", (uint32_t)instr.getBranchVramGeneric())));
+        fmt::print(output_file, "    // 0x{:08X}: {}\n", instr_vram, instr.disassemble(0, fmt::format("0x{:08X}", (uint32_t)instr.getBranchVramGeneric())));
     } else {
-        fmt::print(output_file, "    // {}\n", instr.disassemble(0));
+        fmt::print(output_file, "    // 0x{:08X}: {}\n", instr_vram, instr.disassemble(0));
     }
-
-    uint32_t instr_vram = instr.getVram();
 
     if (skipped_insns.contains(instr_vram)) {
         return true;
     }
-
 
     bool at_reloc = false;
     bool reloc_handled = false;
@@ -70,10 +80,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             }
         }
     }
-
-    auto print_indent = [&]() {
-        fmt::print(output_file, "    ");
-    };
 
     auto print_line = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts ...args) {
         print_indent();
@@ -1080,14 +1086,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     default:
         fmt::print(stderr, "Unhandled instruction: {}\n", instr.getOpcodeName());
         return false;
-    }
-
-    auto hook_find = func.function_hooks.find(instr_index);
-    if (hook_find != func.function_hooks.end()) {
-        if (indent) {
-            print_indent();
-        }
-        fmt::print(output_file, "    {}\n", hook_find->second);
     }
 
     // TODO is this used?
