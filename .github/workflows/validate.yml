@@ -14,7 +14,9 @@ jobs:
     strategy:
       matrix:
         type: [ Debug, Release ]
-        os: [ ubuntu-latest, windows-latest, macos-13, macos-14 ] # macOS 13 is intel and macOS 14 is arm
+        # macos-13 is intel, macos-14 is arm, blaze/ubuntu-22.04 is arm
+        os: [ ubuntu-latest, windows-latest, macos-13, macos-14, blaze/ubuntu-22.04 ]
+    name: ${{ matrix.os }} (${{ (matrix.os == 'macos-14' || matrix.os == 'blaze/ubuntu-22.04') && 'arm64' || 'x64' }}, ${{ matrix.type }})
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -23,7 +25,7 @@ jobs:
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: ${{ runner.os }}-N64Recomp-ccache
+          key: ${{ matrix.os }}-N64Recomp-ccache-${{ matrix.type }}
       - name: Install Windows Dependencies
         if: runner.os == 'Windows'
         run: |
@@ -47,13 +49,14 @@ jobs:
           # enable ccache
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
           
-          cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
-          cmake --build cmake-build --config Debug --target N64Recomp -j 8
+          cmake -DCMAKE_BUILD_TYPE=${{ matrix.type }} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
+          cmake --build cmake-build --config ${{ matrix.type }} --target N64Recomp -j $(nproc)
       - name: Build N64Recomp (Windows)
         if: runner.os == 'Windows'
         run: |-
           # enable ccache
           set $env:PATH="$env:USERPROFILE/.cargo/bin;$env:PATH"
+          $cpuCores = (Get-CimInstance -ClassName Win32_Processor).NumberOfLogicalProcessors
           
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.type }} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
-          cmake --build cmake-build --config Debug --target N64Recomp -j 8
+          cmake --build cmake-build --config ${{ matrix.type }} --target N64Recomp -j $cpuCores
