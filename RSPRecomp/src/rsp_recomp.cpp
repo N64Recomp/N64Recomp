@@ -564,25 +564,25 @@ struct RSPRecompilerConfig {
 };
 
 std::filesystem::path concat_if_not_empty(const std::filesystem::path& parent, const std::filesystem::path& child) {
-	if (!child.empty()) {
-		return parent / child;
-	}
-	return child;
+    if (!child.empty()) {
+        return parent / child;
+    }
+    return child;
 }
 
 template <typename T>
 std::vector<T> toml_to_vec(const toml::array* array) {
-	std::vector<T> ret;
+    std::vector<T> ret;
 
-	// Reserve room for all the funcs in the map.
-	ret.reserve(array->size());
+    // Reserve room for all the funcs in the map.
+    ret.reserve(array->size());
     array->for_each([&ret](auto&& el) {
         if constexpr (toml::is_integer<decltype(el)>) {
             ret.push_back(*el);
         }
     });
 
-	return ret;
+    return ret;
 }
 
 template <typename T>
@@ -601,9 +601,9 @@ std::unordered_set<T> toml_to_set(const toml::array* array) {
 bool read_config(const std::filesystem::path& config_path, RSPRecompilerConfig& out) {
     RSPRecompilerConfig ret{};
 
-	try {
+    try {
         const toml::table config_data = toml::parse_file(config_path.u8string());
-		std::filesystem::path basedir = std::filesystem::path{ config_path }.parent_path();
+        std::filesystem::path basedir = std::filesystem::path{ config_path }.parent_path();
 
         std::optional<uint32_t> text_offset = config_data["text_offset"].value<uint32_t>();
         if (text_offset.has_value()) {
@@ -653,20 +653,20 @@ bool read_config(const std::filesystem::path& config_path, RSPRecompilerConfig& 
             throw toml::parse_error("Missing output_function_name in config file", config_data.source());
         }
 
-		// Extra indirect branch targets (optional)
+        // Extra indirect branch targets (optional)
         const toml::node_view branch_targets_data = config_data["extra_indirect_branch_targets"];
         if (branch_targets_data.is_array()) {
             const toml::array* branch_targets_array = branch_targets_data.as_array();
             ret.extra_indirect_branch_targets = toml_to_vec<uint32_t>(branch_targets_array);
         }
 
-		// Unsupported_instructions (optional)
+        // Unsupported_instructions (optional)
         const toml::node_view unsupported_instructions_data = config_data["unsupported_instructions"];
         if (unsupported_instructions_data.is_array()) {
             const toml::array* unsupported_instructions_array = unsupported_instructions_data.as_array();
             ret.unsupported_instructions = toml_to_set<uint32_t>(unsupported_instructions_array);
         }
-	}
+    }
     catch (const toml::parse_error& err) {
         std::cerr << "Syntax error parsing toml: " << *err.source().path << " (" << err.source().begin <<  "):\n" << err.description() << std::endl;
         return false;

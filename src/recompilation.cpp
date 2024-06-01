@@ -24,22 +24,32 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     const auto& instr = instructions[instr_index];
     needs_link_branch = false;
     is_branch_likely = false;
+    uint32_t instr_vram = instr.getVram();
+
+    auto print_indent = [&]() {
+        fmt::print(output_file, "    ");
+    };
+
+    auto hook_find = func.function_hooks.find(instr_index);
+    if (hook_find != func.function_hooks.end()) {
+        fmt::print(output_file, "    {}\n", hook_find->second);
+        if (indent) {
+            print_indent();
+        }
+    }
 
     // Output a comment with the original instruction
     if (instr.isBranch() || instr.getUniqueId() == InstrId::cpu_j) {
-        fmt::print(output_file, "    // {}\n", instr.disassemble(0, fmt::format("L_{:08X}", (uint32_t)instr.getBranchVramGeneric())));
+        fmt::print(output_file, "    // 0x{:08X}: {}\n", instr_vram, instr.disassemble(0, fmt::format("L_{:08X}", (uint32_t)instr.getBranchVramGeneric())));
     } else if (instr.getUniqueId() == InstrId::cpu_jal) {
-        fmt::print(output_file, "    // {}\n", instr.disassemble(0, fmt::format("0x{:08X}", (uint32_t)instr.getBranchVramGeneric())));
+        fmt::print(output_file, "    // 0x{:08X}: {}\n", instr_vram, instr.disassemble(0, fmt::format("0x{:08X}", (uint32_t)instr.getBranchVramGeneric())));
     } else {
-        fmt::print(output_file, "    // {}\n", instr.disassemble(0));
+        fmt::print(output_file, "    // 0x{:08X}: {}\n", instr_vram, instr.disassemble(0));
     }
-
-    uint32_t instr_vram = instr.getVram();
 
     if (skipped_insns.contains(instr_vram)) {
         return true;
     }
-
 
     bool at_reloc = false;
     bool reloc_handled = false;
@@ -70,10 +80,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             }
         }
     }
-
-    auto print_indent = [&]() {
-        fmt::print(output_file, "    ");
-    };
 
     auto print_line = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts ...args) {
         print_indent();
@@ -106,7 +112,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         }
     };
 
-    auto print_func_call = [&](uint32_t target_func_vram, bool link_branch = true) {
+    auto print_func_call = [&](uint32_t target_func_vram, bool link_branch = true, bool indent = false) {
         const auto matching_funcs_find = context.functions_by_vram.find(target_func_vram);
         std::string jal_target_name;
         uint32_t section_vram_start = section.ram_addr;
@@ -173,7 +179,11 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             }
         }
         needs_link_branch = link_branch;
-        print_unconditional_branch("{}(rdram, ctx)", jal_target_name);
+        if (indent) {
+            print_unconditional_branch("    {}(rdram, ctx)", jal_target_name);
+        } else {
+            print_unconditional_branch("{}(rdram, ctx)", jal_target_name);
+        }
         return true;
     };
 
@@ -183,9 +193,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             if (context.functions_by_vram.find(branch_target) != context.functions_by_vram.end()) {
                 fmt::print(output_file, "{{\n    ");
                 fmt::print("Tail call in {} to 0x{:08X}\n", func.name, branch_target);
-                print_func_call(branch_target, false);
-                print_line("return");
-                fmt::print(output_file, ";\n    }}\n");
+                print_func_call(branch_target, false, true);
+                print_line("    return");
+                fmt::print(output_file, "    }}\n");
                 return;
             }
 
@@ -1103,7 +1113,7 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
         // these variables shouldn't need to be preserved across function boundaries, so make them local for more efficient output
         "    uint64_t hi = 0, lo = 0, result = 0;\n"
         "    unsigned int rounding_mode = DEFAULT_ROUNDING_MODE;\n"
-        "    int c1cs = 0; \n", // cop1 conditional signal
+        "    int c1cs = 0;\n", // cop1 conditional signal
         func.name);
 
     // Skip analysis and recompilation of this function is stubbed.
@@ -1111,6 +1121,11 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
         // Use a set to sort and deduplicate labels
         std::set<uint32_t> branch_labels;
         instructions.reserve(func.words.size());
+
+        auto hook_find = func.function_hooks.find(-1);
+        if (hook_find != func.function_hooks.end()) {
+            fmt::print(output_file, "    {}\n", hook_find->second);
+        }
 
         // First pass, disassemble each instruction and collect branch labels
         uint32_t vram = func.vram;
