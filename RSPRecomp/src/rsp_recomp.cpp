@@ -729,8 +729,8 @@ int main(int argc, const char** argv) {
     std::filesystem::create_directories(std::filesystem::path{ config.output_file_path }.parent_path());
     std::ofstream output_file(config.output_file_path);
     fmt::print(output_file,
-        "#include \"rsp.h\"\n"
-        "#include \"rsp_vu_impl.h\"\n"
+        "#include \"librecomp/rsp.hpp\"\n"
+        "#include \"librecomp/rsp_vu_impl.hpp\"\n"
         "RspExitReason {}(uint8_t* rdram) {{\n"
         "    uint32_t           r1 = 0,  r2 = 0,  r3 = 0,  r4 = 0,  r5 = 0,  r6 = 0,  r7 = 0;\n"
         "    uint32_t  r8 = 0,  r9 = 0, r10 = 0, r11 = 0, r12 = 0, r13 = 0, r14 = 0, r15 = 0;\n"
