@@ -1434,7 +1434,7 @@ int main(int argc, char** argv) {
     std::ofstream func_header_file{ config.output_func_path / "funcs.h" };
 
     fmt::print(func_header_file,
-        "#include \"recomp.h\"\n"
+        "#include \"librecomp/recomp.h\"\n"
         "\n"
         "#ifdef __cplusplus\n"
         "extern \"C\" {{\n"
@@ -1541,7 +1541,7 @@ int main(int argc, char** argv) {
         single_output_file.open(config.output_func_path / config.elf_path.stem().replace_extension(".c"));
         // Write the file header
         fmt::print(single_output_file,
-            "#include \"recomp.h\"\n"
+            "#include \"librecomp/recomp.h\"\n"
             "#include \"disable_warnings.h\"\n"
             "#include \"funcs.h\"\n"
             "\n");
@@ -1659,7 +1659,7 @@ int main(int argc, char** argv) {
         std::ofstream lookup_file{ config.output_func_path / "lookup.cpp" };
         
         fmt::print(lookup_file,
-            "#include \"recomp.h\"\n"
+            "#include \"librecomp/recomp.h\"\n"
             "\n"
         );
 
@@ -1685,9 +1685,9 @@ int main(int argc, char** argv) {
         std::string section_load_table = "static SectionTableEntry section_table[] = {\n";
 
         fmt::print(overlay_file, 
-            "#include \"recomp.h\"\n"
+            "#include \"librecomp/recomp.h\"\n"
             "#include \"funcs.h\"\n"
-            "#include \"sections.h\"\n"
+            "#include \"librecomp/sections.h\"\n"
             "\n"
         );
 

@@ -1103,7 +1103,7 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
     if (write_header) {
         // Write the file header
         fmt::print(output_file,
-            "#include \"recomp.h\"\n"
+            "#include \"librecomp/recomp.h\"\n"
             "#include \"disable_warnings.h\"\n"
             "\n");
     }
