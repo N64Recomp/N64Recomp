@@ -1542,7 +1542,6 @@ int main(int argc, char** argv) {
         // Write the file header
         fmt::print(single_output_file,
             "#include \"librecomp/recomp.h\"\n"
-            "#include \"disable_warnings.h\"\n"
             "#include \"funcs.h\"\n"
             "\n");
     }

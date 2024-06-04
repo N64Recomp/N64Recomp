@@ -53,3 +53,4 @@ imgui.ini
 rt64.log
 .idea
 cmake-build*
+.DS_Store

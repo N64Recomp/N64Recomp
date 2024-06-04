@@ -1104,7 +1104,6 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
         // Write the file header
         fmt::print(output_file,
             "#include \"librecomp/recomp.h\"\n"
-            "#include \"disable_warnings.h\"\n"
             "\n");
     }
 
