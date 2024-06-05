@@ -139,6 +139,7 @@ enum class BinaryOpType {
     Sra64,
     // Comparisons
     Equal,
+    NotEqual,
     Less,
     LessEq,
     Greater,
@@ -173,8 +174,10 @@ enum class Operand {
     ImmS16, // 16-bit immediate, signed
     Sa, // Shift amount
     Sa32, // Shift amount plus 32
+    Cop1cs, // Coprocessor 1 Condition Signal
     Hi,
     Lo,
+    Zero,
 
     Base = Rs, // Alias for Rs for loads
 };
@@ -185,15 +188,31 @@ struct UnaryOp {
     Operand input;
 };
 
+struct BinaryOperands {
+    // Operation to apply to each operand before applying the binary operation to them.
+    UnaryOpType operand_operations[2];
+    // The source of the input operands.
+    Operand operands[2];
+};
+
 struct BinaryOp {
     // The type of binary operation this represents.
     BinaryOpType type;
-    // Operation to apply to each operand before applying the binary operation to them.
-    UnaryOpType operand_operations[2];
     // The output operand.
     Operand output;
-    // The source of the input operands.
-    Operand operands[2];
+    // The input operands.
+    BinaryOperands operands;
+};
+
+struct ConditionalBranchOp {
+    // The type of binary operation to use for this compare
+    BinaryOpType comparison;
+    // The input operands.
+    BinaryOperands operands;
+    // Whether this jump should link for returns.
+    bool link;
+    // Whether this jump has "likely" behavior (doesn't execute the delay slot if skipped).
+    bool likely;
 };
 
 const std::unordered_map<InstrId, UnaryOp> unary_ops {
@@ -206,68 +225,89 @@ const std::unordered_map<InstrId, UnaryOp> unary_ops {
 
 const std::unordered_map<InstrId, BinaryOp> binary_ops {
     // Addition/subtraction
-    { InstrId::cpu_addu,   { BinaryOpType::Add32, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
-    { InstrId::cpu_add,    { BinaryOpType::Add32, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
-    { InstrId::cpu_negu,   { BinaryOpType::Sub32, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} }, // pseudo op for subu
-    { InstrId::cpu_subu,   { BinaryOpType::Sub32, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
-    { InstrId::cpu_sub,    { BinaryOpType::Sub32, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
-    { InstrId::cpu_daddu,  { BinaryOpType::Add64, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
-    { InstrId::cpu_dadd,   { BinaryOpType::Add64, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
-    { InstrId::cpu_dsubu,  { BinaryOpType::Sub64, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
-    { InstrId::cpu_dsub,   { BinaryOpType::Sub64, { UnaryOpType::None, UnaryOpType::None }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    { InstrId::cpu_addu,   { BinaryOpType::Add32, Operand::Rd, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::Rt }}} },
+    { InstrId::cpu_add,    { BinaryOpType::Add32, Operand::Rd, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::Rt }}} },
+    { InstrId::cpu_negu,   { BinaryOpType::Sub32, Operand::Rd, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::Rt }}} }, // pseudo op for subu
+    { InstrId::cpu_subu,   { BinaryOpType::Sub32, Operand::Rd, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::Rt }}} },
+    { InstrId::cpu_sub,    { BinaryOpType::Sub32, Operand::Rd, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::Rt }}} },
+    { InstrId::cpu_daddu,  { BinaryOpType::Add64, Operand::Rd, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::Rt }}} },
+    { InstrId::cpu_dadd,   { BinaryOpType::Add64, Operand::Rd, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::Rt }}} },
+    { InstrId::cpu_dsubu,  { BinaryOpType::Sub64, Operand::Rd, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::Rt }}} },
+    { InstrId::cpu_dsub,   { BinaryOpType::Sub64, Operand::Rd, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::Rt }}} },
     // Addition/subtraction (immediate)
-    { InstrId::cpu_addi,   { BinaryOpType::Add32, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmS16 }} },
-    { InstrId::cpu_addiu,  { BinaryOpType::Add32, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmS16 }} },
-    { InstrId::cpu_daddi,  { BinaryOpType::Add64, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmS16 }} },
-    { InstrId::cpu_daddiu, { BinaryOpType::Add64, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmS16 }} },
+    { InstrId::cpu_addi,   { BinaryOpType::Add32, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::ImmS16 }}} },
+    { InstrId::cpu_addiu,  { BinaryOpType::Add32, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::ImmS16 }}} },
+    { InstrId::cpu_daddi,  { BinaryOpType::Add64, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::ImmS16 }}} },
+    { InstrId::cpu_daddiu, { BinaryOpType::Add64, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::ImmS16 }}} },
     // Bitwise
-    { InstrId::cpu_and,    { BinaryOpType::And64, { UnaryOpType::None, UnaryOpType::None },  Operand::Rd, { Operand::Rs, Operand::Rt }} },
-    { InstrId::cpu_or,     { BinaryOpType::Or64,  { UnaryOpType::None, UnaryOpType::None },  Operand::Rd, { Operand::Rs, Operand::Rt }} },
-    { InstrId::cpu_nor,    { BinaryOpType::Nor64, { UnaryOpType::None, UnaryOpType::None },  Operand::Rd, { Operand::Rs, Operand::Rt }} },
-    { InstrId::cpu_xor,    { BinaryOpType::Xor64, { UnaryOpType::None, UnaryOpType::None },  Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    { InstrId::cpu_and,    { BinaryOpType::And64, Operand::Rd, {{ UnaryOpType::None, UnaryOpType::None },  { Operand::Rs, Operand::Rt }}} },
+    { InstrId::cpu_or,     { BinaryOpType::Or64,  Operand::Rd, {{ UnaryOpType::None, UnaryOpType::None },  { Operand::Rs, Operand::Rt }}} },
+    { InstrId::cpu_nor,    { BinaryOpType::Nor64, Operand::Rd, {{ UnaryOpType::None, UnaryOpType::None },  { Operand::Rs, Operand::Rt }}} },
+    { InstrId::cpu_xor,    { BinaryOpType::Xor64, Operand::Rd, {{ UnaryOpType::None, UnaryOpType::None },  { Operand::Rs, Operand::Rt }}} },
     // Bitwise (immediate)
-    { InstrId::cpu_andi,   { BinaryOpType::And64, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmU16 }} },
-    { InstrId::cpu_ori,    { BinaryOpType::Or64,  { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmU16 }} },
-    { InstrId::cpu_xori,   { BinaryOpType::Xor64, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmU16 }} },
+    { InstrId::cpu_andi,   { BinaryOpType::And64, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::ImmU16 }}} },
+    { InstrId::cpu_ori,    { BinaryOpType::Or64,  Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::ImmU16 }}} },
+    { InstrId::cpu_xori,   { BinaryOpType::Xor64, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::ImmU16 }}} },
     // Shifts
     /* BUG Should mask after (change op to Sll32 and input op to ToU32) */
-    { InstrId::cpu_sllv,   { BinaryOpType::Sll64, { UnaryOpType::ToS32, UnaryOpType::Mask5 }, Operand::Rd, { Operand::Rt, Operand::Rs }} },
-    { InstrId::cpu_dsllv,  { BinaryOpType::Sll64, { UnaryOpType::None,  UnaryOpType::Mask6 }, Operand::Rd, { Operand::Rt, Operand::Rs }} },
-    { InstrId::cpu_srlv,   { BinaryOpType::Srl32, { UnaryOpType::ToU32, UnaryOpType::Mask5 }, Operand::Rd, { Operand::Rt, Operand::Rs }} },
-    { InstrId::cpu_dsrlv,  { BinaryOpType::Srl64, { UnaryOpType::ToU64, UnaryOpType::Mask6 }, Operand::Rd, { Operand::Rt, Operand::Rs }} },
+    { InstrId::cpu_sllv,   { BinaryOpType::Sll64, Operand::Rd, {{ UnaryOpType::ToS32, UnaryOpType::Mask5 }, { Operand::Rt, Operand::Rs }}} },
+    { InstrId::cpu_dsllv,  { BinaryOpType::Sll64, Operand::Rd, {{ UnaryOpType::None,  UnaryOpType::Mask6 }, { Operand::Rt, Operand::Rs }}} },
+    { InstrId::cpu_srlv,   { BinaryOpType::Srl32, Operand::Rd, {{ UnaryOpType::ToU32, UnaryOpType::Mask5 }, { Operand::Rt, Operand::Rs }}} },
+    { InstrId::cpu_dsrlv,  { BinaryOpType::Srl64, Operand::Rd, {{ UnaryOpType::ToU64, UnaryOpType::Mask6 }, { Operand::Rt, Operand::Rs }}} },
     /* BUG Should mask after (change op to Sra32 and input op to ToS64) */
-    { InstrId::cpu_srav,   { BinaryOpType::Sra64, { UnaryOpType::ToS32, UnaryOpType::Mask5 }, Operand::Rd, { Operand::Rt, Operand::Rs }} },
-    { InstrId::cpu_dsrav,  { BinaryOpType::Sra64, { UnaryOpType::ToS64, UnaryOpType::Mask6 }, Operand::Rd, { Operand::Rt, Operand::Rs }} },
+    { InstrId::cpu_srav,   { BinaryOpType::Sra64, Operand::Rd, {{ UnaryOpType::ToS32, UnaryOpType::Mask5 }, { Operand::Rt, Operand::Rs }}} },
+    { InstrId::cpu_dsrav,  { BinaryOpType::Sra64, Operand::Rd, {{ UnaryOpType::ToS64, UnaryOpType::Mask6 }, { Operand::Rt, Operand::Rs }}} },
     // Shifts (immediate)
     /* BUG Should mask after (change op to Sll32 and input op to ToU32) */
-    { InstrId::cpu_sll,    { BinaryOpType::Sll64, { UnaryOpType::ToS32, UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa }} },
-    { InstrId::cpu_dsll,   { BinaryOpType::Sll64, { UnaryOpType::None,  UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa }} },
-    { InstrId::cpu_dsll32, { BinaryOpType::Sll64, { UnaryOpType::None,  UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa32 }} },
-    { InstrId::cpu_srl,    { BinaryOpType::Srl32, { UnaryOpType::ToU32, UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa }} },
-    { InstrId::cpu_dsrl,   { BinaryOpType::Srl64, { UnaryOpType::ToU64, UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa }} },
-    { InstrId::cpu_dsrl32, { BinaryOpType::Srl64, { UnaryOpType::ToU64, UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa32 }} },
+    { InstrId::cpu_sll,    { BinaryOpType::Sll64, Operand::Rd, {{ UnaryOpType::ToS32, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
+    { InstrId::cpu_dsll,   { BinaryOpType::Sll64, Operand::Rd, {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
+    { InstrId::cpu_dsll32, { BinaryOpType::Sll64, Operand::Rd, {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Rt, Operand::Sa32 }}} },
+    { InstrId::cpu_srl,    { BinaryOpType::Srl32, Operand::Rd, {{ UnaryOpType::ToU32, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
+    { InstrId::cpu_dsrl,   { BinaryOpType::Srl64, Operand::Rd, {{ UnaryOpType::ToU64, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
+    { InstrId::cpu_dsrl32, { BinaryOpType::Srl64, Operand::Rd, {{ UnaryOpType::ToU64, UnaryOpType::None }, { Operand::Rt, Operand::Sa32 }}} },
     /* BUG should cast after (change op to Sra32 and input op to ToS64) */
-    { InstrId::cpu_sra,    { BinaryOpType::Sra64, { UnaryOpType::ToS32, UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa }} },
-    { InstrId::cpu_dsra,   { BinaryOpType::Sra64, { UnaryOpType::ToS64, UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa }} },
-    { InstrId::cpu_dsra32, { BinaryOpType::Sra64, { UnaryOpType::ToS64, UnaryOpType::None }, Operand::Rd, { Operand::Rt, Operand::Sa32 }} },
+    { InstrId::cpu_sra,    { BinaryOpType::Sra64, Operand::Rd, {{ UnaryOpType::ToS32, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
+    { InstrId::cpu_dsra,   { BinaryOpType::Sra64, Operand::Rd, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
+    { InstrId::cpu_dsra32, { BinaryOpType::Sra64, Operand::Rd, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rt, Operand::Sa32 }}} },
     // Comparisons
-    { InstrId::cpu_slt,   { BinaryOpType::Less, { UnaryOpType::ToS64, UnaryOpType::ToS64 }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
-    { InstrId::cpu_sltu,  { BinaryOpType::Less, { UnaryOpType::ToU64, UnaryOpType::ToU64 }, Operand::Rd, { Operand::Rs, Operand::Rt }} },
+    { InstrId::cpu_slt,   { BinaryOpType::Less, Operand::Rd, {{ UnaryOpType::ToS64, UnaryOpType::ToS64 }, { Operand::Rs, Operand::Rt }}} },
+    { InstrId::cpu_sltu,  { BinaryOpType::Less, Operand::Rd, {{ UnaryOpType::ToU64, UnaryOpType::ToU64 }, { Operand::Rs, Operand::Rt }}} },
     // Comparisons (immediate)
-    { InstrId::cpu_slti,  { BinaryOpType::Less, { UnaryOpType::ToS64, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmS16 }} },
-    { InstrId::cpu_sltiu, { BinaryOpType::Less, { UnaryOpType::ToU64, UnaryOpType::None }, Operand::Rt, { Operand::Rs, Operand::ImmS16 }} },
+    { InstrId::cpu_slti,  { BinaryOpType::Less, Operand::Rt, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::ImmS16 }}} },
+    { InstrId::cpu_sltiu, { BinaryOpType::Less, Operand::Rt, {{ UnaryOpType::ToU64, UnaryOpType::None }, { Operand::Rs, Operand::ImmS16 }}} },
     // Loads
-    { InstrId::cpu_ld,  { BinaryOpType::LD,  { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
-    { InstrId::cpu_lw,  { BinaryOpType::LW,  { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
-    { InstrId::cpu_lwu, { BinaryOpType::LWU, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
-    { InstrId::cpu_lh,  { BinaryOpType::LH,  { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
-    { InstrId::cpu_lhu, { BinaryOpType::LHU, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
-    { InstrId::cpu_lb,  { BinaryOpType::LB,  { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
-    { InstrId::cpu_lbu, { BinaryOpType::LBU, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
-    { InstrId::cpu_ldl, { BinaryOpType::LDL, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
-    { InstrId::cpu_ldr, { BinaryOpType::LDR, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
-    { InstrId::cpu_lwl, { BinaryOpType::LWL, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
-    { InstrId::cpu_lwr, { BinaryOpType::LWR, { UnaryOpType::None, UnaryOpType::None }, Operand::Rt, { Operand::ImmS16, Operand::Base }} },
+    { InstrId::cpu_ld,  { BinaryOpType::LD,  Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lw,  { BinaryOpType::LW,  Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lwu, { BinaryOpType::LWU, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lh,  { BinaryOpType::LH,  Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lhu, { BinaryOpType::LHU, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lb,  { BinaryOpType::LB,  Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lbu, { BinaryOpType::LBU, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_ldl, { BinaryOpType::LDL, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_ldr, { BinaryOpType::LDR, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lwl, { BinaryOpType::LWL, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lwr, { BinaryOpType::LWR, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+};
+
+const std::unordered_map<InstrId, ConditionalBranchOp> conditional_branch_ops {
+    { InstrId::cpu_beq,     { BinaryOpType::Equal,     {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Rs, Operand::Rt }},   false, false }},
+    { InstrId::cpu_beql,    { BinaryOpType::Equal,     {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Rs, Operand::Rt }},   false, true }},
+    { InstrId::cpu_bne,     { BinaryOpType::NotEqual,  {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Rs, Operand::Rt }},   false, false }},
+    { InstrId::cpu_bnel,    { BinaryOpType::NotEqual,  {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Rs, Operand::Rt }},   false, true }},
+    { InstrId::cpu_bgez,    { BinaryOpType::GreaterEq, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, false, false }},
+    { InstrId::cpu_bgezl,   { BinaryOpType::GreaterEq, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, false, true }},
+    { InstrId::cpu_bgtz,    { BinaryOpType::Greater,   {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, false, false }},
+    { InstrId::cpu_bgtzl,   { BinaryOpType::Greater,   {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, false, true }},
+    { InstrId::cpu_blez,    { BinaryOpType::LessEq,    {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, false, false }},
+    { InstrId::cpu_blezl,   { BinaryOpType::LessEq,    {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, false, true }},
+    { InstrId::cpu_bltz,    { BinaryOpType::Less,      {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, false, false }},
+    { InstrId::cpu_bltzl,   { BinaryOpType::Less,      {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, false, true }},
+    { InstrId::cpu_bgezall, { BinaryOpType::GreaterEq, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, true, false }},
+    { InstrId::cpu_bgezal,  { BinaryOpType::GreaterEq, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, true, true }},
+    { InstrId::cpu_bc1f,    { BinaryOpType::NotEqual,  {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Cop1cs, Operand::Zero }}, false, false }},
+    { InstrId::cpu_bc1fl,   { BinaryOpType::NotEqual,  {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Cop1cs, Operand::Zero }}, false, true }},
+    { InstrId::cpu_bc1t,    { BinaryOpType::Equal,     {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Cop1cs, Operand::Zero }}, false, false }},
+    { InstrId::cpu_bc1tl,   { BinaryOpType::Equal,     {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Cop1cs, Operand::Zero }}, false, true }},
 };
 
 struct InstructionContext {
@@ -283,6 +323,10 @@ struct InstructionContext {
     int cop1_cs;
 
     uint16_t imm16;
+
+    RecompPort::RelocType reloc_type;
+    uint32_t reloc_section_index;
+    uint32_t reloc_target_section_offset;
 };
 
 class CGenerator {
@@ -290,9 +334,11 @@ public:
     CGenerator() = default;
     void process_binary_op(std::ostream& output_file, const BinaryOp& op, const InstructionContext& ctx);
     void process_unary_op(std::ostream& output_file, const UnaryOp& op, const InstructionContext& ctx);
+    void emit_branch_condition(std::ostream& output_file, const ConditionalBranchOp& op, const InstructionContext& ctx);
+    void emit_branch_close(std::ostream& output_file);
 private:
     void get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string);
-    void get_binary_expr_string(const BinaryOp& op, const InstructionContext& ctx, const std::string& output, std::string& expr_string);
+    void get_binary_expr_string(BinaryOpType type, const BinaryOperands& operands, const InstructionContext& ctx, const std::string& output, std::string& expr_string);
     void get_notation(BinaryOpType op_type, std::string& func_string, std::string& infix_string);
 };
 
@@ -327,6 +373,7 @@ std::vector<BinaryOpFields> c_op_fields = []() {
     setup_op(BinaryOpType::Sra32,     "S32",    ">>"); // Arithmetic aspect will be taken care of by unary op for first operand.
     setup_op(BinaryOpType::Sra64,     "",       ">>"); // Arithmetic aspect will be taken care of by unary op for first operand.
     setup_op(BinaryOpType::Equal,     "",       "==");
+    setup_op(BinaryOpType::NotEqual,  "",       "!=");
     setup_op(BinaryOpType::Less,      "",       "<");
     setup_op(BinaryOpType::LessEq,    "",       "<=");
     setup_op(BinaryOpType::Greater,   "",       ">");
@@ -360,6 +407,21 @@ std::string gpr_to_string(int gpr_index) {
     return fmt::format("ctx->r{}", gpr_index);
 }
 
+std::string unsigned_reloc(const InstructionContext& context) {
+    switch (context.reloc_type) {
+        case RecompPort::RelocType::R_MIPS_HI16:
+            return fmt::format("RELOC_HI16({}, {:#X})", context.reloc_section_index, context.reloc_target_section_offset);
+        case RecompPort::RelocType::R_MIPS_LO16:
+            return fmt::format("RELOC_LO16({}, {:#X})", context.reloc_section_index, context.reloc_target_section_offset);
+        default:
+            throw std::runtime_error(fmt::format("Unexpected reloc type {}\n", static_cast<int>(context.reloc_type)));
+    }
+}
+
+std::string signed_reloc(const InstructionContext& context) {
+    return "(int16_t)" + unsigned_reloc(context);
+}
+
 void CGenerator::get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string) {
     switch (operand) {
         case Operand::Rd:
@@ -381,10 +443,20 @@ void CGenerator::get_operand_string(Operand operand, UnaryOpType operation, cons
             assert(false);
             break;
         case Operand::ImmU16:
-            operand_string = fmt::format("{:#X}", context.imm16);
+            if (context.reloc_type != RecompPort::RelocType::R_MIPS_NONE) {
+                operand_string = unsigned_reloc(context);
+            }
+            else {
+                operand_string = fmt::format("{:#X}", context.imm16);
+            }
             break;
         case Operand::ImmS16:
-            operand_string = fmt::format("{:#X}", (int16_t)context.imm16);
+            if (context.reloc_type != RecompPort::RelocType::R_MIPS_NONE) {
+                operand_string = signed_reloc(context);
+            }
+            else {
+                operand_string = fmt::format("{:#X}", (int16_t)context.imm16);
+            }
             break;
         case Operand::Sa:
             operand_string = std::to_string(context.sa);
@@ -392,11 +464,17 @@ void CGenerator::get_operand_string(Operand operand, UnaryOpType operation, cons
         case Operand::Sa32:
             operand_string = fmt::format("({} + 32)", context.sa);
             break;
+        case Operand::Cop1cs:
+            operand_string = fmt::format("c1cs");
+            break;
         case Operand::Hi:
             operand_string = "hi";
             break;
         case Operand::Lo:
             operand_string = "lo";
+            break;
+        case Operand::Zero:
+            operand_string = "0";
             break;
     }
     switch (operation) {
@@ -440,21 +518,30 @@ void CGenerator::get_notation(BinaryOpType op_type, std::string& func_string, st
     infix_string = c_op_fields[static_cast<size_t>(op_type)].infix_string;
 }
 
-void CGenerator::get_binary_expr_string(const BinaryOp& op, const InstructionContext& ctx, const std::string& output, std::string& expr_string) {
+void CGenerator::get_binary_expr_string(BinaryOpType type, const BinaryOperands& operands, const InstructionContext& ctx, const std::string& output, std::string& expr_string) {
     thread_local std::string input_a{};
     thread_local std::string input_b{};
     thread_local std::string func_string{};
     thread_local std::string infix_string{};
     bool is_infix;
-    get_operand_string(op.operands[0], op.operand_operations[0], ctx, input_a);
-    get_operand_string(op.operands[1], op.operand_operations[1], ctx, input_b);
-    get_notation(op.type, func_string, infix_string);
-    // Not strictly necessary, just here to have parity with the old recompiler output.
-    if (op.type == BinaryOpType::Less) {
+    get_operand_string(operands.operands[0], operands.operand_operations[0], ctx, input_a);
+    get_operand_string(operands.operands[1], operands.operand_operations[1], ctx, input_b);
+    get_notation(type, func_string, infix_string);
+    
+    // These cases aren't strictly necessary and are just here for parity with the old recompiler output.
+    if (type == BinaryOpType::Less && !(operands.operands[1] == Operand::Zero && operands.operand_operations[1] == UnaryOpType::None)) {
         expr_string = fmt::format("{} {} {} ? 1 : 0", input_a, infix_string, input_b);
     }
+    else if (type == BinaryOpType::Equal && operands.operands[1] == Operand::Zero && operands.operand_operations[1] == UnaryOpType::None) {
+        expr_string = input_a;
+    }
+    else if (type == BinaryOpType::NotEqual && operands.operands[1] == Operand::Zero && operands.operand_operations[1] == UnaryOpType::None) {
+        expr_string = "!" + input_a;
+    }
+    // End unnecessary cases.
+
     // TODO encode these ops to avoid needing special handling.
-    else if (op.type == BinaryOpType::LWL || op.type == BinaryOpType::LWR || op.type == BinaryOpType::LDL || op.type == BinaryOpType::LDR) {
+    else if (type == BinaryOpType::LWL || type == BinaryOpType::LWR || type == BinaryOpType::LDL || type == BinaryOpType::LDR) {
         expr_string = fmt::format("{}(rdram, {}, {}, {})", func_string, output, input_a, input_b);
     }
     else if (!func_string.empty() && !infix_string.empty()) {
@@ -468,14 +555,26 @@ void CGenerator::get_binary_expr_string(const BinaryOp& op, const InstructionCon
     }
     else {
         // Handle special cases
-        if (op.type == BinaryOpType::True) {
+        if (type == BinaryOpType::True) {
             expr_string = "1";
         }
-        else if (op.type == BinaryOpType::False) {
+        else if (type == BinaryOpType::False) {
             expr_string = "0";
         }
         assert(false && "Binary operation must have either a function or infix!");
     }
+}
+
+void CGenerator::emit_branch_condition(std::ostream& output_file, const ConditionalBranchOp& op, const InstructionContext& ctx) {
+    // Thread local variables to prevent allocations when possible.
+    // TODO these thread locals probably don't actually help right now, so figure out a better way to prevent allocations.
+    thread_local std::string expr_string{};
+    get_binary_expr_string(op.comparison, op.operands, ctx, "", expr_string);
+    fmt::print(output_file, "if ({}) {{\n", expr_string);
+}
+
+void CGenerator::emit_branch_close(std::ostream& output_file) {
+    fmt::print(output_file, "    }}\n");
 }
 
 void CGenerator::process_binary_op(std::ostream& output_file, const BinaryOp& op, const InstructionContext& ctx) {
@@ -484,7 +583,7 @@ void CGenerator::process_binary_op(std::ostream& output_file, const BinaryOp& op
     thread_local std::string output{};
     thread_local std::string expression{};
     get_operand_string(op.output, UnaryOpType::None, ctx, output);
-    get_binary_expr_string(op, ctx, output, expression);
+    get_binary_expr_string(op.type, op.operands, ctx, output, expression);
 
     fmt::print(output_file, "{} = {};\n", output, expression);
 }
@@ -581,9 +680,11 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
                                 
                                 if (reloc_type == RecompPort::RelocType::R_MIPS_HI16) {
                                     imm = (full_immediate >> 16) + ((full_immediate >> 15) & 1);
+                                    reloc_type = RecompPort::RelocType::R_MIPS_NONE;
                                 }
                                 else if (reloc_type == RecompPort::RelocType::R_MIPS_LO16) {
                                     imm = full_immediate & 0xFFFF;
+                                    reloc_type = RecompPort::RelocType::R_MIPS_NONE;
                                 }
                             }
                         }
@@ -693,7 +794,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         if (branch_target < func.vram || branch_target >= func_vram_end) {
             // FIXME: how to deal with static functions?
             if (context.functions_by_vram.find(branch_target) != context.functions_by_vram.end()) {
-                fmt::print(output_file, "{{\n    ");
                 fmt::print("Tail call in {} to 0x{:08X}\n", func.name, branch_target);
                 if (!print_func_call(branch_target, false, true)) {
                     return false;
@@ -706,7 +806,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             fmt::print(stderr, "[Warn] Function {} is branching outside of the function (to 0x{:08X})\n", func.name, branch_target);
         }
 
-        fmt::print(output_file, "{{\n    ");
         if (instr_index < instructions.size() - 1) {
             bool dummy_needs_link_branch;
             bool dummy_is_branch_likely;
@@ -720,12 +819,10 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             }
         }
 
-        fmt::print(output_file, "        ");
-        fmt::print(output_file, "goto L_{:08X}", branch_target);
+        fmt::print(output_file, "        goto L_{:08X};\n", branch_target);
         if (needs_link_branch) {
-            fmt::print(output_file, ";\n        goto after_{}", link_branch_index);
+            fmt::print(output_file, "        goto after_{};\n", link_branch_index);
         }
-        fmt::print(output_file, ";\n    }}\n");
         return true;
     };
 
@@ -1006,79 +1103,8 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         // syscalls don't link, so treat it like a tail call
         print_line("return");
         break;
-    case InstrId::cpu_bnel:
-        is_branch_likely = true;
-        [[fallthrough]];
-    case InstrId::cpu_bne:
-        print_indent();
-        print_branch_condition("if ({}{} != {}{})", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
-            return false;
-        }
-        break;
-    case InstrId::cpu_beql:
-        is_branch_likely = true;
-        [[fallthrough]];
-    case InstrId::cpu_beq:
-        print_indent();
-        print_branch_condition("if ({}{} == {}{})", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
-            return false;
-        }
-        break;
-    case InstrId::cpu_bgezl:
-        is_branch_likely = true;
-        [[fallthrough]];
-    case InstrId::cpu_bgez:
-        print_indent();
-        print_branch_condition("if (SIGNED({}{}) >= 0)", ctx_gpr_prefix(rs), rs);
-        if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
-            return false;
-        }
-        break;
-    case InstrId::cpu_bgtzl:
-        is_branch_likely = true;
-        [[fallthrough]];
-    case InstrId::cpu_bgtz:
-        print_indent();
-        print_branch_condition("if (SIGNED({}{}) > 0)", ctx_gpr_prefix(rs), rs);
-        if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
-            return false;
-        }
-        break;
-    case InstrId::cpu_blezl:
-        is_branch_likely = true;
-        [[fallthrough]];
-    case InstrId::cpu_blez:
-        print_indent();
-        print_branch_condition("if (SIGNED({}{}) <= 0)", ctx_gpr_prefix(rs), rs);
-        if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
-            return false;
-        }
-        break;
-    case InstrId::cpu_bltzl:
-        is_branch_likely = true;
-        [[fallthrough]];
-    case InstrId::cpu_bltz:
-        print_indent();
-        print_branch_condition("if (SIGNED({}{}) < 0)", ctx_gpr_prefix(rs), rs);
-        if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
-            return false;
-        }
-        break;
     case InstrId::cpu_break:
         print_line("do_break({})", instr_vram);
-        break;
-    case InstrId::cpu_bgezall:
-        is_branch_likely = true;
-        [[fallthrough]];
-    case InstrId::cpu_bgezal:
-        print_indent();
-        print_branch_condition("if (SIGNED({}{}) >= 0) {{", ctx_gpr_prefix(rs), rs);
-        if (!print_func_call(instr.getBranchVramGeneric())) {
-            return false;
-        }
-        print_line("}}");
         break;
 
     // Cop1 loads/stores
@@ -1238,28 +1264,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         print_line("CHECK_FR(ctx, {})", fs);
         print_line("CHECK_FR(ctx, {})", ft);
         print_line("c1cs = ctx->f{}.d == ctx->f{}.d", fs, ft);
-        break;
-    
-    // Cop1 branches
-    case InstrId::cpu_bc1tl:
-        is_branch_likely = true;
-        [[fallthrough]];
-    case InstrId::cpu_bc1t:
-        print_indent();
-        print_branch_condition("if (c1cs)", ctx_gpr_prefix(rs), rs);
-        if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
-            return false;
-        }
-        break;
-    case InstrId::cpu_bc1fl:
-        is_branch_likely = true;
-        [[fallthrough]];
-    case InstrId::cpu_bc1f:
-        print_indent();
-        print_branch_condition("if (!c1cs)", ctx_gpr_prefix(rs), rs);
-        if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
-            return false;
-        }
         break;
 
     // Cop1 arithmetic
@@ -1488,6 +1492,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         break;
     }
 
+    CGenerator generator{};
     InstructionContext instruction_context{};
     instruction_context.rd = rd;
     instruction_context.rs = rs;
@@ -1498,10 +1503,12 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     instruction_context.ft = ft;
     instruction_context.cop1_cs = cop1_cs;
     instruction_context.imm16 = imm;
+    instruction_context.reloc_type = reloc_type;
+    instruction_context.reloc_section_index = reloc_section;
+    instruction_context.reloc_target_section_offset = reloc_target_section_offset;
 
     auto find_binary_it = binary_ops.find(instr.getUniqueId());
     if (find_binary_it != binary_ops.end()) {
-        CGenerator generator{};
         print_indent();
         generator.process_binary_op(output_file, find_binary_it->second, instruction_context);
         handled = true;
@@ -1509,9 +1516,31 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
 
     auto find_unary_it = unary_ops.find(instr.getUniqueId());
     if (find_unary_it != unary_ops.end()) {
-        CGenerator generator{};
         print_indent();
         generator.process_unary_op(output_file, find_unary_it->second, instruction_context);
+        handled = true;
+    }
+
+    auto find_conditional_branch_it = conditional_branch_ops.find(instr.getUniqueId());
+    if (find_conditional_branch_it != conditional_branch_ops.end()) {
+        print_indent();
+        generator.emit_branch_condition(output_file, find_conditional_branch_it->second, instruction_context);
+
+        if (find_conditional_branch_it->second.link) {
+            if (!print_func_call(instr.getBranchVramGeneric())) {
+                return false;
+            }
+        }
+        else {
+            if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
+                return false;
+            }
+        }
+
+        print_indent();
+        generator.emit_branch_close(output_file);
+        
+        is_branch_likely = find_conditional_branch_it->second.likely;
         handled = true;
     }
 
