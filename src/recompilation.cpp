@@ -302,8 +302,8 @@ const std::unordered_map<InstrId, ConditionalBranchOp> conditional_branch_ops {
     { InstrId::cpu_blezl,   { BinaryOpType::LessEq,    {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, false, true }},
     { InstrId::cpu_bltz,    { BinaryOpType::Less,      {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, false, false }},
     { InstrId::cpu_bltzl,   { BinaryOpType::Less,      {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, false, true }},
-    { InstrId::cpu_bgezall, { BinaryOpType::GreaterEq, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, true, false }},
-    { InstrId::cpu_bgezal,  { BinaryOpType::GreaterEq, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, true, true }},
+    { InstrId::cpu_bgezal,  { BinaryOpType::GreaterEq, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, true, false }},
+    { InstrId::cpu_bgezall, { BinaryOpType::GreaterEq, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, true, true }},
     { InstrId::cpu_bc1f,    { BinaryOpType::NotEqual,  {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Cop1cs, Operand::Zero }}, false, false }},
     { InstrId::cpu_bc1fl,   { BinaryOpType::NotEqual,  {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Cop1cs, Operand::Zero }}, false, true }},
     { InstrId::cpu_bc1t,    { BinaryOpType::Equal,     {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Cop1cs, Operand::Zero }}, false, false }},
@@ -1526,6 +1526,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         print_indent();
         generator.emit_branch_condition(output_file, find_conditional_branch_it->second, instruction_context);
 
+        print_indent();
         if (find_conditional_branch_it->second.link) {
             if (!print_func_call(instr.getBranchVramGeneric())) {
                 return false;
@@ -1537,7 +1538,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             }
         }
 
-        print_indent();
         generator.emit_branch_close(output_file);
         
         is_branch_likely = find_conditional_branch_it->second.likely;
