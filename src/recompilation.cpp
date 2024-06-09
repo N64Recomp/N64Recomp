@@ -131,6 +131,8 @@ struct BinaryOp {
     Operand output;
     // The input operands.
     BinaryOperands operands;
+    // Whether the FR bit needs to be checked for odd float registers for this instruction.
+    bool check_fr = false;
 };
 
 struct ConditionalBranchOp {
@@ -206,6 +208,34 @@ const std::unordered_map<InstrId, BinaryOp> binary_ops {
     // Comparisons (immediate)
     { InstrId::cpu_slti,  { BinaryOpType::Less, Operand::Rt, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::ImmS16 }}} },
     { InstrId::cpu_sltiu, { BinaryOpType::Less, Operand::Rt, {{ UnaryOpType::ToU64, UnaryOpType::None }, { Operand::Rs, Operand::ImmS16 }}} },
+    // Float comparisons TODO remaining operations and investigate ordered/unordered and default values
+    { InstrId::cpu_c_lt_s,  { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+    { InstrId::cpu_c_nge_s, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+    { InstrId::cpu_c_olt_s, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+    { InstrId::cpu_c_ult_s, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+    { InstrId::cpu_c_lt_d,  { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+    { InstrId::cpu_c_nge_d, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+    { InstrId::cpu_c_olt_d, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+    { InstrId::cpu_c_ult_d, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+
+    { InstrId::cpu_c_le_s,  { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+    { InstrId::cpu_c_ngt_s, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+    { InstrId::cpu_c_ole_s, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+    { InstrId::cpu_c_ule_s, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+    { InstrId::cpu_c_le_d,  { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+    { InstrId::cpu_c_ngt_d, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+    { InstrId::cpu_c_ole_d, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+    { InstrId::cpu_c_ule_d, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+
+    { InstrId::cpu_c_eq_s,  { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+    { InstrId::cpu_c_ueq_s, { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+    { InstrId::cpu_c_ngl_s, { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+    { InstrId::cpu_c_seq_s, { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+    { InstrId::cpu_c_eq_d,  { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+    { InstrId::cpu_c_ueq_d, { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+    { InstrId::cpu_c_ngl_d, { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+    /* TODO rename to c_seq_d when fixed in rabbitizer */
+    { InstrId::cpu_c_deq_d, { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
     // Loads
     { InstrId::cpu_ld,   { BinaryOpType::LD,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
     { InstrId::cpu_lw,   { BinaryOpType::LW,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
@@ -219,7 +249,7 @@ const std::unordered_map<InstrId, BinaryOp> binary_ops {
     { InstrId::cpu_lwl,  { BinaryOpType::LWL, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
     { InstrId::cpu_lwr,  { BinaryOpType::LWR, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
     { InstrId::cpu_lwc1, { BinaryOpType::LW, Operand::FtU32L, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-    { InstrId::cpu_ldc1, { BinaryOpType::LD, Operand::FtU64,  {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_ldc1, { BinaryOpType::LD, Operand::FtU64,  {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}, true } },
 };
 
 const std::unordered_map<InstrId, ConditionalBranchOp> conditional_branch_ops {
@@ -265,14 +295,15 @@ struct InstructionContext {
 class CGenerator {
 public:
     CGenerator() = default;
-    void process_binary_op(std::ostream& output_file, const BinaryOp& op, const InstructionContext& ctx);
-    void process_unary_op(std::ostream& output_file, const UnaryOp& op, const InstructionContext& ctx);
-    void emit_branch_condition(std::ostream& output_file, const ConditionalBranchOp& op, const InstructionContext& ctx);
-    void emit_branch_close(std::ostream& output_file);
+    void process_binary_op(std::ostream& output_file, const BinaryOp& op, const InstructionContext& ctx) const;
+    void process_unary_op(std::ostream& output_file, const UnaryOp& op, const InstructionContext& ctx) const;
+    void emit_branch_condition(std::ostream& output_file, const ConditionalBranchOp& op, const InstructionContext& ctx) const;
+    void emit_branch_close(std::ostream& output_file) const;
+    void emit_check_fr(std::ostream& output_file, int fpr) const;
 private:
-    void get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string);
-    void get_binary_expr_string(BinaryOpType type, const BinaryOperands& operands, const InstructionContext& ctx, const std::string& output, std::string& expr_string);
-    void get_notation(BinaryOpType op_type, std::string& func_string, std::string& infix_string);
+    void get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string) const;
+    void get_binary_expr_string(BinaryOpType type, const BinaryOperands& operands, const InstructionContext& ctx, const std::string& output, std::string& expr_string) const;
+    void get_notation(BinaryOpType op_type, std::string& func_string, std::string& infix_string) const;
 };
 
 struct BinaryOpFields { std::string func_string; std::string infix_string; };
@@ -376,7 +407,7 @@ std::string signed_reloc(const InstructionContext& context) {
     return "(int16_t)" + unsigned_reloc(context);
 }
 
-void CGenerator::get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string) {
+void CGenerator::get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string) const {
     switch (operand) {
         case Operand::Rd:
             operand_string = gpr_to_string(context.rd);
@@ -503,12 +534,12 @@ void CGenerator::get_operand_string(Operand operand, UnaryOpType operation, cons
     }
 }
 
-void CGenerator::get_notation(BinaryOpType op_type, std::string& func_string, std::string& infix_string) {
+void CGenerator::get_notation(BinaryOpType op_type, std::string& func_string, std::string& infix_string) const {
     func_string = c_op_fields[static_cast<size_t>(op_type)].func_string;
     infix_string = c_op_fields[static_cast<size_t>(op_type)].infix_string;
 }
 
-void CGenerator::get_binary_expr_string(BinaryOpType type, const BinaryOperands& operands, const InstructionContext& ctx, const std::string& output, std::string& expr_string) {
+void CGenerator::get_binary_expr_string(BinaryOpType type, const BinaryOperands& operands, const InstructionContext& ctx, const std::string& output, std::string& expr_string) const {
     thread_local std::string input_a{};
     thread_local std::string input_b{};
     thread_local std::string func_string{};
@@ -519,7 +550,7 @@ void CGenerator::get_binary_expr_string(BinaryOpType type, const BinaryOperands&
     get_notation(type, func_string, infix_string);
     
     // These cases aren't strictly necessary and are just here for parity with the old recompiler output.
-    if (type == BinaryOpType::Less && !(operands.operands[1] == Operand::Zero && operands.operand_operations[1] == UnaryOpType::None)) {
+    if (type == BinaryOpType::Less && !((operands.operands[1] == Operand::Zero && operands.operand_operations[1] == UnaryOpType::None) || (operands.operands[0] == Operand::Fs || operands.operands[0] == Operand::FsDouble))) {
         expr_string = fmt::format("{} {} {} ? 1 : 0", input_a, infix_string, input_b);
     }
     else if (type == BinaryOpType::Equal && operands.operands[1] == Operand::Zero && operands.operand_operations[1] == UnaryOpType::None) {
@@ -555,7 +586,7 @@ void CGenerator::get_binary_expr_string(BinaryOpType type, const BinaryOperands&
     }
 }
 
-void CGenerator::emit_branch_condition(std::ostream& output_file, const ConditionalBranchOp& op, const InstructionContext& ctx) {
+void CGenerator::emit_branch_condition(std::ostream& output_file, const ConditionalBranchOp& op, const InstructionContext& ctx) const {
     // Thread local variables to prevent allocations when possible.
     // TODO these thread locals probably don't actually help right now, so figure out a better way to prevent allocations.
     thread_local std::string expr_string{};
@@ -563,27 +594,25 @@ void CGenerator::emit_branch_condition(std::ostream& output_file, const Conditio
     fmt::print(output_file, "if ({}) {{\n", expr_string);
 }
 
-void CGenerator::emit_branch_close(std::ostream& output_file) {
+void CGenerator::emit_branch_close(std::ostream& output_file) const {
     fmt::print(output_file, "    }}\n");
 }
 
-void CGenerator::process_binary_op(std::ostream& output_file, const BinaryOp& op, const InstructionContext& ctx) {
+void CGenerator::emit_check_fr(std::ostream& output_file, int fpr) const {
+    fmt::print(output_file, "CHECK_FR(ctx, {});\n    ", fpr);
+}
+
+void CGenerator::process_binary_op(std::ostream& output_file, const BinaryOp& op, const InstructionContext& ctx) const {
     // Thread local variables to prevent allocations when possible.
     // TODO these thread locals probably don't actually help right now, so figure out a better way to prevent allocations.
     thread_local std::string output{};
     thread_local std::string expression{};
     get_operand_string(op.output, UnaryOpType::None, ctx, output);
     get_binary_expr_string(op.type, op.operands, ctx, output, expression);
-
-    // TODO remove this after the refactor is done, temporary hack to match the old recompiler output.
-    if (op.type == BinaryOpType::LD && op.output == Operand::FtU64) {
-        fmt::print(output_file, "CHECK_FR(ctx, {});\n    ", ctx.ft);
-    }
-
     fmt::print(output_file, "{} = {};\n", output, expression);
 }
 
-void CGenerator::process_unary_op(std::ostream& output_file, const UnaryOp& op, const InstructionContext& ctx) {
+void CGenerator::process_unary_op(std::ostream& output_file, const UnaryOp& op, const InstructionContext& ctx) const {
     // Thread local variables to prevent allocations when possible.
     // TODO these thread locals probably don't actually help right now, so figure out a better way to prevent allocations.
     thread_local std::string output{};
@@ -1148,109 +1177,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         print_line("SD(ctx->f{}.u64, {}, {}{})", ft, signed_imm_string, ctx_gpr_prefix(base), base);
         break;
 
-    // Cop1 compares
-    // TODO allow NaN in ordered and unordered float comparisons, default to a compare result of 1 for ordered and 0 for unordered if a NaN is present
-    case InstrId::cpu_c_lt_s:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.fl < ctx->f{}.fl", fs, ft);
-        break;
-    case InstrId::cpu_c_olt_s:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.fl < ctx->f{}.fl", fs, ft);
-        break;
-    case InstrId::cpu_c_ult_s:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.fl < ctx->f{}.fl", fs, ft);
-        break;
-    case InstrId::cpu_c_lt_d:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.d < ctx->f{}.d", fs, ft);
-        break;
-    case InstrId::cpu_c_olt_d:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.d < ctx->f{}.d", fs, ft);
-        break;
-    case InstrId::cpu_c_ult_d:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.d < ctx->f{}.d", fs, ft);
-        break;
-    case InstrId::cpu_c_le_s:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.fl <= ctx->f{}.fl", fs, ft);
-        break;
-    case InstrId::cpu_c_ole_s:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.fl <= ctx->f{}.fl", fs, ft);
-        break;
-    case InstrId::cpu_c_ule_s:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.fl <= ctx->f{}.fl", fs, ft);
-        break;
-    case InstrId::cpu_c_le_d:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.d <= ctx->f{}.d", fs, ft);
-        break;
-    case InstrId::cpu_c_ole_d:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.d <= ctx->f{}.d", fs, ft);
-        break;
-    case InstrId::cpu_c_ule_d:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.d <= ctx->f{}.d", fs, ft);
-        break;
-    case InstrId::cpu_c_eq_s:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.fl == ctx->f{}.fl", fs, ft);
-        break;
-    case InstrId::cpu_c_ueq_s:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.fl == ctx->f{}.fl", fs, ft);
-        break;
-    case InstrId::cpu_c_ngl_s:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.fl == ctx->f{}.fl", fs, ft);
-        break;
-    case InstrId::cpu_c_seq_s:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.fl == ctx->f{}.fl", fs, ft);
-        break;
-    case InstrId::cpu_c_eq_d:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.d == ctx->f{}.d", fs, ft);
-        break;
-    case InstrId::cpu_c_ueq_d:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.d == ctx->f{}.d", fs, ft);
-        break;
-    case InstrId::cpu_c_ngl_d:
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.d == ctx->f{}.d", fs, ft);
-        break;
-    case InstrId::cpu_c_deq_d: // TODO rename to c_seq_d when fixed in rabbitizer
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("c1cs = ctx->f{}.d == ctx->f{}.d", fs, ft);
-        break;
-
     // Cop1 arithmetic
     case InstrId::cpu_mov_s:
         print_line("CHECK_FR(ctx, {})", fd);
@@ -1491,11 +1417,45 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     instruction_context.reloc_type = reloc_type;
     instruction_context.reloc_section_index = func.section_index; // TODO allow relocs to other sections?
     instruction_context.reloc_target_section_offset = reloc_target_section_offset;
+    
+    auto do_check_fr = [](std::ostream& output_file, const CGenerator& generator, const InstructionContext& ctx, Operand operand) {
+        switch (operand) {
+            case Operand::Fd:
+            case Operand::FdDouble:
+            case Operand::FdU32L:
+            case Operand::FdU32H:
+            case Operand::FdU64:
+                generator.emit_check_fr(output_file, ctx.fd);
+                break;
+            case Operand::Fs:
+            case Operand::FsDouble:
+            case Operand::FsU32L:
+            case Operand::FsU32H:
+            case Operand::FsU64:
+                generator.emit_check_fr(output_file, ctx.fs);
+                break;
+            case Operand::Ft:
+            case Operand::FtDouble:
+            case Operand::FtU32L:
+            case Operand::FtU32H:
+            case Operand::FtU64:
+                generator.emit_check_fr(output_file, ctx.ft);
+                break;
+        }
+    };
 
     auto find_binary_it = binary_ops.find(instr.getUniqueId());
     if (find_binary_it != binary_ops.end()) {
         print_indent();
-        generator.process_binary_op(output_file, find_binary_it->second, instruction_context);
+        const BinaryOp& op = find_binary_it->second;
+        
+        if (op.check_fr) {
+            do_check_fr(output_file, generator, instruction_context, op.operands.operands[0]);
+            do_check_fr(output_file, generator, instruction_context, op.operands.operands[1]);
+            do_check_fr(output_file, generator, instruction_context, op.output);
+        }
+
+        generator.process_binary_op(output_file, op, instruction_context);
         handled = true;
     }
 
