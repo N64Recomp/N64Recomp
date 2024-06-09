@@ -32,6 +32,29 @@ enum class UnaryOpType {
     Mask5, // Mask to 5 bits
     Mask6, // Mask to 5 bits
     ToInt32, // Functionally equivalent to ToS32, only exists for parity with old codegen
+    Negate,
+    AbsFloat,
+    AbsDouble,
+    SqrtFloat,
+    SqrtDouble,
+    ConvertSFromW,
+    ConvertWFromS,
+    ConvertDFromW,
+    ConvertWFromD,
+    ConvertDFromS,
+    ConvertSFromD,
+    ConvertDFromL,
+    ConvertLFromD,
+    ConvertSFromL,
+    ConvertLFromS,
+    TruncateWFromS,
+    TruncateWFromD,
+    RoundWFromS,
+    RoundWFromD,
+    CeilWFromS,
+    CeilWFromD,
+    FloorWFromS,
+    FloorWFromD
 };
 
 enum class BinaryOpType {
@@ -40,6 +63,15 @@ enum class BinaryOpType {
     Sub32,
     Add64,
     Sub64,
+    // Float arithmetic
+    AddFloat,
+    AddDouble,
+    SubFloat,
+    SubDouble,
+    MulFloat,
+    MulDouble,
+    DivFloat,
+    DivDouble,
     // Bitwise
     And64,
     Or64,
@@ -115,6 +147,10 @@ struct UnaryOp {
     UnaryOpType operation;
     Operand output;
     Operand input;
+    // Whether the FR bit needs to be checked for odd float registers for this instruction.
+    bool check_fr = false;
+    // Whether the input need to be checked for being NaN.
+    bool check_nan = false;
 };
 
 struct BinaryOperands {
@@ -133,6 +169,8 @@ struct BinaryOp {
     BinaryOperands operands;
     // Whether the FR bit needs to be checked for odd float registers for this instruction.
     bool check_fr = false;
+    // Whether the inputs need to be checked for being NaN.
+    bool check_nan = false;
 };
 
 struct ConditionalBranchOp {
@@ -154,8 +192,36 @@ const std::unordered_map<InstrId, UnaryOp> unary_ops {
     { InstrId::cpu_mflo, { UnaryOpType::None, Operand::Rd, Operand::Lo } },
     { InstrId::cpu_mtc1, { UnaryOpType::None, Operand::FsU32L, Operand::Rt } },
     { InstrId::cpu_mfc1, { UnaryOpType::ToInt32, Operand::Rt, Operand::FsU32L } },
+    // Float operations
+    { InstrId::cpu_mov_s,     { UnaryOpType::None,           Operand::Fd,       Operand::Fs,       true } },
+    { InstrId::cpu_mov_d,     { UnaryOpType::None,           Operand::FdDouble, Operand::FdDouble, true } },
+    { InstrId::cpu_neg_s,     { UnaryOpType::Negate,         Operand::Fd,       Operand::Fs,       true, true } },
+    { InstrId::cpu_neg_d,     { UnaryOpType::Negate,         Operand::FdDouble, Operand::FsDouble, true, true } },
+    { InstrId::cpu_abs_s,     { UnaryOpType::AbsFloat,       Operand::Fd,       Operand::Fs,       true, true } },
+    { InstrId::cpu_abs_d,     { UnaryOpType::AbsDouble,      Operand::FdDouble, Operand::FsDouble, true, true } },
+    { InstrId::cpu_sqrt_s,    { UnaryOpType::SqrtFloat,      Operand::Fd,       Operand::Fs,       true, true } },
+    { InstrId::cpu_sqrt_d,    { UnaryOpType::SqrtDouble,     Operand::FdDouble, Operand::FsDouble, true, true } },
+    { InstrId::cpu_cvt_s_w,   { UnaryOpType::ConvertSFromW,  Operand::Fd,       Operand::FsU32L,   true } },
+    { InstrId::cpu_cvt_w_s,   { UnaryOpType::ConvertWFromS,  Operand::FdU32L,   Operand::Fs,       true } },
+    { InstrId::cpu_cvt_d_w,   { UnaryOpType::ConvertDFromW,  Operand::FdDouble, Operand::FsU32L,   true } },
+    { InstrId::cpu_cvt_w_d,   { UnaryOpType::ConvertWFromD,  Operand::FdU32L,   Operand::FsDouble, true } },
+    { InstrId::cpu_cvt_d_s,   { UnaryOpType::ConvertDFromS,  Operand::FdDouble, Operand::Fs,       true, true } },
+    { InstrId::cpu_cvt_s_d,   { UnaryOpType::ConvertSFromD,  Operand::Fd,       Operand::FsDouble, true, true } },
+    { InstrId::cpu_cvt_d_l,   { UnaryOpType::ConvertDFromL,  Operand::FdDouble, Operand::FsU64,    true } },
+    { InstrId::cpu_cvt_l_d,   { UnaryOpType::ConvertLFromD,  Operand::FdU64,    Operand::FsDouble, true, true } },
+    { InstrId::cpu_cvt_s_l,   { UnaryOpType::ConvertSFromL,  Operand::Fd,       Operand::FsU64,    true } },
+    { InstrId::cpu_cvt_l_s,   { UnaryOpType::ConvertLFromS,  Operand::FdU64,    Operand::Fs,       true, true } },
+    { InstrId::cpu_trunc_w_s, { UnaryOpType::TruncateWFromS, Operand::FdU32L,   Operand::Fs,       true } },
+    { InstrId::cpu_trunc_w_d, { UnaryOpType::TruncateWFromD, Operand::FdU32L,   Operand::FsDouble, true } },
+    { InstrId::cpu_round_w_s, { UnaryOpType::RoundWFromS,    Operand::FdU32L,   Operand::Fs,       true } },
+    { InstrId::cpu_round_w_d, { UnaryOpType::RoundWFromD,    Operand::FdU32L,   Operand::FsDouble, true } },
+    { InstrId::cpu_ceil_w_s,  { UnaryOpType::CeilWFromS,     Operand::FdU32L,   Operand::Fs,       true } },
+    { InstrId::cpu_ceil_w_d,  { UnaryOpType::CeilWFromD,     Operand::FdU32L,   Operand::FsDouble, true } },
+    { InstrId::cpu_floor_w_s, { UnaryOpType::FloorWFromS,    Operand::FdU32L,   Operand::Fs,       true } },
+    { InstrId::cpu_floor_w_d, { UnaryOpType::FloorWFromD,    Operand::FdU32L,   Operand::FsDouble, true } },
 };
 
+// TODO fix usage of check_nan
 const std::unordered_map<InstrId, BinaryOp> binary_ops {
     // Addition/subtraction
     { InstrId::cpu_addu,   { BinaryOpType::Add32, Operand::Rd, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::Rt }}} },
@@ -208,6 +274,15 @@ const std::unordered_map<InstrId, BinaryOp> binary_ops {
     // Comparisons (immediate)
     { InstrId::cpu_slti,  { BinaryOpType::Less, Operand::Rt, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::ImmS16 }}} },
     { InstrId::cpu_sltiu, { BinaryOpType::Less, Operand::Rt, {{ UnaryOpType::ToU64, UnaryOpType::None }, { Operand::Rs, Operand::ImmS16 }}} },
+    // Float arithmetic
+    { InstrId::cpu_add_s, { BinaryOpType::AddFloat,  Operand::Fd,       {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true, true } },
+    { InstrId::cpu_add_d, { BinaryOpType::AddDouble, Operand::FdDouble, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true, true } },
+    { InstrId::cpu_sub_s, { BinaryOpType::SubFloat,  Operand::Fd,       {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true, true } },
+    { InstrId::cpu_sub_d, { BinaryOpType::SubDouble, Operand::FdDouble, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true, true } },
+    { InstrId::cpu_mul_s, { BinaryOpType::MulFloat,  Operand::Fd,       {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true, true } },
+    { InstrId::cpu_mul_d, { BinaryOpType::MulDouble, Operand::FdDouble, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true, true } },
+    { InstrId::cpu_div_s, { BinaryOpType::DivFloat,  Operand::Fd,       {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true, true } },
+    { InstrId::cpu_div_d, { BinaryOpType::DivDouble, Operand::FdDouble, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true, true } },
     // Float comparisons TODO remaining operations and investigate ordered/unordered and default values
     { InstrId::cpu_c_lt_s,  { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
     { InstrId::cpu_c_nge_s, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
@@ -300,6 +375,7 @@ public:
     void emit_branch_condition(std::ostream& output_file, const ConditionalBranchOp& op, const InstructionContext& ctx) const;
     void emit_branch_close(std::ostream& output_file) const;
     void emit_check_fr(std::ostream& output_file, int fpr) const;
+    void emit_check_nan(std::ostream& output_file, int fpr, bool is_double) const;
 private:
     void get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string) const;
     void get_binary_expr_string(BinaryOpType type, const BinaryOperands& operands, const InstructionContext& ctx, const std::string& output, std::string& expr_string) const;
@@ -327,6 +403,14 @@ std::vector<BinaryOpFields> c_op_fields = []() {
     setup_op(BinaryOpType::Add64,     "",       "+");
     setup_op(BinaryOpType::Sub64,     "",       "-");
     setup_op(BinaryOpType::And64,     "",       "&");
+    setup_op(BinaryOpType::AddFloat,  "",       "+");
+    setup_op(BinaryOpType::AddDouble, "",       "+");
+    setup_op(BinaryOpType::SubFloat,  "",       "-");
+    setup_op(BinaryOpType::SubDouble, "",       "-");
+    setup_op(BinaryOpType::MulFloat,  "MUL_S",  "");
+    setup_op(BinaryOpType::MulDouble, "MUL_D",  "");
+    setup_op(BinaryOpType::DivFloat,  "DIV_S",  "");
+    setup_op(BinaryOpType::DivDouble, "DIV_D",  "");
     setup_op(BinaryOpType::Or64,      "",       "|");
     setup_op(BinaryOpType::Nor64,     "~",      "|");
     setup_op(BinaryOpType::Xor64,     "",       "^");
@@ -531,6 +615,75 @@ void CGenerator::get_operand_string(Operand operand, UnaryOpType operation, cons
         case UnaryOpType::ToInt32:
             operand_string = "(int32_t)" + operand_string; 
             break;
+        case UnaryOpType::Negate:
+            operand_string = "-" + operand_string;
+            break;
+        case UnaryOpType::AbsFloat:
+            operand_string = "fabsf(" + operand_string + ")";
+            break;
+        case UnaryOpType::AbsDouble:
+            operand_string = "fabs(" + operand_string + ")";
+            break;
+        case UnaryOpType::SqrtFloat:
+            operand_string = "sqrtf(" + operand_string + ")";
+            break;
+        case UnaryOpType::SqrtDouble:
+            operand_string = "sqrt(" + operand_string + ")";
+            break;
+        case UnaryOpType::ConvertSFromW:
+            operand_string = "CVT_S_W(" + operand_string + ")";
+            break;
+        case UnaryOpType::ConvertWFromS:
+            operand_string = "CVT_W_S(" + operand_string + ")";
+            break;
+        case UnaryOpType::ConvertDFromW:
+            operand_string = "CVT_D_W(" + operand_string + ")";
+            break;
+        case UnaryOpType::ConvertWFromD:
+            operand_string = "CVT_W_D(" + operand_string + ")";
+            break;
+        case UnaryOpType::ConvertDFromS:
+            operand_string = "CVT_D_S(" + operand_string + ")";
+            break;
+        case UnaryOpType::ConvertSFromD:
+            operand_string = "CVT_S_D(" + operand_string + ")";
+            break;
+        case UnaryOpType::ConvertDFromL:
+            operand_string = "CVT_D_L(" + operand_string + ")";
+            break;
+        case UnaryOpType::ConvertLFromD:
+            operand_string = "CVT_L_D(" + operand_string + ")";
+            break;
+        case UnaryOpType::ConvertSFromL:
+            operand_string = "CVT_S_L(" + operand_string + ")";
+            break;
+        case UnaryOpType::ConvertLFromS:
+            operand_string = "CVT_L_S(" + operand_string + ")";
+            break;
+        case UnaryOpType::TruncateWFromS:
+            operand_string = "TRUNC_W_S(" + operand_string + ")";
+            break;
+        case UnaryOpType::TruncateWFromD:
+            operand_string = "TRUNC_W_D(" + operand_string + ")";
+            break;
+        case UnaryOpType::RoundWFromS:
+            operand_string = "lroundf(" + operand_string + ")";
+            break;
+        case UnaryOpType::RoundWFromD:
+            operand_string = "lround(" + operand_string + ")";
+            break;
+        case UnaryOpType::CeilWFromS:
+            operand_string = "S32(ceilf(" + operand_string + "))";
+            break;
+        case UnaryOpType::CeilWFromD:
+            operand_string = "S32(ceil(" + operand_string + "))";
+            break;
+        case UnaryOpType::FloorWFromS:
+            operand_string = "S32(floorf(" + operand_string + "))";
+            break;
+        case UnaryOpType::FloorWFromD:
+            operand_string = "S32(floor(" + operand_string + "))";
+            break;
     }
 }
 
@@ -600,6 +753,10 @@ void CGenerator::emit_branch_close(std::ostream& output_file) const {
 
 void CGenerator::emit_check_fr(std::ostream& output_file, int fpr) const {
     fmt::print(output_file, "CHECK_FR(ctx, {});\n    ", fpr);
+}
+
+void CGenerator::emit_check_nan(std::ostream& output_file, int fpr, bool is_double) const {
+    fmt::print(output_file, "NAN_CHECK(ctx->f{}.{}); ", fpr, is_double ? "d" : "fl");
 }
 
 void CGenerator::process_binary_op(std::ostream& output_file, const BinaryOp& op, const InstructionContext& ctx) const {
@@ -1008,34 +1165,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_sb:
         print_line("MEM_B({}, {}{}) = {}{}", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
         break;
-    // Unaligned loads
-    // examples:
-    // reg =        11111111 01234567
-    // mem @ x =             89ABCDEF
-
-    // LWL x + 0 -> FFFFFFFF 89ABCDEF
-    // LWL x + 1 -> FFFFFFFF ABCDEF67
-    // LWL x + 2 -> FFFFFFFF CDEF4567
-    // LWL x + 3 -> FFFFFFFF EF234567
-
-    // LWR x + 0 -> 00000000 01234589
-    // LWR x + 1 -> 00000000 012389AB
-    // LWR x + 2 -> 00000000 0189ABCD
-    // LWR x + 3 -> FFFFFFFF 89ABCDEF
-    // Unaligned stores
-    // examples:
-    // reg =        11111111 01234567
-    // mem @ x =             89ABCDEF
-
-    // SWL x + 0 ->          01234567
-    // SWL x + 1 ->          89012345
-    // SWL x + 2 ->          89AB0123
-    // SWL x + 3 ->          89ABCD01
-
-    // SWR x + 0 ->          67ABCDEF
-    // SWR x + 1 ->          4567CDEF
-    // SWR x + 2 ->          234567EF
-    // SWR x + 3 ->          01234567
     case InstrId::cpu_swl:
         print_line("do_swl(rdram, {}, {}{}, {}{})", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
         break;
@@ -1153,16 +1282,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         print_line("do_break({})", instr_vram);
         break;
 
-    // Cop1 loads/stores
-    //case InstrId::cpu_dmfc1:
-    //    if ((fs & 1) == 0) {
-    //        // even fpr
-    //        print_line("{}{} = ctx->f{}.u64", ctx_gpr_prefix(rt), rt, fs);
-    //    } else {
-    //        fmt::print(stderr, "Invalid operand for dmfc1: f{}\n", fs);
-    //        return false;
-    //    }
-    //    break;
+    // Cop1 stores
     case InstrId::cpu_swc1:
         if ((ft & 1) == 0) {
             // even fpr
@@ -1177,173 +1297,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         print_line("SD(ctx->f{}.u64, {}, {}{})", ft, signed_imm_string, ctx_gpr_prefix(base), base);
         break;
 
-    // Cop1 arithmetic
-    case InstrId::cpu_mov_s:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("ctx->f{}.fl = ctx->f{}.fl", fd, fs);
-        break;
-    case InstrId::cpu_mov_d:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("ctx->f{}.d = ctx->f{}.d", fd, fs);
-        break;
-    case InstrId::cpu_neg_s:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("NAN_CHECK(ctx->f{}.fl)", fs);
-        print_line("ctx->f{}.fl = -ctx->f{}.fl", fd, fs);
-        break;
-    case InstrId::cpu_neg_d:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("NAN_CHECK(ctx->f{}.d)", fs);
-        print_line("ctx->f{}.d = -ctx->f{}.d", fd, fs);
-        break;
-    case InstrId::cpu_abs_s:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("NAN_CHECK(ctx->f{}.fl)", fs);
-        print_line("ctx->f{}.fl = fabsf(ctx->f{}.fl)", fd, fs);
-        break;
-    case InstrId::cpu_abs_d:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("NAN_CHECK(ctx->f{}.d)", fs);
-        print_line("ctx->f{}.d = fabs(ctx->f{}.d)", fd, fs);
-        break;
-    case InstrId::cpu_sqrt_s:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("NAN_CHECK(ctx->f{}.fl)", fs);
-        print_line("ctx->f{}.fl = sqrtf(ctx->f{}.fl)", fd, fs);
-        break;
-    case InstrId::cpu_sqrt_d:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("NAN_CHECK(ctx->f{}.d)", fs);
-        print_line("ctx->f{}.d = sqrt(ctx->f{}.d)", fd, fs);
-        break;
-    case InstrId::cpu_add_s:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("NAN_CHECK(ctx->f{}.fl); NAN_CHECK(ctx->f{}.fl)", fs, ft);
-        print_line("ctx->f{}.fl = ctx->f{}.fl + ctx->f{}.fl", fd, fs, ft);
-        break;
-    case InstrId::cpu_add_d:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("NAN_CHECK(ctx->f{}.d); NAN_CHECK(ctx->f{}.d)", fs, ft);
-        print_line("ctx->f{}.d = ctx->f{}.d + ctx->f{}.d", fd, fs, ft);
-        break;
-    case InstrId::cpu_sub_s:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("NAN_CHECK(ctx->f{}.fl); NAN_CHECK(ctx->f{}.fl)", fs, ft);
-        print_line("ctx->f{}.fl = ctx->f{}.fl - ctx->f{}.fl", fd, fs, ft);
-        break;
-    case InstrId::cpu_sub_d:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("NAN_CHECK(ctx->f{}.d); NAN_CHECK(ctx->f{}.d)", fs, ft);
-        print_line("ctx->f{}.d = ctx->f{}.d - ctx->f{}.d", fd, fs, ft);
-        break;
-    case InstrId::cpu_mul_s:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("NAN_CHECK(ctx->f{}.fl); NAN_CHECK(ctx->f{}.fl)", fs, ft);
-        print_line("ctx->f{}.fl = MUL_S(ctx->f{}.fl, ctx->f{}.fl)", fd, fs, ft);
-        break;
-    case InstrId::cpu_mul_d:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("NAN_CHECK(ctx->f{}.d); NAN_CHECK(ctx->f{}.d)", fs, ft);
-        print_line("ctx->f{}.d = MUL_D(ctx->f{}.d, ctx->f{}.d)", fd, fs, ft);
-        break;
-    case InstrId::cpu_div_s:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("NAN_CHECK(ctx->f{}.fl); NAN_CHECK(ctx->f{}.fl)", fs, ft);
-        print_line("ctx->f{}.fl = DIV_S(ctx->f{}.fl, ctx->f{}.fl)", fd, fs, ft);
-        break;
-    case InstrId::cpu_div_d:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("NAN_CHECK(ctx->f{}.d); NAN_CHECK(ctx->f{}.d)", fs, ft);
-        print_line("ctx->f{}.d = DIV_D(ctx->f{}.d, ctx->f{}.d)", fd, fs, ft);
-        break;
-    case InstrId::cpu_cvt_s_w:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("ctx->f{}.fl = CVT_S_W(ctx->f{}.u32l)", fd, fs);
-        break;
-    case InstrId::cpu_cvt_d_w:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("ctx->f{}.d = CVT_D_W(ctx->f{}.u32l)", fd, fs);
-        break;
-    case InstrId::cpu_cvt_d_s:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("NAN_CHECK(ctx->f{}.fl)", fs);
-        print_line("ctx->f{}.d = CVT_D_S(ctx->f{}.fl)", fd, fs);
-        break;
-    case InstrId::cpu_cvt_s_d:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("NAN_CHECK(ctx->f{}.d)", fs);
-        print_line("ctx->f{}.fl = CVT_S_D(ctx->f{}.d)", fd, fs);
-        break;
-    case InstrId::cpu_cvt_d_l:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("ctx->f{}.d = CVT_D_L(ctx->f{}.u64)", fd, fs);
-        break;
-    case InstrId::cpu_cvt_l_d:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("NAN_CHECK(ctx->f{}.d)", fs);
-        print_line("ctx->f{}.u64 = CVT_L_D(ctx->f{}.d)", fd, fs);
-        break;
-    case InstrId::cpu_cvt_s_l:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("ctx->f{}.fl = CVT_S_L(ctx->f{}.u64)", fd, fs);
-        break;
-    case InstrId::cpu_cvt_l_s:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("NAN_CHECK(ctx->f{}.fl)", fs);
-        print_line("ctx->f{}.u64 = CVT_L_S(ctx->f{}.fl)", fd, fs);
-        break;
-    case InstrId::cpu_trunc_w_s:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("ctx->f{}.u32l = TRUNC_W_S(ctx->f{}.fl)", fd, fs);
-        break;
-    case InstrId::cpu_trunc_w_d:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("ctx->f{}.u32l = TRUNC_W_D(ctx->f{}.d)", fd, fs);
-        break;
-    //case InstrId::cpu_trunc_l_s:
-    //    print_line("CHECK_FR(ctx, {})", fd);
-    //    print_line("CHECK_FR(ctx, {})", fs);
-    //    print_line("ctx->f{}.u64 = TRUNC_L_S(ctx->f{}.fl)", fd, fs);
-    //    break;
-    //case InstrId::cpu_trunc_l_d:
-    //    print_line("CHECK_FR(ctx, {})", fd);
-    //    print_line("CHECK_FR(ctx, {})", fs);
-    //    print_line("ctx->f{}.u64 = TRUNC_L_D(ctx->f{}.d)", fd, fs);
-    //    break;
+    // Cop1 rounding mode
     case InstrId::cpu_ctc1:
         if (cop1_cs != 31) {
             fmt::print(stderr, "Invalid FP control register for ctc1: {}\n", cop1_cs);
@@ -1357,46 +1311,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             return false;
         }
         print_line("{}{} = rounding_mode", ctx_gpr_prefix(rt), rt);
-        break;
-    case InstrId::cpu_cvt_w_s:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("ctx->f{}.u32l = CVT_W_S(ctx->f{}.fl)", fd, fs);
-        break;
-    case InstrId::cpu_cvt_w_d:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("ctx->f{}.u32l = CVT_W_D(ctx->f{}.d)", fd, fs);
-        break;
-    case InstrId::cpu_round_w_s:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("ctx->f{}.u32l = lroundf(ctx->f{}.fl)", fd, fs);
-        break;
-    case InstrId::cpu_round_w_d:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("ctx->f{}.u32l = lround(ctx->f{}.d)", fd, fs);
-        break;
-    case InstrId::cpu_ceil_w_s:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("ctx->f{}.u32l = S32(ceilf(ctx->f{}.fl))", fd, fs);
-        break;
-    case InstrId::cpu_ceil_w_d:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("ctx->f{}.u32l = S32(ceil(ctx->f{}.d))", fd, fs);
-        break;
-    case InstrId::cpu_floor_w_s:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("ctx->f{}.u32l = S32(floorf(ctx->f{}.fl))", fd, fs);
-        break;
-    case InstrId::cpu_floor_w_d:
-        print_line("CHECK_FR(ctx, {})", fd);
-        print_line("CHECK_FR(ctx, {})", fs);
-        print_line("ctx->f{}.u32l = S32(floor(ctx->f{}.d))", fd, fs);
         break;
     default:
         handled = false;
@@ -1443,6 +1357,29 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
                 break;
         }
     };
+    
+    auto do_check_nan = [](std::ostream& output_file, const CGenerator& generator, const InstructionContext& ctx, Operand operand) {
+        switch (operand) {
+            case Operand::Fd:
+                generator.emit_check_nan(output_file, ctx.fd, false);
+                break;
+            case Operand::Fs:
+                generator.emit_check_nan(output_file, ctx.fs, false);
+                break;
+            case Operand::Ft:
+                generator.emit_check_nan(output_file, ctx.ft, false);
+                break;
+            case Operand::FdDouble:
+                generator.emit_check_nan(output_file, ctx.fd, true);
+                break;
+            case Operand::FsDouble:
+                generator.emit_check_nan(output_file, ctx.fs, true);
+                break;
+            case Operand::FtDouble:
+                generator.emit_check_nan(output_file, ctx.ft, true);
+                break;
+        }
+    };
 
     auto find_binary_it = binary_ops.find(instr.getUniqueId());
     if (find_binary_it != binary_ops.end()) {
@@ -1450,9 +1387,15 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         const BinaryOp& op = find_binary_it->second;
         
         if (op.check_fr) {
+            do_check_fr(output_file, generator, instruction_context, op.output);
             do_check_fr(output_file, generator, instruction_context, op.operands.operands[0]);
             do_check_fr(output_file, generator, instruction_context, op.operands.operands[1]);
-            do_check_fr(output_file, generator, instruction_context, op.output);
+        }
+
+        if (op.check_nan) {
+            do_check_nan(output_file, generator, instruction_context, op.operands.operands[0]);
+            do_check_nan(output_file, generator, instruction_context, op.operands.operands[1]);
+            fmt::print(output_file, "\n    ");
         }
 
         generator.process_binary_op(output_file, op, instruction_context);
@@ -1462,7 +1405,19 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     auto find_unary_it = unary_ops.find(instr.getUniqueId());
     if (find_unary_it != unary_ops.end()) {
         print_indent();
-        generator.process_unary_op(output_file, find_unary_it->second, instruction_context);
+        const UnaryOp& op = find_unary_it->second;
+        
+        if (op.check_fr) {
+            do_check_fr(output_file, generator, instruction_context, op.output);
+            do_check_fr(output_file, generator, instruction_context, op.input);
+        }
+
+        if (op.check_nan) {
+            do_check_nan(output_file, generator, instruction_context, op.input);
+            fmt::print(output_file, "\n    ");
+        }
+
+        generator.process_unary_op(output_file, op, instruction_context);
         handled = true;
     }
 
