@@ -170,6 +170,21 @@ enum class Operand {
     Fd, // FPR
     Fs, // FPR
     Ft, // FPR
+    FdDouble, // Double float in fd FPR
+    FsDouble, // Double float in fs FPR
+    FtDouble, // Double float in ft FPR
+    // Raw low 32-bit values of FPRs with handling for mips3 float mode behavior
+    FdU32L,
+    FsU32L,
+    FtU32L,
+    // Raw high 32-bit values of FPRs with handling for mips3 float mode behavior
+    FdU32H,
+    FsU32H,
+    FtU32H,
+    // Raw 64-bit values of FPRs
+    FdU64,
+    FsU64,
+    FtU64,
     ImmU16, // 16-bit immediate, unsigned
     ImmS16, // 16-bit immediate, signed
     Sa, // Shift amount
@@ -221,6 +236,8 @@ const std::unordered_map<InstrId, UnaryOp> unary_ops {
     { InstrId::cpu_mtlo, { UnaryOpType::None, Operand::Lo, Operand::Rs } },
     { InstrId::cpu_mfhi, { UnaryOpType::None, Operand::Rd, Operand::Hi } },
     { InstrId::cpu_mflo, { UnaryOpType::None, Operand::Rd, Operand::Lo } },
+    { InstrId::cpu_mtc1, { UnaryOpType::None, Operand::FsU32L, Operand::Rt } },
+    { InstrId::cpu_mfc1, { UnaryOpType::ToInt32, Operand::Rt, Operand::FsU32L } },
 };
 
 const std::unordered_map<InstrId, BinaryOp> binary_ops {
@@ -276,17 +293,19 @@ const std::unordered_map<InstrId, BinaryOp> binary_ops {
     { InstrId::cpu_slti,  { BinaryOpType::Less, Operand::Rt, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::ImmS16 }}} },
     { InstrId::cpu_sltiu, { BinaryOpType::Less, Operand::Rt, {{ UnaryOpType::ToU64, UnaryOpType::None }, { Operand::Rs, Operand::ImmS16 }}} },
     // Loads
-    { InstrId::cpu_ld,  { BinaryOpType::LD,  Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-    { InstrId::cpu_lw,  { BinaryOpType::LW,  Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-    { InstrId::cpu_lwu, { BinaryOpType::LWU, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-    { InstrId::cpu_lh,  { BinaryOpType::LH,  Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-    { InstrId::cpu_lhu, { BinaryOpType::LHU, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-    { InstrId::cpu_lb,  { BinaryOpType::LB,  Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-    { InstrId::cpu_lbu, { BinaryOpType::LBU, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-    { InstrId::cpu_ldl, { BinaryOpType::LDL, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-    { InstrId::cpu_ldr, { BinaryOpType::LDR, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-    { InstrId::cpu_lwl, { BinaryOpType::LWL, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-    { InstrId::cpu_lwr, { BinaryOpType::LWR, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_ld,   { BinaryOpType::LD,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lw,   { BinaryOpType::LW,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lwu,  { BinaryOpType::LWU, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lh,   { BinaryOpType::LH,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lhu,  { BinaryOpType::LHU, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lb,   { BinaryOpType::LB,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lbu,  { BinaryOpType::LBU, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_ldl,  { BinaryOpType::LDL, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_ldr,  { BinaryOpType::LDR, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lwl,  { BinaryOpType::LWL, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lwr,  { BinaryOpType::LWR, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_lwc1, { BinaryOpType::LW, Operand::FtU32L, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
+    { InstrId::cpu_ldc1, { BinaryOpType::LD, Operand::FtU64,  {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
 };
 
 const std::unordered_map<InstrId, ConditionalBranchOp> conditional_branch_ops {
@@ -407,6 +426,27 @@ std::string gpr_to_string(int gpr_index) {
     return fmt::format("ctx->r{}", gpr_index);
 }
 
+std::string fpr_to_string(int fpr_index) {
+    return fmt::format("ctx->f{}.fl", fpr_index);
+}
+
+std::string fpr_double_to_string(int fpr_index) {
+    return fmt::format("ctx->f{}.d", fpr_index);
+}
+
+std::string fpr_u32l_to_string(int fpr_index) {
+    if (fpr_index & 1) {
+        return fmt::format("ctx->f_odd[({} - 1) * 2]", fpr_index);
+    }
+    else {
+        return fmt::format("ctx->f{}.u32l", fpr_index);
+    }
+}
+
+std::string fpr_u64_to_string(int fpr_index) {
+    return fmt::format("ctx->f{}.u64", fpr_index);
+}
+
 std::string unsigned_reloc(const InstructionContext& context) {
     switch (context.reloc_type) {
         case RecompPort::RelocType::R_MIPS_HI16:
@@ -434,13 +474,49 @@ void CGenerator::get_operand_string(Operand operand, UnaryOpType operation, cons
             operand_string = gpr_to_string(context.rt);
             break;
         case Operand::Fd:
-            assert(false);
+            operand_string = fpr_to_string(context.fd);
             break;
         case Operand::Fs:
-            assert(false);
+            operand_string = fpr_to_string(context.fs);
             break;
         case Operand::Ft:
+            operand_string = fpr_to_string(context.ft);
+            break;
+        case Operand::FdDouble:
+            operand_string = fpr_double_to_string(context.fd);
+            break;
+        case Operand::FsDouble:
+            operand_string = fpr_double_to_string(context.fs);
+            break;
+        case Operand::FtDouble:
+            operand_string = fpr_double_to_string(context.ft);
+            break;
+        case Operand::FdU32L:
+            operand_string = fpr_u32l_to_string(context.fd);
+            break;
+        case Operand::FsU32L:
+            operand_string = fpr_u32l_to_string(context.fs);
+            break;
+        case Operand::FtU32L:
+            operand_string = fpr_u32l_to_string(context.ft);
+            break;
+        case Operand::FdU32H:
             assert(false);
+            break;
+        case Operand::FsU32H:
+            assert(false);
+            break;
+        case Operand::FtU32H:
+            assert(false);
+            break;
+        case Operand::FdU64:
+            operand_string = fpr_u64_to_string(context.fd);
+            break;
+        case Operand::FsU64:
+            operand_string = fpr_u64_to_string(context.fs);
+            break;
+        case Operand::FtU64:
+            operand_string = fpr_u64_to_string(context.ft);
             break;
         case Operand::ImmU16:
             if (context.reloc_type != RecompPort::RelocType::R_MIPS_NONE) {
@@ -584,6 +660,11 @@ void CGenerator::process_binary_op(std::ostream& output_file, const BinaryOp& op
     thread_local std::string expression{};
     get_operand_string(op.output, UnaryOpType::None, ctx, output);
     get_binary_expr_string(op.type, op.operands, ctx, output, expression);
+
+    // TODO remove this after the refactor is done, temporary hack to match the old recompiler output.
+    if (op.type == BinaryOpType::LD && op.output == Operand::FtU64) {
+        fmt::print(output_file, "CHECK_FR(ctx, {});\n    ", ctx.ft);
+    }
 
     fmt::print(output_file, "{} = {};\n", output, expression);
 }
@@ -1108,25 +1189,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         break;
 
     // Cop1 loads/stores
-    case InstrId::cpu_mtc1:
-        if ((fs & 1) == 0) {
-            // even fpr
-            print_line("ctx->f{}.u32l = {}{}", fs, ctx_gpr_prefix(rt), rt);
-        }
-        else {
-            // odd fpr
-            print_line("ctx->f_odd[({} - 1) * 2] = {}{}", fs, ctx_gpr_prefix(rt), rt);
-        }
-        break;
-    case InstrId::cpu_mfc1:
-        if ((fs & 1) == 0) {
-            // even fpr
-            print_line("{}{} = (int32_t)ctx->f{}.u32l", ctx_gpr_prefix(rt), rt, fs);
-        } else {
-            // odd fpr
-            print_line("{}{} = (int32_t)ctx->f_odd[({} - 1) * 2]", ctx_gpr_prefix(rt), rt, fs);
-        }
-        break;
     //case InstrId::cpu_dmfc1:
     //    if ((fs & 1) == 0) {
     //        // even fpr
@@ -1136,19 +1198,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     //        return false;
     //    }
     //    break;
-    case InstrId::cpu_lwc1:
-        if ((ft & 1) == 0) {
-            // even fpr
-            print_line("ctx->f{}.u32l = MEM_W({}, {}{})", ft, signed_imm_string, ctx_gpr_prefix(base), base);
-        } else {
-            // odd fpr
-            print_line("ctx->f_odd[({} - 1) * 2] = MEM_W({}, {}{})", ft, signed_imm_string, ctx_gpr_prefix(base), base);
-        }
-        break;
-    case InstrId::cpu_ldc1:
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("ctx->f{}.u64 = LD({}, {}{})", ft, signed_imm_string, ctx_gpr_prefix(base), base);
-        break;
     case InstrId::cpu_swc1:
         if ((ft & 1) == 0) {
             // even fpr
