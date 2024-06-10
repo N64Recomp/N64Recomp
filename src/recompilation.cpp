@@ -106,6 +106,19 @@ std::string_view ctx_gpr_prefix(int reg) {
     return "";
 }
 
+enum class StoreOpType {
+    SD,
+    SDL,
+    SDR,
+    SW,
+    SWL,
+    SWR,
+    SH,
+    SB,
+    SDC1,
+    SWC1
+};
+
 enum class UnaryOpType {
     None,
     ToS32,
@@ -227,6 +240,11 @@ enum class Operand {
     Zero,
 
     Base = Rs, // Alias for Rs for loads
+};
+
+struct StoreOp {
+    StoreOpType type;
+    Operand value_input;
 };
 
 struct UnaryOp {
@@ -434,6 +452,19 @@ const std::unordered_map<InstrId, ConditionalBranchOp> conditional_branch_ops {
     { InstrId::cpu_bc1tl,   { BinaryOpType::Equal,     {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Cop1cs, Operand::Zero }}, false, true }},
 };
 
+const std::unordered_map<InstrId, StoreOp> store_ops {
+    { InstrId::cpu_sd,   { StoreOpType::SD,   Operand::Rt }},
+    { InstrId::cpu_sdl,  { StoreOpType::SDL,  Operand::Rt }},
+    { InstrId::cpu_sdr,  { StoreOpType::SDR,  Operand::Rt }},
+    { InstrId::cpu_sw,   { StoreOpType::SW,   Operand::Rt }},
+    { InstrId::cpu_swl,  { StoreOpType::SWL,  Operand::Rt }},
+    { InstrId::cpu_swr,  { StoreOpType::SWR,  Operand::Rt }},
+    { InstrId::cpu_sh,   { StoreOpType::SH,   Operand::Rt }},
+    { InstrId::cpu_sb,   { StoreOpType::SB,   Operand::Rt }},
+    { InstrId::cpu_sdc1, { StoreOpType::SDC1, Operand::FtU64 }},
+    { InstrId::cpu_swc1, { StoreOpType::SWC1, Operand::FtU32L }},
+};
+
 struct InstructionContext {
     int rd;
     int rs;
@@ -458,6 +489,7 @@ public:
     CGenerator() = default;
     void process_binary_op(std::ostream& output_file, const BinaryOp& op, const InstructionContext& ctx) const;
     void process_unary_op(std::ostream& output_file, const UnaryOp& op, const InstructionContext& ctx) const;
+    void process_store_op(std::ostream& output_file, const StoreOp& op, const InstructionContext& ctx) const;
     void emit_branch_condition(std::ostream& output_file, const ConditionalBranchOp& op, const InstructionContext& ctx) const;
     void emit_branch_close(std::ostream& output_file) const;
     void emit_check_fr(std::ostream& output_file, int fpr) const;
@@ -866,6 +898,84 @@ void CGenerator::process_unary_op(std::ostream& output_file, const UnaryOp& op, 
     fmt::print(output_file, "{} = {};\n", output, input);
 }
 
+void CGenerator::process_store_op(std::ostream& output_file, const StoreOp& op, const InstructionContext& ctx) const {
+    // Thread local variables to prevent allocations when possible.
+    // TODO these thread locals probably don't actually help right now, so figure out a better way to prevent allocations.
+    thread_local std::string base_str{};
+    thread_local std::string imm_str{};
+    thread_local std::string value_input{};
+    bool is_infix;
+    get_operand_string(Operand::Base, UnaryOpType::None, ctx, base_str);
+    get_operand_string(Operand::ImmS16, UnaryOpType::None, ctx, imm_str);
+    get_operand_string(op.value_input, UnaryOpType::None, ctx, value_input);
+
+    enum class StoreSyntax {
+        Func,
+        FuncWithRdram,
+        Assignment,
+    };
+
+    StoreSyntax syntax;
+    std::string func_text;
+
+    switch (op.type) {
+        case StoreOpType::SD:
+            func_text = "SD";
+            syntax = StoreSyntax::Func;
+            break;
+        case StoreOpType::SDL:
+            func_text = "do_sdl";
+            syntax = StoreSyntax::FuncWithRdram;
+            break;
+        case StoreOpType::SDR:
+            func_text = "do_sdr";
+            syntax = StoreSyntax::FuncWithRdram;
+            break;
+        case StoreOpType::SW:
+            func_text = "MEM_W";
+            syntax = StoreSyntax::Assignment;
+            break;
+        case StoreOpType::SWL:
+            func_text = "do_swl";
+            syntax = StoreSyntax::FuncWithRdram;
+            break;
+        case StoreOpType::SWR:
+            func_text = "do_swr";
+            syntax = StoreSyntax::FuncWithRdram;
+            break;
+        case StoreOpType::SH:
+            func_text = "MEM_H";
+            syntax = StoreSyntax::Assignment;
+            break;
+        case StoreOpType::SB:
+            func_text = "MEM_B";
+            syntax = StoreSyntax::Assignment;
+            break;
+        case StoreOpType::SDC1:
+            func_text = "SD";
+            syntax = StoreSyntax::Func;
+            break;
+        case StoreOpType::SWC1:
+            func_text = "MEM_W";
+            syntax = StoreSyntax::Assignment;
+            break;
+        default:
+            throw std::runtime_error("Unhandled store op");
+    }
+
+    switch (syntax) {
+        case StoreSyntax::Func:
+            fmt::print(output_file, "{}({}, {}, {});\n", func_text, value_input, imm_str, base_str);
+            break;
+        case StoreSyntax::FuncWithRdram:
+            fmt::print(output_file, "{}(rdram, {}, {}, {});\n", func_text, imm_str, base_str, value_input);
+            break;
+        case StoreSyntax::Assignment:
+            fmt::print(output_file, "{}({}, {}) = {};\n", func_text, imm_str, base_str, value_input);
+            break;
+    }
+}
+
 // Major TODO, this function grew very organically and needs to be cleaned up. Ideally, it'll get split up into some sort of lookup table grouped by similar instruction types.
 bool process_instruction(const RecompPort::Context& context, const RecompPort::Config& config, const RecompPort::Function& func, const RecompPort::FunctionStats& stats, const std::unordered_set<uint32_t>& skipped_insns, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ofstream& output_file, bool indent, bool emit_link_branch, int link_branch_index, size_t reloc_index, bool& needs_link_branch, bool& is_branch_likely, std::span<std::vector<uint32_t>> static_funcs_out) {
     const auto& section = context.sections[func.section_index];
@@ -899,8 +1009,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         return true;
     }
 
-    bool at_reloc = false;
-    bool reloc_handled = false;
     RecompPort::RelocType reloc_type = RecompPort::RelocType::R_MIPS_NONE;
     uint32_t reloc_section = 0;
     uint32_t reloc_target_section_offset = 0;
@@ -930,8 +1038,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
                     reloc_target_section_offset = reloc.section_offset;
                     // Ignore all relocs that aren't HI16 or LO16.
                     if (reloc_type == RecompPort::RelocType::R_MIPS_HI16 || reloc_type == RecompPort::RelocType::R_MIPS_LO16 || reloc_type == RecompPort::RelocType::R_MIPS_26) {
-                        at_reloc = true;
-
                         if (reloc.reference_symbol) {
                             reloc_reference_symbol = reloc.symbol_index;
                             static RecompPort::ReferenceSection dummy_section{
@@ -941,8 +1047,8 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
                                 .relocatable = false
                             };
                             const auto& reloc_reference_section = reloc.target_section == RecompPort::SectionAbsolute ? dummy_section : context.reference_sections[reloc.target_section];
-                            if (!reloc_reference_section.relocatable) {
-                                at_reloc = false;
+                            // Resolve HI16 and LO16 reference symbol relocs to non-relocatable sections by patching the instruction immediate.
+                            if (!reloc_reference_section.relocatable && (reloc_type == RecompPort::RelocType::R_MIPS_HI16 || reloc_type == RecompPort::RelocType::R_MIPS_LO16)) {
                                 uint32_t full_immediate = reloc.section_offset + reloc_reference_section.ram_addr;
                                 
                                 if (reloc_type == RecompPort::RelocType::R_MIPS_HI16) {
@@ -953,6 +1059,10 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
                                     imm = full_immediate & 0xFFFF;
                                     reloc_type = RecompPort::RelocType::R_MIPS_NONE;
                                 }
+                                
+                                // The reloc has been processed, so delete it to none to prevent it getting processed a second time during instruction code generation.
+                                reloc_type = RecompPort::RelocType::R_MIPS_NONE;
+                                reloc_reference_symbol = (size_t)-1;
                             }
                         }
                     }
@@ -970,11 +1080,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         print_indent();
         fmt::vprint(output_file, fmt_str, fmt::make_format_args(args...));
         fmt::print(output_file, ";\n");
-    };
-
-    auto print_branch_condition = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts ...args) {
-        fmt::vprint(output_file, fmt_str, fmt::make_format_args(args...));
-        fmt::print(output_file, " ");
     };
 
     auto print_unconditional_branch = [&]<typename... Ts>(fmt::format_string<Ts...> fmt_str, Ts ...args) {
@@ -1109,33 +1214,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
 
     int cop1_cs = (int)instr.Get_cop1cs();
 
-    std::string unsigned_imm_string;
-    std::string signed_imm_string;
-
-    if (!at_reloc) {
-        unsigned_imm_string = fmt::format("{:#X}", imm);
-        signed_imm_string = fmt::format("{:#X}", (int16_t)imm);
-    } else {
-        switch (reloc_type) {
-            case RecompPort::RelocType::R_MIPS_HI16:
-                unsigned_imm_string = fmt::format("RELOC_HI16({}, {:#X})", reloc_section, reloc_target_section_offset);
-                signed_imm_string = "(int16_t)" + unsigned_imm_string;
-                reloc_handled = true;
-                break;
-            case RecompPort::RelocType::R_MIPS_LO16:
-                unsigned_imm_string = fmt::format("RELOC_LO16({}, {:#X})", reloc_section, reloc_target_section_offset);
-                signed_imm_string = "(int16_t)" + unsigned_imm_string;
-                reloc_handled = true;
-                break;
-            case RecompPort::RelocType::R_MIPS_26:
-                // Nothing to do here, this will be handled by print_func_call.
-                reloc_handled = true;
-                break;
-            default:
-                throw std::runtime_error(fmt::format("Unexpected reloc type {} in {}\n", static_cast<int>(reloc_type), func.name));
-        }
-    }
-
     bool handled = true;
 
     switch (instr.getUniqueId()) {
@@ -1210,26 +1288,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_ddivu:
         print_line("DDIVU(U64({}{}), U64({}{}), &lo, &hi)", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
         break;
-    // Stores
-    case InstrId::cpu_sd:
-        print_line("SD({}{}, {}, {}{})", ctx_gpr_prefix(rt), rt, signed_imm_string, ctx_gpr_prefix(base), base);
-        break;
-    case InstrId::cpu_sw:
-        print_line("MEM_W({}, {}{}) = {}{}", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
-        break;
-    case InstrId::cpu_sh:
-        print_line("MEM_H({}, {}{}) = {}{}", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
-        break;
-    case InstrId::cpu_sb:
-        print_line("MEM_B({}, {}{}) = {}{}", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
-        break;
-    case InstrId::cpu_swl:
-        print_line("do_swl(rdram, {}, {}{}, {}{})", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
-        break;
-    case InstrId::cpu_swr:
-        print_line("do_swr(rdram, {}, {}{}, {}{})", signed_imm_string, ctx_gpr_prefix(base), base, ctx_gpr_prefix(rt), rt);
-        break;
-
     // Branches
     case InstrId::cpu_jal:
         if (!print_func_call(instr.getBranchVramGeneric())) {
@@ -1344,21 +1402,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         break;
     case InstrId::cpu_break:
         print_line("do_break({})", instr_vram);
-        break;
-
-    // Cop1 stores
-    case InstrId::cpu_swc1:
-        if ((ft & 1) == 0) {
-            // even fpr
-            print_line("MEM_W({}, {}{}) = ctx->f{}.u32l", signed_imm_string, ctx_gpr_prefix(base), base, ft);
-        } else {
-            // odd fpr
-            print_line("MEM_W({}, {}{}) = ctx->f_odd[({} - 1) * 2]", signed_imm_string, ctx_gpr_prefix(base), base, ft);
-        }
-        break;
-    case InstrId::cpu_sdc1:
-        print_line("CHECK_FR(ctx, {})", ft);
-        print_line("SD(ctx->f{}.u64, {}, {}{})", ft, signed_imm_string, ctx_gpr_prefix(base), base);
         break;
 
     // Cop1 rounding mode
@@ -1505,6 +1548,19 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         generator.emit_branch_close(output_file);
         
         is_branch_likely = find_conditional_branch_it->second.likely;
+        handled = true;
+    }
+
+    auto find_store_it = store_ops.find(instr.getUniqueId());
+    if (find_store_it != store_ops.end()) {
+        print_indent();
+        const StoreOp& op = find_store_it->second;
+
+        if (op.type == StoreOpType::SDC1) {
+            do_check_fr(output_file, generator, instruction_context, op.value_input);
+        }
+
+        generator.process_store_op(output_file, op, instruction_context);
         handled = true;
     }
 
