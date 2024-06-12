@@ -70,6 +70,8 @@ target_sources(N64Recomp PRIVATE
     ${CMAKE_SOURCE_DIR}/src/analysis.cpp
     ${CMAKE_SOURCE_DIR}/src/config.cpp
     ${CMAKE_SOURCE_DIR}/src/main.cpp
+    ${CMAKE_SOURCE_DIR}/src/operations.cpp
+    ${CMAKE_SOURCE_DIR}/src/cgenerator.cpp
     ${CMAKE_SOURCE_DIR}/src/recompilation.cpp)
 
 target_include_directories(N64Recomp PRIVATE
