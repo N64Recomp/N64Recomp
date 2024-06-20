@@ -11,7 +11,7 @@ namespace RecompPort {
         { InstrId::cpu_mfc1, { UnaryOpType::ToInt32, Operand::Rt, Operand::FsU32L } },
         // Float operations
         { InstrId::cpu_mov_s,     { UnaryOpType::None,           Operand::Fd,       Operand::Fs,       true } },
-        { InstrId::cpu_mov_d,     { UnaryOpType::None,           Operand::FdDouble, Operand::FdDouble, true } },
+        { InstrId::cpu_mov_d,     { UnaryOpType::None,           Operand::FdDouble, Operand::FsDouble, true } },
         { InstrId::cpu_neg_s,     { UnaryOpType::Negate,         Operand::Fd,       Operand::Fs,       true, true } },
         { InstrId::cpu_neg_d,     { UnaryOpType::Negate,         Operand::FdDouble, Operand::FsDouble, true, true } },
         { InstrId::cpu_abs_s,     { UnaryOpType::AbsFloat,       Operand::Fd,       Operand::Fs,       true, true } },
