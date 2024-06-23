@@ -672,10 +672,32 @@ std::unordered_set<std::string> renamed_funcs{
     "_matherr",
 };
 
-bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint, bool has_entrypoint, bool use_absolute_symbols, bool do_renaming) {
+struct DataSymbol {
+    uint32_t vram;
+    std::string name;
+
+    DataSymbol(uint32_t vram, std::string&& name) : vram(vram), name(std::move(name)) {}
+};
+
+bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint, bool has_entrypoint, bool use_absolute_symbols, bool dumping_context, std::unordered_map<uint16_t, std::vector<DataSymbol>>& data_syms) {
     bool found_entrypoint_func = false;
     ELFIO::symbol_section_accessor symbols{ elf_file, symtab_section };
     fmt::print("Num symbols: {}\n", symbols.get_symbols_num());
+
+    std::unordered_map<uint16_t, uint16_t> bss_section_to_target_section{};
+
+    // Create a mapping of bss section to the corresponding non-bss section. This is only used when dumping context in order
+    // for patches and mods to correctly relocate symbols in bss. This mapping only matters for relocatable sections.
+    if (dumping_context) {
+        // Process bss and reloc sections
+        for (size_t cur_section_index = 0; cur_section_index < context.sections.size(); cur_section_index++) {
+            const RecompPort::Section& cur_section = context.sections[cur_section_index];
+            // Check if a bss section was found that corresponds with this section.
+            if (cur_section.bss_section_index != (uint16_t)-1) {
+                bss_section_to_target_section[cur_section.bss_section_index] = cur_section_index;
+            }
+        }
+    }
 
     for (int sym_index = 0; sym_index < symbols.get_symbols_num(); sym_index++) {
         std::string   name;
@@ -687,6 +709,7 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
         unsigned char other;
         bool ignored = false;
         bool reimplemented = false;
+        bool recorded_symbol = false;
 
         // Read symbol properties
         symbols.get_symbol(sym_index, name, value, size, bind, type,
@@ -709,108 +732,135 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
             continue;
         }
 
-        if (section_index >= context.sections.size()) {
-            continue;
-        }
-        
-        // Check if this symbol is the entrypoint
-        if (has_entrypoint && value == entrypoint && type == ELFIO::STT_FUNC) {
-            if (found_entrypoint_func) {
-                fmt::print(stderr, "Ambiguous entrypoint: {}\n", name);
-                return false;
+        if (section_index < context.sections.size()) {        
+            // Check if this symbol is the entrypoint
+            if (has_entrypoint && value == entrypoint && type == ELFIO::STT_FUNC) {
+                if (found_entrypoint_func) {
+                    fmt::print(stderr, "Ambiguous entrypoint: {}\n", name);
+                    return false;
+                }
+                found_entrypoint_func = true;
+                fmt::print("Found entrypoint, original name: {}\n", name);
+                size = 0x50; // dummy size for entrypoints, should cover them all
+                name = "recomp_entrypoint";
             }
-            found_entrypoint_func = true;
-            fmt::print("Found entrypoint, original name: {}\n", name);
-            size = 0x50; // dummy size for entrypoints, should cover them all
-            name = "recomp_entrypoint";
-        }
 
-        // Check if this symbol has a size override
-        auto size_find = context.manually_sized_funcs.find(name);
-        if (size_find != context.manually_sized_funcs.end()) {
-            size = size_find->second;
-            type = ELFIO::STT_FUNC;
-        }
-
-        if (do_renaming) {
-            if (reimplemented_funcs.contains(name)) {
-                reimplemented = true;
-                name = name + "_recomp";
-                ignored = true;
-            } else if (ignored_funcs.contains(name)) {
-                name = name + "_recomp";
-                ignored = true;
+            // Check if this symbol has a size override
+            auto size_find = context.manually_sized_funcs.find(name);
+            if (size_find != context.manually_sized_funcs.end()) {
+                size = size_find->second;
+                type = ELFIO::STT_FUNC;
             }
-        }
 
-        auto& section = context.sections[section_index];
-
-        // Check if this symbol is a function or has no type (like a regular glabel would)
-        // Symbols with no type have a dummy entry created so that their symbol can be looked up for function calls
-        if (ignored || type == ELFIO::STT_FUNC || type == ELFIO::STT_NOTYPE || type == ELFIO::STT_OBJECT) {
-            if (do_renaming) {
-                if (renamed_funcs.contains(name)) {
+            if (!dumping_context) {
+                if (reimplemented_funcs.contains(name)) {
+                    reimplemented = true;
                     name = name + "_recomp";
-                    ignored = false;
+                    ignored = true;
+                } else if (ignored_funcs.contains(name)) {
+                    name = name + "_recomp";
+                    ignored = true;
                 }
             }
 
-            if (section_index < context.sections.size()) {
-                auto section_offset = value - elf_file.sections[section_index]->get_address();
-                const uint32_t* words = reinterpret_cast<const uint32_t*>(elf_file.sections[section_index]->get_data() + section_offset);
-                uint32_t vram = static_cast<uint32_t>(value);
-                uint32_t num_instructions = type == ELFIO::STT_FUNC ? size / 4 : 0;
-                uint32_t rom_address = static_cast<uint32_t>(section_offset + section.rom_addr);
+            auto& section = context.sections[section_index];
 
-                section.function_addrs.push_back(vram);
-                context.functions_by_vram[vram].push_back(context.functions.size());
-
-                // Find the entrypoint by rom address in case it doesn't have vram as its value
-                if (has_entrypoint && rom_address == 0x1000 && type == ELFIO::STT_FUNC) {
-                    vram = entrypoint;
-                    found_entrypoint_func = true;
-                    name = "recomp_entrypoint";
-                    if (size == 0) {
-                        num_instructions = 0x50 / 4;
+            // Check if this symbol is a function or has no type (like a regular glabel would)
+            // Symbols with no type have a dummy entry created so that their symbol can be looked up for function calls
+            if (ignored || type == ELFIO::STT_FUNC || type == ELFIO::STT_NOTYPE || type == ELFIO::STT_OBJECT) {
+                if (!dumping_context) {
+                    if (renamed_funcs.contains(name)) {
+                        name = name + "_recomp";
+                        ignored = false;
                     }
                 }
 
-                // Suffix local symbols to prevent name conflicts.
-                if (bind == ELFIO::STB_LOCAL) {
-                    name = fmt::format("{}_{:08X}", name, rom_address);
-                }
-                
-                if (num_instructions > 0) {
-                    context.section_functions[section_index].push_back(context.functions.size());
-                }
-                context.functions_by_name[name] = context.functions.size();
+                if (section_index < context.sections.size()) {
+                    auto section_offset = value - elf_file.sections[section_index]->get_address();
+                    const uint32_t* words = reinterpret_cast<const uint32_t*>(elf_file.sections[section_index]->get_data() + section_offset);
+                    uint32_t vram = static_cast<uint32_t>(value);
+                    uint32_t num_instructions = type == ELFIO::STT_FUNC ? size / 4 : 0;
+                    uint32_t rom_address = static_cast<uint32_t>(section_offset + section.rom_addr);
 
-                std::vector<uint32_t> insn_words(num_instructions);
-                insn_words.assign(words, words + num_instructions);
+                    section.function_addrs.push_back(vram);
+                    context.functions_by_vram[vram].push_back(context.functions.size());
 
-                context.functions.emplace_back(
-                    vram,
-                    rom_address,
-                    std::move(insn_words),
-                    std::move(name),
-                    section_index,
-                    ignored,
-                    reimplemented
-                );
-            } else {
-                uint32_t vram = static_cast<uint32_t>(value);
-                section.function_addrs.push_back(vram);
-                context.functions_by_vram[vram].push_back(context.functions.size());
-                context.functions.emplace_back(
-                    vram,
-                    0,
-                    std::vector<uint32_t>{},
-                    std::move(name),
-                    section_index,
-                    ignored,
-                    reimplemented
-                );
+                    // Find the entrypoint by rom address in case it doesn't have vram as its value
+                    if (has_entrypoint && rom_address == 0x1000 && type == ELFIO::STT_FUNC) {
+                        vram = entrypoint;
+                        found_entrypoint_func = true;
+                        name = "recomp_entrypoint";
+                        if (size == 0) {
+                            num_instructions = 0x50 / 4;
+                        }
+                    }
+
+                    // Suffix local symbols to prevent name conflicts.
+                    if (bind == ELFIO::STB_LOCAL) {
+                        name = fmt::format("{}_{:08X}", name, rom_address);
+                    }
+                    
+                    if (num_instructions > 0) {
+                        context.section_functions[section_index].push_back(context.functions.size());            
+                        recorded_symbol = true;
+                    }
+                    context.functions_by_name[name] = context.functions.size();
+
+                    std::vector<uint32_t> insn_words(num_instructions);
+                    insn_words.assign(words, words + num_instructions);
+
+                    context.functions.emplace_back(
+                        vram,
+                        rom_address,
+                        std::move(insn_words),
+                        name,
+                        section_index,
+                        ignored,
+                        reimplemented
+                    );
+                } else {
+                    // TODO is this case needed anymore?
+                    fmt::print("asdasdasd: {}\n", name.c_str());
+                    uint32_t vram = static_cast<uint32_t>(value);
+                    section.function_addrs.push_back(vram);
+                    context.functions_by_vram[vram].push_back(context.functions.size());
+                    context.functions.emplace_back(
+                        vram,
+                        0,
+                        std::vector<uint32_t>{},
+                        name,
+                        section_index,
+                        ignored,
+                        reimplemented
+                    );
+                }
             }
+        }
+
+        // The symbol wasn't detected as a function, so add it to the data symbols if the context is being dumped.
+        if (!recorded_symbol && dumping_context && !name.empty()) {
+            uint32_t vram = static_cast<uint32_t>(value);
+
+            // Place this symbol in the absolute symbol list (section -1) if it's in the absolute section.
+            uint16_t target_section_index = section_index;
+            if (section_index == ELFIO::SHN_ABS) {
+                target_section_index = (uint16_t)-1;
+            }
+            else if (section_index >= context.sections.size()) {
+                fmt::print("Symbol \"{}\" not in a valid section ({})\n", name, section_index);
+            }
+
+            // Move this symbol into the corresponding non-bss section if it's in a bss section.
+            auto find_bss_it = bss_section_to_target_section.find(target_section_index);
+            if (find_bss_it != bss_section_to_target_section.end()) {
+                fmt::print("mapping {} to {}\n", context.sections[section_index].name, context.sections[find_bss_it->second].name);
+                target_section_index = find_bss_it->second;
+            }
+
+            data_syms[target_section_index].emplace_back(
+                vram,
+                std::move(name)
+            );
         }
     }
 
@@ -1262,7 +1312,7 @@ std::vector<std::string> reloc_names {
     "R_MIPS_GPREL16",
 };
 
-void dump_context(const RecompPort::Context& context, const std::filesystem::path& func_path, const std::filesystem::path& data_path) {
+void dump_context(const RecompPort::Context& context, const std::unordered_map<uint16_t, std::vector<DataSymbol>>& data_syms, const std::filesystem::path& func_path, const std::filesystem::path& data_path) {
     std::ofstream func_context_file {func_path};
     std::ofstream data_context_file {data_path};
     
@@ -1285,7 +1335,6 @@ void dump_context(const RecompPort::Context& context, const std::filesystem::pat
         const std::vector<size_t>& section_funcs = context.section_functions[section_index];
         if (!section_funcs.empty()) {
             print_section(func_context_file, section.name, section.rom_addr, section.ram_addr, section.size);
-            print_section(data_context_file, section.name, section.rom_addr, section.ram_addr, section.size);
 
             // Dump relocs into the function context file.
             if (!section.relocs.empty()) {
@@ -1313,11 +1362,39 @@ void dump_context(const RecompPort::Context& context, const std::filesystem::pat
                     func.name, func.vram, func.words.size() * sizeof(func.words[0]));
             }
 
-            // Dump variables into the data context file.
-
-
             fmt::print(func_context_file, "]\n\n");
         }
+        
+        const auto find_syms_it = data_syms.find((uint16_t)section_index);
+        if (find_syms_it != data_syms.end() && !find_syms_it->second.empty()) {
+            if (section.name.ends_with(".bss")) {
+                fmt::print("asdasd {}\n", section.name);
+            }
+            print_section(data_context_file, section.name, section.rom_addr, section.ram_addr, section.size);
+
+            // Dump other symbols into the data context file.
+            fmt::print(data_context_file, "symbols = [\n");
+
+            for (const DataSymbol& cur_sym : find_syms_it->second) {
+                fmt::print(data_context_file, "    {{ name = \"{}\", vram = 0x{:08X} }},\n", cur_sym.name, cur_sym.vram);
+            }
+            
+            fmt::print(data_context_file, "]\n\n");
+        }
+    }
+
+    const auto find_abs_syms_it = data_syms.find((uint16_t)-1);
+    if (find_abs_syms_it != data_syms.end() && !find_abs_syms_it->second.empty()) {
+        // Dump absolute symbols into the data context file.
+        fmt::print(data_context_file,
+            "[absolute]\n\n");
+        fmt::print(data_context_file, "symbols = [\n");
+
+        for (const DataSymbol& cur_sym : find_abs_syms_it->second) {
+            fmt::print(data_context_file, "    {{ name = \"{}\", vram = 0x{:08X} }},\n", cur_sym.name, cur_sym.vram);
+        }
+
+        fmt::print(data_context_file, "]\n\n");
     }
 }
 
@@ -1416,8 +1493,11 @@ int main(int argc, char** argv) {
             context.manually_sized_funcs.emplace(func_size.func_name, func_size.size_bytes);
         }
 
+        // Lists of data symbols organized by section, only used if dumping context.
+        std::unordered_map<uint16_t, std::vector<DataSymbol>> data_syms;
+
         // Read all of the symbols in the elf and look for the entrypoint function
-        bool found_entrypoint_func = read_symbols(context, elf_file, symtab_section, config.entrypoint, config.has_entrypoint, config.use_absolute_symbols, !dumping_context);
+        bool found_entrypoint_func = read_symbols(context, elf_file, symtab_section, config.entrypoint, config.has_entrypoint, config.use_absolute_symbols, dumping_context, data_syms);
 
         // Add any manual functions
         add_manual_functions(context, elf_file, config.manual_functions);
@@ -1428,7 +1508,16 @@ int main(int argc, char** argv) {
         
         if (dumping_context) {
             fmt::print("Dumping context\n");
-            dump_context(context, "dump.toml", "data_dump.toml");
+            // Sort the data syms by address so the output is nicer.
+            for (auto& [section_index, section_syms] : data_syms) {
+                std::sort(section_syms.begin(), section_syms.end(),
+                    [](const DataSymbol& a, const DataSymbol& b) {
+                        return a.vram < b.vram;
+                    }
+                );
+            }
+
+            dump_context(context, data_syms, "dump.toml", "data_dump.toml");
             return 0;
         }
     }
