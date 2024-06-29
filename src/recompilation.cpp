@@ -497,10 +497,10 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         print_line("{}{} = hi", ctx_gpr_prefix(rd), rd);
         break;
     case InstrId::cpu_mtlo:
-        print_line("lo = {}{}", ctx_gpr_prefix(rd), rd);
+        print_line("lo = {}{}", ctx_gpr_prefix(rs), rs);
         break;
     case InstrId::cpu_mthi:
-        print_line("hi = {}{}", ctx_gpr_prefix(rd), rd);
+        print_line("hi = {}{}", ctx_gpr_prefix(rs), rs);
         break;
     // Loads
     case InstrId::cpu_ld:
