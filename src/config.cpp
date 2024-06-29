@@ -44,7 +44,7 @@ std::vector<std::filesystem::path> get_data_syms_paths(const toml::array* data_s
     ret.reserve(data_syms_paths_array->size());
     data_syms_paths_array->for_each([&ret, &basedir](auto&& el) {
         if constexpr (toml::is_string<decltype(el)>) {
-            ret.emplace_back(concat_if_not_empty(basedir, el.value_exact<std::string>().value()));
+            ret.emplace_back(concat_if_not_empty(basedir, el.template value_exact<std::string>().value()));
         }
         else {
             throw toml::parse_error("Invalid type for data reference symbol file entry", el.source());
