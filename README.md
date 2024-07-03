@@ -50,7 +50,27 @@ RSP microcode can also be recompiled with this tool. Currently there is no suppo
 * Ability to recompile into a dynamic language (such as Lua) to be able to load code at runtime for mod support
 
 ## Building
-This project can be built with CMake 3.20 or above and a C++ compiler that supports C++20. This repo uses git submodules, so be sure to clone recursively (`git clone --recurse-submodules`) or initialize submodules recursively after cloning (`git submodule update --init --recursive`). From there, building is identical to any other cmake project, e.g. run `cmake` in the target build folder and point it at the root of this repo, then run `cmake --build .` from that target folder.
+This project can be built with CMake 3.20 or above and a C++ compiler that supports C++20. This repo uses git submodules, so be sure to clone recursively (`git clone --recurse-submodules`) or initialize submodules recursively after cloning (`git submodule update --init --recursive`).
+
+From there, building is identical to any other CMake project, e.g: 
+
+1) Configure with `cmake -S . -B build` to create a `build` directory
+2) Build with `cmake --build build`
+
+You can also use different generators if you'd like to work in different IDEs.
+
+Xcode:
+```bash
+# generates into a folder called `build-cmake`
+# open the generated Xcode project in that folder
+cmake -H . -B build-cmake -G Xcode
+```
+Visual Studio:
+```bash
+# generates into a folder called `build-cmake`
+# open the generated Visual Studio 2022 solution in that folder
+cmake -S . -B build-cmake -G "Visual Studio 17 2022"
+```
 
 ## Libraries Used
 * [rabbitizer](https://github.com/Decompollaborate/rabbitizer) for instruction decoding/analysis

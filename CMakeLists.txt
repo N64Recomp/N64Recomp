@@ -1,3 +1,4 @@
+project(N64Recomp)
 cmake_minimum_required(VERSION 3.20)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 20)
@@ -6,7 +7,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
 # Rabbitizer
-project(rabbitizer)
 add_library(rabbitizer STATIC)
 
 target_sources(rabbitizer PRIVATE
@@ -63,7 +63,6 @@ set(TOML_ENABLE_FORMATTERS OFF)
 add_subdirectory(lib/tomlplusplus)
 
 # N64 recompiler
-project(N64Recomp)
 add_executable(N64Recomp)
 
 target_sources(N64Recomp PRIVATE
@@ -79,7 +78,6 @@ target_include_directories(N64Recomp PRIVATE
 target_link_libraries(N64Recomp fmt rabbitizer tomlplusplus::tomlplusplus)
 
 # RSP recompiler
-project(RSPRecomp)
 add_executable(RSPRecomp)
 
 target_include_directories(RSPRecomp PRIVATE "${CMAKE_SOURCE_DIR}/include")
