@@ -448,7 +448,7 @@ RecompPort::Config::Config(const char* path) {
                 throw toml::parse_error("Reference symbol files can only be used in elf input mode", data_reference_syms_file_data.node()->source());
             }
             if (func_reference_syms_file_path.empty()) {
-                throw toml::parse_error("Data reference symbol files can only be used if a functoin reference symbol file is also in use", data_reference_syms_file_data.node()->source());
+                throw toml::parse_error("Data reference symbol files can only be used if a function reference symbol file is also in use", data_reference_syms_file_data.node()->source());
             }
             const toml::array* array = data_reference_syms_file_data.as_array();
             data_reference_syms_file_paths = get_data_syms_paths(array, basedir);
