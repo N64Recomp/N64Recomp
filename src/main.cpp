@@ -672,10 +672,32 @@ std::unordered_set<std::string> renamed_funcs{
     "_matherr",
 };
 
-bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint, bool has_entrypoint, bool use_absolute_symbols) {
+struct DataSymbol {
+    uint32_t vram;
+    std::string name;
+
+    DataSymbol(uint32_t vram, std::string&& name) : vram(vram), name(std::move(name)) {}
+};
+
+bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint, bool has_entrypoint, bool use_absolute_symbols, bool dumping_context, std::unordered_map<uint16_t, std::vector<DataSymbol>>& data_syms) {
     bool found_entrypoint_func = false;
     ELFIO::symbol_section_accessor symbols{ elf_file, symtab_section };
     fmt::print("Num symbols: {}\n", symbols.get_symbols_num());
+
+    std::unordered_map<uint16_t, uint16_t> bss_section_to_target_section{};
+
+    // Create a mapping of bss section to the corresponding non-bss section. This is only used when dumping context in order
+    // for patches and mods to correctly relocate symbols in bss. This mapping only matters for relocatable sections.
+    if (dumping_context) {
+        // Process bss and reloc sections
+        for (size_t cur_section_index = 0; cur_section_index < context.sections.size(); cur_section_index++) {
+            const RecompPort::Section& cur_section = context.sections[cur_section_index];
+            // Check if a bss section was found that corresponds with this section.
+            if (cur_section.bss_section_index != (uint16_t)-1) {
+                bss_section_to_target_section[cur_section.bss_section_index] = cur_section_index;
+            }
+        }
+    }
 
     for (int sym_index = 0; sym_index < symbols.get_symbols_num(); sym_index++) {
         std::string   name;
@@ -687,6 +709,7 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
         unsigned char other;
         bool ignored = false;
         bool reimplemented = false;
+        bool recorded_symbol = false;
 
         // Read symbol properties
         symbols.get_symbol(sym_index, name, value, size, bind, type,
@@ -709,104 +732,134 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
             continue;
         }
 
-        if (section_index >= context.sections.size()) {
-            continue;
-        }
-        
-        // Check if this symbol is the entrypoint
-        if (has_entrypoint && value == entrypoint && type == ELFIO::STT_FUNC) {
-            if (found_entrypoint_func) {
-                fmt::print(stderr, "Ambiguous entrypoint: {}\n", name);
-                return false;
-            }
-            found_entrypoint_func = true;
-            fmt::print("Found entrypoint, original name: {}\n", name);
-            size = 0x50; // dummy size for entrypoints, should cover them all
-            name = "recomp_entrypoint";
-        }
-
-        // Check if this symbol has a size override
-        auto size_find = context.manually_sized_funcs.find(name);
-        if (size_find != context.manually_sized_funcs.end()) {
-            size = size_find->second;
-            type = ELFIO::STT_FUNC;
-        }
-
-        if (reimplemented_funcs.contains(name)) {
-            reimplemented = true;
-            name = name + "_recomp";
-            ignored = true;
-        } else if (ignored_funcs.contains(name)) {
-            name = name + "_recomp";
-            ignored = true;
-        }
-
-        auto& section = context.sections[section_index];
-
-        // Check if this symbol is a function or has no type (like a regular glabel would)
-        // Symbols with no type have a dummy entry created so that their symbol can be looked up for function calls
-        if (ignored || type == ELFIO::STT_FUNC || type == ELFIO::STT_NOTYPE || type == ELFIO::STT_OBJECT) {
-            if (renamed_funcs.contains(name)) {
-                name = name + "_recomp";
-                ignored = false;
+        if (section_index < context.sections.size()) {        
+            // Check if this symbol is the entrypoint
+            if (has_entrypoint && value == entrypoint && type == ELFIO::STT_FUNC) {
+                if (found_entrypoint_func) {
+                    fmt::print(stderr, "Ambiguous entrypoint: {}\n", name);
+                    return false;
+                }
+                found_entrypoint_func = true;
+                fmt::print("Found entrypoint, original name: {}\n", name);
+                size = 0x50; // dummy size for entrypoints, should cover them all
+                name = "recomp_entrypoint";
             }
 
-            if (section_index < context.sections.size()) {
-                auto section_offset = value - elf_file.sections[section_index]->get_address();
-                const uint32_t* words = reinterpret_cast<const uint32_t*>(elf_file.sections[section_index]->get_data() + section_offset);
-                uint32_t vram = static_cast<uint32_t>(value);
-                uint32_t num_instructions = type == ELFIO::STT_FUNC ? size / 4 : 0;
-                uint32_t rom_address = static_cast<uint32_t>(section_offset + section.rom_addr);
+            // Check if this symbol has a size override
+            auto size_find = context.manually_sized_funcs.find(name);
+            if (size_find != context.manually_sized_funcs.end()) {
+                size = size_find->second;
+                type = ELFIO::STT_FUNC;
+            }
 
-                section.function_addrs.push_back(vram);
-                context.functions_by_vram[vram].push_back(context.functions.size());
+            if (!dumping_context) {
+                if (reimplemented_funcs.contains(name)) {
+                    reimplemented = true;
+                    name = name + "_recomp";
+                    ignored = true;
+                } else if (ignored_funcs.contains(name)) {
+                    name = name + "_recomp";
+                    ignored = true;
+                }
+            }
 
-                // Find the entrypoint by rom address in case it doesn't have vram as its value
-                if (has_entrypoint && rom_address == 0x1000 && type == ELFIO::STT_FUNC) {
-                    vram = entrypoint;
-                    found_entrypoint_func = true;
-                    name = "recomp_entrypoint";
-                    if (size == 0) {
-                        num_instructions = 0x50 / 4;
+            auto& section = context.sections[section_index];
+
+            // Check if this symbol is a function or has no type (like a regular glabel would)
+            // Symbols with no type have a dummy entry created so that their symbol can be looked up for function calls
+            if (ignored || type == ELFIO::STT_FUNC || type == ELFIO::STT_NOTYPE || type == ELFIO::STT_OBJECT) {
+                if (!dumping_context) {
+                    if (renamed_funcs.contains(name)) {
+                        name = name + "_recomp";
+                        ignored = false;
                     }
                 }
 
-                // Suffix local symbols to prevent name conflicts.
-                if (bind == ELFIO::STB_LOCAL) {
-                    name = fmt::format("{}_{:08X}", name, rom_address);
-                }
-                
-                if (num_instructions > 0) {
-                    context.section_functions[section_index].push_back(context.functions.size());
-                }
-                context.functions_by_name[name] = context.functions.size();
+                if (section_index < context.sections.size()) {
+                    auto section_offset = value - elf_file.sections[section_index]->get_address();
+                    const uint32_t* words = reinterpret_cast<const uint32_t*>(elf_file.sections[section_index]->get_data() + section_offset);
+                    uint32_t vram = static_cast<uint32_t>(value);
+                    uint32_t num_instructions = type == ELFIO::STT_FUNC ? size / 4 : 0;
+                    uint32_t rom_address = static_cast<uint32_t>(section_offset + section.rom_addr);
 
-                std::vector<uint32_t> insn_words(num_instructions);
-                insn_words.assign(words, words + num_instructions);
+                    section.function_addrs.push_back(vram);
+                    context.functions_by_vram[vram].push_back(context.functions.size());
 
-                context.functions.emplace_back(
-                    vram,
-                    rom_address,
-                    std::move(insn_words),
-                    std::move(name),
-                    section_index,
-                    ignored,
-                    reimplemented
-                );
-            } else {
-                uint32_t vram = static_cast<uint32_t>(value);
-                section.function_addrs.push_back(vram);
-                context.functions_by_vram[vram].push_back(context.functions.size());
-                context.functions.emplace_back(
-                    vram,
-                    0,
-                    std::vector<uint32_t>{},
-                    std::move(name),
-                    section_index,
-                    ignored,
-                    reimplemented
-                );
+                    // Find the entrypoint by rom address in case it doesn't have vram as its value
+                    if (has_entrypoint && rom_address == 0x1000 && type == ELFIO::STT_FUNC) {
+                        vram = entrypoint;
+                        found_entrypoint_func = true;
+                        name = "recomp_entrypoint";
+                        if (size == 0) {
+                            num_instructions = 0x50 / 4;
+                        }
+                    }
+
+                    // Suffix local symbols to prevent name conflicts.
+                    if (bind == ELFIO::STB_LOCAL) {
+                        name = fmt::format("{}_{:08X}", name, rom_address);
+                    }
+                    
+                    if (num_instructions > 0) {
+                        context.section_functions[section_index].push_back(context.functions.size());            
+                        recorded_symbol = true;
+                    }
+                    context.functions_by_name[name] = context.functions.size();
+
+                    std::vector<uint32_t> insn_words(num_instructions);
+                    insn_words.assign(words, words + num_instructions);
+
+                    context.functions.emplace_back(
+                        vram,
+                        rom_address,
+                        std::move(insn_words),
+                        name,
+                        section_index,
+                        ignored,
+                        reimplemented
+                    );
+                } else {
+                    // TODO is this case needed anymore?
+                    uint32_t vram = static_cast<uint32_t>(value);
+                    section.function_addrs.push_back(vram);
+                    context.functions_by_vram[vram].push_back(context.functions.size());
+                    context.functions.emplace_back(
+                        vram,
+                        0,
+                        std::vector<uint32_t>{},
+                        name,
+                        section_index,
+                        ignored,
+                        reimplemented
+                    );
+                }
             }
+        }
+
+        // The symbol wasn't detected as a function, so add it to the data symbols if the context is being dumped.
+        if (!recorded_symbol && dumping_context && !name.empty()) {
+            uint32_t vram = static_cast<uint32_t>(value);
+
+            // Place this symbol in the absolute symbol list if it's in the absolute section.
+            uint16_t target_section_index = section_index;
+            if (section_index == ELFIO::SHN_ABS) {
+                target_section_index = RecompPort::SectionAbsolute;
+            }
+            else if (section_index >= context.sections.size()) {
+                fmt::print("Symbol \"{}\" not in a valid section ({})\n", name, section_index);
+            }
+
+            // Move this symbol into the corresponding non-bss section if it's in a bss section.
+            auto find_bss_it = bss_section_to_target_section.find(target_section_index);
+            if (find_bss_it != bss_section_to_target_section.end()) {
+                fmt::print("mapping {} to {}\n", context.sections[section_index].name, context.sections[find_bss_it->second].name);
+                target_section_index = find_bss_it->second;
+            }
+
+            data_syms[target_section_index].emplace_back(
+                vram,
+                std::move(name)
+            );
         }
     }
 
@@ -945,8 +998,9 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
             
             std::string reloc_target_section = section_name.substr(strlen(".rel"));
 
-            // If this reloc section is for a section that has been marked as relocatable, record it in the reloc section lookup
-            if (context.relocatable_sections.contains(reloc_target_section)) {
+            // If this reloc section is for a section that has been marked as relocatable, record it in the reloc section lookup.
+            // Alternatively, if this recompilation uses reference symbols then record all reloc sections.
+            if (!context.reference_sections.empty() || context.relocatable_sections.contains(reloc_target_section)) {
                 reloc_sections_by_name[reloc_target_section] = section.get();
             }
         }
@@ -1020,14 +1074,15 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
     // TODO make sure that a reloc section was found for every section marked as relocatable
 
     // Process bss and reloc sections
-    for (RecompPort::Section &section_out : context.sections) {
+    for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
+        RecompPort::Section& section_out = context.sections[section_index];
         // Check if a bss section was found that corresponds with this section
         auto bss_find = bss_sections_by_name.find(section_out.name);
         if (bss_find != bss_sections_by_name.end()) {
             section_out.bss_section_index = bss_find->second->get_index();
         }
 
-        if (section_out.relocatable) {
+        if (!context.reference_symbols.empty() || section_out.relocatable) {
             // Check if a reloc section was found that corresponds with this section
             auto reloc_find = reloc_sections_by_name.find(section_out.name);
             if (reloc_find != reloc_sections_by_name.end()) {
@@ -1053,8 +1108,9 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
                     RecompPort::Reloc& reloc_out = section_out.relocs[i];
 
                     // Get the real full_immediate by extracting the immediate from the instruction
-                    uint32_t instr_word = byteswap(*reinterpret_cast<const uint32_t*>(context.rom.data() + section_out.rom_addr + rel_offset - section_out.ram_addr));
-                    rabbitizer::InstructionCpu instr{ instr_word, static_cast<uint32_t>(rel_offset) };
+                    uint32_t reloc_rom_addr = section_out.rom_addr + rel_offset - section_out.ram_addr;
+                    uint32_t reloc_rom_word = byteswap(*reinterpret_cast<const uint32_t*>(context.rom.data() + reloc_rom_addr));
+                    rabbitizer::InstructionCpu instr{ reloc_rom_word, static_cast<uint32_t>(rel_offset) };
                     //context.rom section_out.rom_addr;
 
                     reloc_out.address = rel_offset;
@@ -1072,10 +1128,48 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
                     bool found_rel_symbol = symbol_accessor.get_symbol(
                         rel_symbol, rel_symbol_name, rel_symbol_value, rel_symbol_size, rel_symbol_bind, rel_symbol_type, rel_symbol_section_index, rel_symbol_other);
 
-                    reloc_out.target_section = rel_symbol_section_index;
+                    uint32_t rel_section_vram = section_out.ram_addr;
+                    uint32_t rel_symbol_offset = 0;
+
+                    // Check if the symbol is undefined and to know whether to look for it in the reference symbols.
+                    if (rel_symbol_section_index == ELFIO::SHN_UNDEF) {
+                        // Undefined sym, check the reference symbols.
+                        auto sym_find_it = context.reference_symbols_by_name.find(rel_symbol_name);
+                        if (sym_find_it == context.reference_symbols_by_name.end()) {
+                            fmt::print(stderr, "Undefined symbol: {}, not found in input or reference symbols!\n",
+                                rel_symbol_name);
+                            return nullptr;
+                        }
+                        
+                        reloc_out.reference_symbol = true;
+                        // Replace the reloc's symbol index with the index into the reference symbol array.
+                        reloc_out.symbol_index = sym_find_it->second;
+                        rel_section_vram = 0;
+                        rel_symbol_offset = context.reference_symbols[reloc_out.symbol_index].section_offset;
+                        reloc_out.target_section = context.reference_symbols[reloc_out.symbol_index].section_index;
+
+                        bool target_section_relocatable = false;
+
+                        if (reloc_out.target_section != RecompPort::SectionAbsolute && context.reference_sections[reloc_out.target_section].relocatable) {
+                            target_section_relocatable = true;
+                        }
+
+                        if (reloc_out.type == RecompPort::RelocType::R_MIPS_32 && target_section_relocatable) {
+                            fmt::print(stderr, "Cannot reference {} in a statically initialized variable as it's defined in a relocatable section!\n",
+                                rel_symbol_name);
+                            return nullptr;
+                        }
+                    }
+                    else {
+                        reloc_out.reference_symbol = false;
+                        reloc_out.target_section = rel_symbol_section_index;
+                    }
 
                     // Reloc pairing, see MIPS System V ABI documentation page 4-18 (https://refspecs.linuxfoundation.org/elf/mipsabi.pdf)
                     if (reloc_out.type == RecompPort::RelocType::R_MIPS_LO16) {
+                        uint32_t rel_immediate = instr.getProcessedImmediate();
+                        uint32_t full_immediate = (prev_hi_immediate << 16) + (int16_t)rel_immediate;
+                        reloc_out.section_offset = full_immediate + rel_symbol_offset - rel_section_vram;
                         if (prev_hi) {
                             if (prev_hi_symbol != rel_symbol) {
                                 fmt::print(stderr, "Paired HI16 and LO16 relocations have different symbols\n"
@@ -1083,36 +1177,36 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
                                     i, section_out.name, reloc_out.symbol_index, reloc_out.address);
                                 return nullptr;
                             }
-                            uint32_t rel_immediate = instr.getProcessedImmediate();
-                            uint32_t full_immediate = (prev_hi_immediate << 16) + (int16_t)rel_immediate;
 
-
-                            // Set this and the previous HI16 relocs' relocated addresses
-                            section_out.relocs[i - 1].target_address = full_immediate;
-                            reloc_out.target_address = full_immediate;
+                            // Set the previous HI16 relocs' relocated address.
+                            section_out.relocs[i - 1].section_offset = reloc_out.section_offset;
                         }
                         else {
-                            if (prev_lo) {
-                                uint32_t rel_immediate = instr.getProcessedImmediate();
-                                uint32_t full_immediate;
-
-                                if (prev_hi_symbol != rel_symbol) {
-                                    fmt::print(stderr, "[WARN] LO16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X} follows LO16 with different symbol\n",
+                            // Orphaned LO16 reloc warnings.
+                            if (config.unpaired_lo16_warnings) {
+                                if (prev_lo) {
+                                    // Don't warn if multiple LO16 in a row reference the same symbol, as some linkers will use this behavior.
+                                    if (prev_hi_symbol != rel_symbol) {
+                                        fmt::print(stderr, "[WARN] LO16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X} follows LO16 with different symbol\n",
+                                            i, section_out.name, reloc_out.symbol_index, reloc_out.address);
+                                    }
+                                }
+                                else {
+                                    fmt::print(stderr, "[WARN] Unpaired LO16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X}\n",
                                         i, section_out.name, reloc_out.symbol_index, reloc_out.address);
                                 }
-
-                                full_immediate = (prev_hi_immediate << 16) + (int16_t)rel_immediate;
-                                reloc_out.target_address = full_immediate;
                             }
-                            else {
-                                fmt::print(stderr, "Unpaired LO16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X}\n",
-                                    i, section_out.name, reloc_out.symbol_index, reloc_out.address);
-                                return nullptr;
-                            }
+                            // Even though this is an orphaned LO16 reloc, the previous calculation for the addend still follows the MIPS System V ABI documentation:
+                            // "R_MIPS_LO16 entries without an R_MIPS_HI16 entry immediately preceding are orphaned and the previously defined
+                            // R_MIPS_HI16 is used for computing the addend."
+                            // Therefore, nothing needs to be done to the section_offset member.
                         }
                         prev_lo = true;
                     } else {
                         if (prev_hi) {
+                            // This is an invalid elf as the MIPS System V ABI documentation states:
+                            // "Each relocation type of R_MIPS_HI16 must have an associated R_MIPS_LO16 entry
+                            // immediately following it in the list of relocations."
                             fmt::print(stderr, "Unpaired HI16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X}\n",
                                 i - 1, section_out.name, section_out.relocs[i - 1].symbol_index, section_out.relocs[i - 1].address);
                             return nullptr;
@@ -1130,7 +1224,25 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
                     }
 
                     if (reloc_out.type == RecompPort::RelocType::R_MIPS_32) {
-                        // Nothing to do here
+                        // The reloc addend is just the existing word before relocation, so the section offset can just be the symbol's section offset.
+                        // Incorporating the addend will be handled at load-time.
+                        reloc_out.section_offset = rel_symbol_offset;
+                        // TODO set section_out.has_mips32_relocs to true if this section should emit its mips32 relocs (mainly for TLB mapping).
+
+                        if (reloc_out.reference_symbol) {
+                            uint32_t reloc_target_section_addr = 0;
+                            if (reloc_out.target_section != RecompPort::SectionAbsolute) {
+                                reloc_target_section_addr = context.reference_sections[reloc_out.target_section].ram_addr;
+                            }
+                            // Patch the word in the ROM to incorporate the symbol's value.
+                            uint32_t updated_reloc_word = reloc_rom_word + reloc_target_section_addr + reloc_out.section_offset;
+                            *reinterpret_cast<uint32_t*>(context.rom.data() + reloc_rom_addr) = byteswap(updated_reloc_word);
+                        }
+                    }
+
+                    if (reloc_out.type == RecompPort::RelocType::R_MIPS_26) {
+                        uint32_t rel_immediate = instr.getProcessedImmediate();
+                        reloc_out.section_offset = rel_immediate + rel_symbol_offset;
                     }
                 }
             }
@@ -1258,49 +1370,99 @@ std::vector<std::string> reloc_names {
     "R_MIPS_GPREL16",
 };
 
-void dump_context(const RecompPort::Context& context, const std::filesystem::path& path) {
-    std::ofstream context_file {path};
+void dump_context(const RecompPort::Context& context, const std::unordered_map<uint16_t, std::vector<DataSymbol>>& data_syms, const std::filesystem::path& func_path, const std::filesystem::path& data_path) {
+    std::ofstream func_context_file {func_path};
+    std::ofstream data_context_file {data_path};
+    
+    fmt::print(func_context_file, "# Autogenerated from an ELF via N64Recomp\n");
+    fmt::print(data_context_file, "# Autogenerated from an ELF via N64Recomp\n");
 
-    for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
-        const RecompPort::Section& section = context.sections[section_index];
-        const std::vector<size_t>& section_funcs = context.section_functions[section_index];
-        if (!section_funcs.empty()) {
-            fmt::print(context_file,
-                "# Autogenerated from an ELF via N64Recomp\n"
+    auto print_section = [](std::ofstream& output_file, const std::string& name, uint64_t rom_addr, uint64_t ram_addr, uint64_t size) {
+        if (rom_addr == (uint64_t)-1) {
+            fmt::print(output_file,
+                "[[section]]\n"
+                "name = \"{}\"\n"
+                "vram = 0x{:08X}\n"
+                "size = 0x{:X}\n"
+                "\n",
+                name, ram_addr, size);
+        }
+        else {
+            fmt::print(output_file,
                 "[[section]]\n"
                 "name = \"{}\"\n"
                 "rom = 0x{:08X}\n"
                 "vram = 0x{:08X}\n"
                 "size = 0x{:X}\n"
                 "\n",
-                section.name, section.rom_addr, section.ram_addr, section.size);
+                name, rom_addr, ram_addr, size);
+        }
+    };
 
+    for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
+        const RecompPort::Section& section = context.sections[section_index];
+        const std::vector<size_t>& section_funcs = context.section_functions[section_index];
+        if (!section_funcs.empty()) {
+            print_section(func_context_file, section.name, section.rom_addr, section.ram_addr, section.size);
+
+            // Dump relocs into the function context file.
             if (!section.relocs.empty()) {
-                fmt::print(context_file, "relocs = [\n");
+                fmt::print(func_context_file, "relocs = [\n");
 
                 for (const RecompPort::Reloc& reloc : section.relocs) {
                     if (reloc.target_section == section_index || reloc.target_section == section.bss_section_index) {
-                        // TODO allow MIPS32 relocs for TLB mapping support.
+                        // TODO allow emitting MIPS32 relocs for specific sections via a toml option for TLB mapping support.
                         if (reloc.type == RecompPort::RelocType::R_MIPS_HI16 || reloc.type == RecompPort::RelocType::R_MIPS_LO16) {
-                            fmt::print(context_file, "    {{ type = \"{}\", vram = 0x{:08X}, target_vram = 0x{:08X} }},\n",
-                                reloc_names[static_cast<int>(reloc.type)], reloc.address, reloc.target_address);
+                            fmt::print(func_context_file, "    {{ type = \"{}\", vram = 0x{:08X}, target_vram = 0x{:08X} }},\n",
+                                reloc_names[static_cast<int>(reloc.type)], reloc.address, reloc.section_offset + section.ram_addr);
                         }
                     }
                 }
 
-                fmt::print(context_file, "]\n\n");
+                fmt::print(func_context_file, "]\n\n");
             }
 
-            fmt::print(context_file, "functions = [\n");
+            // Dump functions into the function context file.
+            fmt::print(func_context_file, "functions = [\n");
 
             for (const size_t& function_index : section_funcs) {
                 const RecompPort::Function& func = context.functions[function_index];
-                fmt::print(context_file, "    {{ name = \"{}\", vram = 0x{:08X}, size = 0x{:X} }},\n",
+                fmt::print(func_context_file, "    {{ name = \"{}\", vram = 0x{:08X}, size = 0x{:X} }},\n",
                     func.name, func.vram, func.words.size() * sizeof(func.words[0]));
             }
 
-            fmt::print(context_file, "]\n\n");
+            fmt::print(func_context_file, "]\n\n");
         }
+        
+        const auto find_syms_it = data_syms.find((uint16_t)section_index);
+        if (find_syms_it != data_syms.end() && !find_syms_it->second.empty()) {
+            if (section.name.ends_with(".bss")) {
+                fmt::print("asdasd {}\n", section.name);
+            }
+            print_section(data_context_file, section.name, section.rom_addr, section.ram_addr, section.size);
+
+            // Dump other symbols into the data context file.
+            fmt::print(data_context_file, "symbols = [\n");
+
+            for (const DataSymbol& cur_sym : find_syms_it->second) {
+                fmt::print(data_context_file, "    {{ name = \"{}\", vram = 0x{:08X} }},\n", cur_sym.name, cur_sym.vram);
+            }
+            
+            fmt::print(data_context_file, "]\n\n");
+        }
+    }
+
+    const auto find_abs_syms_it = data_syms.find((uint16_t)-1);
+    if (find_abs_syms_it != data_syms.end() && !find_abs_syms_it->second.empty()) {
+        // Dump absolute symbols into the data context file.
+        print_section(data_context_file, "ABSOLUTE_SYMS", (uint64_t)-1, 0, 0);
+        fmt::print(data_context_file, "symbols = [\n");
+
+        for (const DataSymbol& cur_sym : find_abs_syms_it->second) {
+            fmt::print(data_context_file, "    {{ name = \"{}\", vram = 0x{:08X} }},\n", cur_sym.name, cur_sym.vram);
+        }
+
+        fmt::print(data_context_file, "]\n\n");
     }
 }
 
@@ -1325,6 +1487,9 @@ int main(int argc, char** argv) {
         fmt::vprint(stderr, error_str, fmt::make_format_args());
         std::exit(EXIT_FAILURE);
     };
+
+    // TODO expose a way to dump the context from the command line.
+    bool dumping_context = false;
 
     if (argc != 2) {
         fmt::print("Usage: {} [config file]\n", argv[0]);
@@ -1380,6 +1545,27 @@ int main(int argc, char** argv) {
         context = { elf_file };
         context.relocatable_sections = std::move(relocatable_sections);
 
+        // Import symbols from any reference symbols files that were provided.
+        if (!config.func_reference_syms_file_path.empty()) {
+            {
+                // Create a new temporary context to read the function reference symbol file into, since it's the same format as the recompilation symbol file.
+                std::vector<uint8_t> dummy_rom{};
+                RecompPort::Context reference_context{};
+                if (!RecompPort::Context::from_symbol_file(config.func_reference_syms_file_path, std::move(dummy_rom), reference_context, false)) {
+                    exit_failure("Failed to load provided function reference symbol file\n");
+                }
+
+                // Use the reference context to build a reference symbol list for the actual context.
+                context.import_reference_context(reference_context);
+            }
+
+            for (const std::filesystem::path& cur_data_sym_path : config.data_reference_syms_file_paths) {
+                if (!context.read_data_reference_syms(cur_data_sym_path)) {
+                    exit_failure(fmt::format("Failed to load provided data reference symbol file: {}\n", cur_data_sym_path.string()));
+                }
+            }
+        }
+
         // Read all of the sections in the elf and look for the symbol table section
         ELFIO::section* symtab_section = read_sections(context, config, elf_file);
 
@@ -1396,14 +1582,32 @@ int main(int argc, char** argv) {
             context.manually_sized_funcs.emplace(func_size.func_name, func_size.size_bytes);
         }
 
+        // Lists of data symbols organized by section, only used if dumping context.
+        std::unordered_map<uint16_t, std::vector<DataSymbol>> data_syms;
+
         // Read all of the symbols in the elf and look for the entrypoint function
-        bool found_entrypoint_func = read_symbols(context, elf_file, symtab_section, config.entrypoint, config.has_entrypoint, config.use_absolute_symbols);
+        bool found_entrypoint_func = read_symbols(context, elf_file, symtab_section, config.entrypoint, config.has_entrypoint, config.use_absolute_symbols, dumping_context, data_syms);
 
         // Add any manual functions
         add_manual_functions(context, elf_file, config.manual_functions);
 
         if (config.has_entrypoint && !found_entrypoint_func) {
             exit_failure("Could not find entrypoint function\n");
+        }
+        
+        if (dumping_context) {
+            fmt::print("Dumping context\n");
+            // Sort the data syms by address so the output is nicer.
+            for (auto& [section_index, section_syms] : data_syms) {
+                std::sort(section_syms.begin(), section_syms.end(),
+                    [](const DataSymbol& a, const DataSymbol& b) {
+                        return a.vram < b.vram;
+                    }
+                );
+            }
+
+            dump_context(context, data_syms, "dump.toml", "data_dump.toml");
+            return 0;
         }
     }
     // Build a context from the provided symbols file.
@@ -1412,12 +1616,16 @@ int main(int argc, char** argv) {
             exit_failure("A ROM file must be provided when using a symbols file\n");
         }
 
+        if (dumping_context) {
+            exit_failure("Cannot dump context when using a symbols file\n");
+        }
+
         std::vector<uint8_t> rom = read_file(config.rom_file_path);
         if (rom.empty()) {
             exit_failure("Failed to load ROM file: " + config.rom_file_path.string() + "\n");
         }
         
-        if (!RecompPort::Context::from_symbol_file(config.symbols_file_path, std::move(rom), context)) {
+        if (!RecompPort::Context::from_symbol_file(config.symbols_file_path, std::move(rom), context, true)) {
             exit_failure("Failed to load symbols file\n");
         }
 
@@ -1484,11 +1692,6 @@ int main(int argc, char** argv) {
     );
 
     std::vector<std::vector<uint32_t>> static_funcs_by_section{ context.sections.size() };
-
-    // TODO expose a way to dump the context from the command line. Make sure not to rename functions when doing so.
-    //fmt::print("Dumping context\n");
-    //dump_context(context, "dump.toml");
-    //return 0;
 
     fmt::print("Working dir: {}\n", std::filesystem::current_path().string());
 
@@ -1738,14 +1941,14 @@ int main(int argc, char** argv) {
             const auto& section = context.sections[section_index];
             const auto& section_funcs = context.section_functions[section_index];
 
-            if (!section_funcs.empty()) {
+            if (section.has_mips32_relocs || !section_funcs.empty()) {
                 std::string_view section_name_trimmed{ section.name };
 
                 if (section.relocatable) {
                     relocatable_section_indices.emplace(section.name, written_sections);
                 }
 
-                while (section_name_trimmed[0] == '.') {
+                while (section_name_trimmed.size() > 0 && section_name_trimmed[0] == '.') {
                     section_name_trimmed.remove_prefix(1);
                 }
 
@@ -1795,6 +1998,11 @@ int main(int argc, char** argv) {
             }
         }
         fmt::print(overlay_file, "}};\n");
+    }
+
+    if (!config.output_binary_path.empty()) {
+        std::ofstream output_binary{config.output_binary_path, std::ios::binary};
+        output_binary.write(reinterpret_cast<const char*>(context.rom.data()), context.rom.size());
     }
 
     return 0;

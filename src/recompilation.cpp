@@ -56,26 +56,61 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     RecompPort::RelocType reloc_type = RecompPort::RelocType::R_MIPS_NONE;
     uint32_t reloc_section = 0;
     uint32_t reloc_target_section_offset = 0;
+    size_t reloc_reference_symbol = (size_t)-1;
 
     uint32_t func_vram_end = func.vram + func.words.size() * sizeof(func.words[0]);
 
+    uint16_t imm = instr.Get_immediate();
+
     // Check if this instruction has a reloc.
-    if (section.relocatable && section.relocs.size() > 0 && section.relocs[reloc_index].address == instr_vram) {
+    if (section.relocs.size() > 0 && section.relocs[reloc_index].address == instr_vram) {
         // Get the reloc data for this instruction
         const auto& reloc = section.relocs[reloc_index];
         reloc_section = reloc.target_section;
-        // Some symbols are in a nonexistent section (e.g. absolute symbols), so check that the section is valid before doing anything else.
-        // Absolute symbols will never need to be relocated so it's safe to skip this.
-        if (reloc_section < context.sections.size()) {
-            // Ignore this reloc if it points to a different section.
-            // Also check if the reloc points to the bss section since that will also be relocated with the section.
-            if (reloc_section == func.section_index || reloc_section == section.bss_section_index) {
-                // Record the reloc's data.
-                reloc_type = reloc.type;
-                reloc_target_section_offset = reloc.target_address - section.ram_addr;
-                // Ignore all relocs that aren't HI16 or LO16.
-                if (reloc_type == RecompPort::RelocType::R_MIPS_HI16 || reloc_type == RecompPort::RelocType::R_MIPS_LO16) {
-                    at_reloc = true;
+        // Only process this relocation if this section is relocatable or if this relocation targets a reference symbol.
+        if (section.relocatable || reloc.reference_symbol) {
+            // Some symbols are in a nonexistent section (e.g. absolute symbols), so check that the section is valid before doing anything else.
+            // Absolute symbols will never need to be relocated so it's safe to skip this.
+            // Always process reference symbols relocations.
+            if (reloc_section < context.sections.size() || reloc.reference_symbol) {
+                // Ignore this reloc if it points to a different section.
+                // Also check if the reloc points to the bss section since that will also be relocated with the section.
+                // Additionally, always process reference symbol relocations.
+                if (reloc_section == func.section_index || reloc_section == section.bss_section_index || reloc.reference_symbol) {
+                    // Record the reloc's data.
+                    reloc_type = reloc.type;
+                    reloc_target_section_offset = reloc.section_offset;
+                    // Ignore all relocs that aren't HI16 or LO16.
+                    if (reloc_type == RecompPort::RelocType::R_MIPS_HI16 || reloc_type == RecompPort::RelocType::R_MIPS_LO16 || reloc_type == RecompPort::RelocType::R_MIPS_26) {
+                        at_reloc = true;
+
+                        if (reloc.reference_symbol) {
+                            reloc_reference_symbol = reloc.symbol_index;
+                            static RecompPort::ReferenceSection dummy_section{
+                                .rom_addr = 0,
+                                .ram_addr = 0,
+                                .size = 0,
+                                .relocatable = false
+                            };
+                            const auto& reloc_reference_section = reloc.target_section == RecompPort::SectionAbsolute ? dummy_section : context.reference_sections[reloc.target_section];
+                            if (!reloc_reference_section.relocatable) {
+                                at_reloc = false;
+                                uint32_t full_immediate = reloc.section_offset + reloc_reference_section.ram_addr;
+                                
+                                if (reloc_type == RecompPort::RelocType::R_MIPS_HI16) {
+                                    imm = (full_immediate >> 16) + ((full_immediate >> 15) & 1);
+                                }
+                                else if (reloc_type == RecompPort::RelocType::R_MIPS_LO16) {
+                                    imm = full_immediate & 0xFFFF;
+                                }
+                            }
+                        }
+                    }
+
+                    // Repoint bss relocations at their non-bss counterpart section.
+                    if (reloc_section == section.bss_section_index) {
+                        reloc_section = func.section_index;
+                    }
                 }
             }
         }
@@ -112,70 +147,90 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         }
     };
 
-    auto print_func_call = [&](uint32_t target_func_vram, bool link_branch = true, bool indent = false) {
-        const auto matching_funcs_find = context.functions_by_vram.find(target_func_vram);
+    auto print_func_call = [reloc_target_section_offset, reloc_reference_symbol, reloc_type, &context, &section, &func, &static_funcs_out, &needs_link_branch, &print_unconditional_branch]
+        (uint32_t target_func_vram, bool link_branch = true, bool indent = false)
+    {
         std::string jal_target_name;
-        uint32_t section_vram_start = section.ram_addr;
-        uint32_t section_vram_end = section.ram_addr + section.size;
-        // TODO the current section should be prioritized if the target jal is in its vram even if a function isn't known (i.e. static)
-        if (matching_funcs_find != context.functions_by_vram.end()) {
-            // If we found matches for the target function by vram, 
-            const auto& matching_funcs_vec = matching_funcs_find->second;
-            size_t real_func_index;
-            bool ambiguous;
-            // If there is more than one corresponding function, look for any that have a nonzero size.
-            if (matching_funcs_vec.size() > 1) {
-                size_t nonzero_func_index = (size_t)-1;
-                bool found_nonzero_func = false;
-                for (size_t cur_func_index : matching_funcs_vec) {
-                    const auto& cur_func = context.functions[cur_func_index];
-                    if (cur_func.words.size() != 0) {
-                        if (found_nonzero_func) {
-                            ambiguous = true;
-                            break;
-                        }
-                        // If this section is relocatable and the target vram is in the section, don't call functions
-                        // in any section other than this one.
-                        if (cur_func.section_index == func.section_index ||
-                            !(section.relocatable && target_func_vram >= section_vram_start && target_func_vram < section_vram_end)) {
-                            found_nonzero_func = true;
-                            nonzero_func_index = cur_func_index;
-                        }
-                    }
-                }
-                if (nonzero_func_index == (size_t)-1) {
-                    fmt::print(stderr, "[Warn] Potential jal resolution ambiguity\n");
-                    for (size_t cur_func_index : matching_funcs_vec) {
-                        fmt::print(stderr, "  {}\n", context.functions[cur_func_index].name);
-                    }
-                    nonzero_func_index = 0;
-                }
-                real_func_index = nonzero_func_index;
-                ambiguous = false;
-            }
-            else {
-                real_func_index = matching_funcs_vec.front();
-                ambiguous = false;
-            }
-            if (ambiguous) {
-                fmt::print(stderr, "Ambiguous jal target: 0x{:08X}\n", target_func_vram);
-                for (size_t cur_func_index : matching_funcs_vec) {
-                    const auto& cur_func = context.functions[cur_func_index];
-                    fmt::print(stderr, "  {}\n", cur_func.name);
-                }
+        if (reloc_reference_symbol != (size_t)-1) {
+            const auto& ref_symbol = context.reference_symbols[reloc_reference_symbol];
+            const std::string& ref_symbol_name = context.reference_symbol_names[reloc_reference_symbol];
+
+            if (reloc_type != RecompPort::RelocType::R_MIPS_26) {
+                fmt::print(stderr, "Unsupported reloc type {} on jal instruction in {}\n", (int)reloc_type, func.name);
                 return false;
             }
-            jal_target_name = context.functions[real_func_index].name;
+
+            if (ref_symbol.section_offset != reloc_target_section_offset) {
+                fmt::print(stderr, "Function {} uses a MIPS_R_26 addend, which is not supported yet\n", func.name);
+                return false;
+            }
+
+            jal_target_name = ref_symbol_name;
         }
         else {
-            const auto& section = context.sections[func.section_index];
-            if (target_func_vram >= section.ram_addr && target_func_vram < section.ram_addr + section.size) {
-                jal_target_name = fmt::format("static_{}_{:08X}", func.section_index, target_func_vram);
-                static_funcs_out[func.section_index].push_back(target_func_vram);
+            const auto matching_funcs_find = context.functions_by_vram.find(target_func_vram);
+            uint32_t section_vram_start = section.ram_addr;
+            uint32_t section_vram_end = section.ram_addr + section.size;
+            // TODO the current section should be prioritized if the target jal is in its vram even if a function isn't known (i.e. static)
+            if (matching_funcs_find != context.functions_by_vram.end()) {
+                // If we found matches for the target function by vram, 
+                const auto& matching_funcs_vec = matching_funcs_find->second;
+                size_t real_func_index;
+                bool ambiguous;
+                // If there is more than one corresponding function, look for any that have a nonzero size.
+                if (matching_funcs_vec.size() > 1) {
+                    size_t nonzero_func_index = (size_t)-1;
+                    bool found_nonzero_func = false;
+                    for (size_t cur_func_index : matching_funcs_vec) {
+                        const auto& cur_func = context.functions[cur_func_index];
+                        if (cur_func.words.size() != 0) {
+                            if (found_nonzero_func) {
+                                ambiguous = true;
+                                break;
+                            }
+                            // If this section is relocatable and the target vram is in the section, don't call functions
+                            // in any section other than this one.
+                            if (cur_func.section_index == func.section_index ||
+                                !(section.relocatable && target_func_vram >= section_vram_start && target_func_vram < section_vram_end)) {
+                                found_nonzero_func = true;
+                                nonzero_func_index = cur_func_index;
+                            }
+                        }
+                    }
+                    if (nonzero_func_index == (size_t)-1) {
+                        fmt::print(stderr, "[Warn] Potential jal resolution ambiguity\n");
+                        for (size_t cur_func_index : matching_funcs_vec) {
+                            fmt::print(stderr, "  {}\n", context.functions[cur_func_index].name);
+                        }
+                        nonzero_func_index = 0;
+                    }
+                    real_func_index = nonzero_func_index;
+                    ambiguous = false;
+                }
+                else {
+                    real_func_index = matching_funcs_vec.front();
+                    ambiguous = false;
+                }
+                if (ambiguous) {
+                    fmt::print(stderr, "Ambiguous jal target: 0x{:08X}\n", target_func_vram);
+                    for (size_t cur_func_index : matching_funcs_vec) {
+                        const auto& cur_func = context.functions[cur_func_index];
+                        fmt::print(stderr, "  {}\n", cur_func.name);
+                    }
+                    return false;
+                }
+                jal_target_name = context.functions[real_func_index].name;
             }
             else {
-                fmt::print(stderr, "No function found for jal target: 0x{:08X}\n", target_func_vram);
-                return false;
+                const auto& section = context.sections[func.section_index];
+                if (target_func_vram >= section.ram_addr && target_func_vram < section.ram_addr + section.size) {
+                    jal_target_name = fmt::format("static_{}_{:08X}", func.section_index, target_func_vram);
+                    static_funcs_out[func.section_index].push_back(target_func_vram);
+                }
+                else {
+                    fmt::print(stderr, "No function found for jal target: 0x{:08X}\n", target_func_vram);
+                    return false;
+                }
             }
         }
         needs_link_branch = link_branch;
@@ -238,8 +293,6 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
 
     int cop1_cs = (int)instr.Get_cop1cs();
 
-    uint16_t imm = instr.Get_immediate();
-
     std::string unsigned_imm_string;
     std::string signed_imm_string;
 
@@ -249,13 +302,17 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     } else {
         switch (reloc_type) {
             case RecompPort::RelocType::R_MIPS_HI16:
-                unsigned_imm_string = fmt::format("RELOC_HI16({}, {:#X})", (uint32_t)func.section_index, reloc_target_section_offset);
+                unsigned_imm_string = fmt::format("RELOC_HI16({}, {:#X})", reloc_section, reloc_target_section_offset);
                 signed_imm_string = "(int16_t)" + unsigned_imm_string;
                 reloc_handled = true;
                 break;
             case RecompPort::RelocType::R_MIPS_LO16:
-                unsigned_imm_string = fmt::format("RELOC_LO16({}, {:#X})", (uint32_t)func.section_index, reloc_target_section_offset);
+                unsigned_imm_string = fmt::format("RELOC_LO16({}, {:#X})", reloc_section, reloc_target_section_offset);
                 signed_imm_string = "(int16_t)" + unsigned_imm_string;
+                reloc_handled = true;
+                break;
+            case RecompPort::RelocType::R_MIPS_26:
+                // Nothing to do here, this will be handled by print_func_call.
                 reloc_handled = true;
                 break;
             default:
@@ -440,10 +497,10 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         print_line("{}{} = hi", ctx_gpr_prefix(rd), rd);
         break;
     case InstrId::cpu_mtlo:
-        print_line("lo = {}{}", ctx_gpr_prefix(rd), rd);
+        print_line("lo = {}{}", ctx_gpr_prefix(rs), rs);
         break;
     case InstrId::cpu_mthi:
-        print_line("hi = {}{}", ctx_gpr_prefix(rd), rd);
+        print_line("hi = {}{}", ctx_gpr_prefix(rs), rs);
         break;
     // Loads
     case InstrId::cpu_ld:
@@ -1166,7 +1223,6 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
         bool needs_link_branch = false;
         bool in_likely_delay_slot = false;
         const auto& section = context.sections[func.section_index];
-        bool needs_reloc = section.relocatable && section.relocs.size() > 0;
         size_t reloc_index = 0;
         for (size_t instr_index = 0; instr_index < instructions.size(); ++instr_index) {
             bool had_link_branch = needs_link_branch;
@@ -1181,11 +1237,9 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
                 ++cur_label;
             }
 
-            // If this is a relocatable section, advance the reloc index until we reach the last one or until we get to/pass the current instruction
-            if (needs_reloc) {
-                while (reloc_index < (section.relocs.size() - 1) && section.relocs[reloc_index].address < vram) {
-                    reloc_index++;
-                }
+            // Advance the reloc index until we reach the last one or until we get to/pass the current instruction
+            while ((reloc_index + 1) < section.relocs.size() && section.relocs[reloc_index].address < vram) {
+                reloc_index++;
             }
 
             // Process the current instruction and check for errors
