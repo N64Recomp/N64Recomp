@@ -68,6 +68,7 @@ namespace RecompPort {
         bool uses_mips3_float_mode;
         bool single_file_output;
         bool use_absolute_symbols;
+        bool unpaired_lo16_warnings;
         std::filesystem::path elf_path;
         std::filesystem::path symbols_file_path;
         std::filesystem::path func_reference_syms_file_path;

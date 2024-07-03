@@ -390,12 +390,22 @@ RecompPort::Config::Config(const char* path) {
             manual_functions = get_manual_funcs(array);
         }
 
+        // Output binary path when using an elf file input, includes patching reference symbol MIPS32 relocs (optional)
         std::optional<std::string> output_binary_path_opt = input_data["output_binary_path"].value<std::string>();
         if (output_binary_path_opt.has_value()) {
             output_binary_path = concat_if_not_empty(basedir, output_binary_path_opt.value());
         }
         else {
             output_binary_path = "";
+        }
+
+        // Control whether the recompiler warns about unpaired LO16 relocs (optional, defaults to true)
+        std::optional<bool> unpaired_lo16_warnings_opt = input_data["unpaired_lo16_warnings"].value<bool>();
+        if (unpaired_lo16_warnings_opt.has_value()) {
+            unpaired_lo16_warnings = unpaired_lo16_warnings_opt.value();
+        }
+        else {
+            unpaired_lo16_warnings = true;
         }
 
         // Patches section (optional)

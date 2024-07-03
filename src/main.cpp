@@ -1183,16 +1183,18 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
                         }
                         else {
                             // Orphaned LO16 reloc warnings.
-                            if (prev_lo) {
-                                // Don't warn if multiple LO16 in a row reference the same symbol, as some linkers will use this behavior.
-                                if (prev_hi_symbol != rel_symbol) {
-                                    fmt::print(stderr, "[WARN] LO16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X} follows LO16 with different symbol\n",
+                            if (config.unpaired_lo16_warnings) {
+                                if (prev_lo) {
+                                    // Don't warn if multiple LO16 in a row reference the same symbol, as some linkers will use this behavior.
+                                    if (prev_hi_symbol != rel_symbol) {
+                                        fmt::print(stderr, "[WARN] LO16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X} follows LO16 with different symbol\n",
+                                            i, section_out.name, reloc_out.symbol_index, reloc_out.address);
+                                    }
+                                }
+                                else {
+                                    fmt::print(stderr, "[WARN] Unpaired LO16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X}\n",
                                         i, section_out.name, reloc_out.symbol_index, reloc_out.address);
                                 }
-                            }
-                            else {
-                                fmt::print(stderr, "[WARN] Unpaired LO16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X}\n",
-                                    i, section_out.name, reloc_out.symbol_index, reloc_out.address);
                             }
                             // Even though this is an orphaned LO16 reloc, the previous calculation for the addend still follows the MIPS System V ABI documentation:
                             // "R_MIPS_LO16 entries without an R_MIPS_HI16 entry immediately preceding are orphaned and the previously defined
