@@ -62,23 +62,37 @@ add_subdirectory(lib/fmt)
 set(TOML_ENABLE_FORMATTERS OFF)
 add_subdirectory(lib/tomlplusplus)
 
-# N64 recompiler
+# N64 recompiler core library
 project(N64Recomp)
-add_executable(N64Recomp)
+add_library(N64Recomp)
 
 target_sources(N64Recomp PRIVATE
     ${CMAKE_SOURCE_DIR}/src/analysis.cpp
-    ${CMAKE_SOURCE_DIR}/src/config.cpp
-    ${CMAKE_SOURCE_DIR}/src/main.cpp
     ${CMAKE_SOURCE_DIR}/src/operations.cpp
     ${CMAKE_SOURCE_DIR}/src/cgenerator.cpp
-    ${CMAKE_SOURCE_DIR}/src/recompilation.cpp)
+    ${CMAKE_SOURCE_DIR}/src/recompilation.cpp
+)
 
 target_include_directories(N64Recomp PRIVATE
-    "${CMAKE_SOURCE_DIR}/lib/ELFIO"
     "${CMAKE_SOURCE_DIR}/include")
 
 target_link_libraries(N64Recomp fmt rabbitizer tomlplusplus::tomlplusplus)
+
+# N64 recompiler executable
+project(N64RecompCLI)
+add_executable(N64RecompCLI)
+
+target_sources(N64RecompCLI PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/config.cpp
+    ${CMAKE_SOURCE_DIR}/src/main.cpp
+)
+
+target_include_directories(N64RecompCLI PRIVATE
+    "${CMAKE_SOURCE_DIR}/lib/ELFIO"
+    "${CMAKE_SOURCE_DIR}/include")
+
+target_link_libraries(N64RecompCLI fmt rabbitizer tomlplusplus::tomlplusplus N64Recomp)
+set_target_properties(N64RecompCLI PROPERTIES OUTPUT_NAME N64Recomp)
 
 # RSP recompiler
 project(RSPRecomp)

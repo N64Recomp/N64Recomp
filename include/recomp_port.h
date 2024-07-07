@@ -11,7 +11,6 @@
 #include <unordered_set>
 #include <filesystem>
 #include "rabbitizer.hpp"
-#include "elfio/elfio.hpp"
 
 #ifdef _MSC_VER
 inline uint32_t byteswap(uint32_t val) {
@@ -119,13 +118,13 @@ namespace RecompPort {
         uint32_t rom;
         std::vector<uint32_t> words;
         std::string name;
-        ELFIO::Elf_Half section_index;
+        uint16_t section_index;
         bool ignored;
         bool reimplemented;
         bool stubbed;
         std::unordered_map<int32_t, std::string> function_hooks;
 
-        Function(uint32_t vram, uint32_t rom, std::vector<uint32_t> words, std::string name, ELFIO::Elf_Half section_index, bool ignored = false, bool reimplemented = false, bool stubbed = false)
+        Function(uint32_t vram, uint32_t rom, std::vector<uint32_t> words, std::string name, uint16_t section_index, bool ignored = false, bool reimplemented = false, bool stubbed = false)
                 : vram(vram), rom(rom), words(std::move(words)), name(std::move(name)), section_index(section_index), ignored(ignored), reimplemented(reimplemented), stubbed(stubbed) {}
         Function() = default;
     };
@@ -153,13 +152,13 @@ namespace RecompPort {
     constexpr uint16_t SectionSelf = (uint16_t)-1;
     constexpr uint16_t SectionAbsolute = (uint16_t)-2;
     struct Section {
-        ELFIO::Elf_Xword rom_addr = 0;
-        ELFIO::Elf64_Addr ram_addr = 0;
-        ELFIO::Elf_Xword size = 0;
+        uint32_t rom_addr = 0;
+        uint32_t ram_addr = 0;
+        uint32_t size = 0;
         std::vector<uint32_t> function_addrs;
         std::vector<Reloc> relocs;
         std::string name;
-        ELFIO::Elf_Half bss_section_index = (ELFIO::Elf_Half)-1;
+        uint16_t bss_section_index = (uint16_t)-1;
         bool executable = false;
         bool relocatable = false;
         bool has_mips32_relocs = false;
@@ -208,16 +207,6 @@ namespace RecompPort {
         // Mapping of symbol name to reference symbol index.
         std::unordered_map<std::string, size_t> reference_symbols_by_name;
         int executable_section_count;
-
-        Context(const ELFIO::elfio& elf_file) {
-            sections.resize(elf_file.sections.size());
-            section_functions.resize(elf_file.sections.size());
-            functions.reserve(1024);
-            functions_by_vram.reserve(functions.capacity());
-            functions_by_name.reserve(functions.capacity());
-            rom.reserve(8 * 1024 * 1024);
-            executable_section_count = 0;
-        }
 
         // Imports sections and function symbols from a provided context into this context's reference sections and reference functions.
         void import_reference_context(const Context& reference_context);

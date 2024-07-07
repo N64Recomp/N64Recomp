@@ -596,6 +596,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             case Operand::FtU64:
                 generator.emit_check_fr(output_file, ctx.ft);
                 break;
+            default:
+                // No MIPS3 float check needed for non-float operands.
+                break;
         }
     };
     
@@ -618,6 +621,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
                 break;
             case Operand::FtDouble:
                 generator.emit_check_nan(output_file, ctx.ft, true);
+                break;
+            default:
+                // No NaN checks needed for non-float operands.
                 break;
         }
     };
