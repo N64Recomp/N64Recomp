@@ -1053,7 +1053,7 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
             std::copy(section->get_data(), section->get_data() + section->get_size(), &context.rom[section_out.rom_addr]);
         } else {
             // Otherwise mark this section as having an invalid rom address
-            section_out.rom_addr = (ELFIO::Elf_Xword)-1;
+            section_out.rom_addr = (uint32_t)-1;
         }
         // Check if this section is marked as executable, which means it has code in it
         if (section->get_flags() & ELFIO::SHF_EXECINSTR) {
@@ -1482,6 +1482,16 @@ static std::vector<uint8_t> read_file(const std::filesystem::path& path) {
     return ret;
 }
 
+static void setup_context_for_elf(RecompPort::Context& context, const ELFIO::elfio& elf_file) {
+    context.sections.resize(elf_file.sections.size());
+    context.section_functions.resize(elf_file.sections.size());
+    context.functions.reserve(1024);
+    context.functions_by_vram.reserve(context.functions.capacity());
+    context.functions_by_name.reserve(context.functions.capacity());
+    context.rom.reserve(8 * 1024 * 1024);
+    context.executable_section_count = 0;
+}
+
 int main(int argc, char** argv) {
     auto exit_failure = [] (const std::string& error_str) {
         fmt::vprint(stderr, error_str, fmt::make_format_args());
@@ -1542,7 +1552,7 @@ int main(int argc, char** argv) {
             exit_failure("Incorrect endianness\n");
         }
 
-        context = { elf_file };
+        setup_context_for_elf(context, elf_file);
         context.relocatable_sections = std::move(relocatable_sections);
 
         // Import symbols from any reference symbols files that were provided.
