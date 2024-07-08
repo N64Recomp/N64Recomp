@@ -1330,7 +1330,7 @@ bool compare_files(const std::filesystem::path& file1_path, const std::filesyste
     return std::equal(begin1, std::istreambuf_iterator<char>(), begin2); //Second argument is end-of-range iterator
 }
 
-bool recompile_single_function(const RecompPort::Context& context, const RecompPort::Config& config, const RecompPort::Function& func, const std::filesystem::path& output_path, std::span<std::vector<uint32_t>> static_funcs_out) {
+bool recompile_single_function(const RecompPort::Context& context, const RecompPort::Function& func, const std::string& recomp_include, const std::filesystem::path& output_path, std::span<std::vector<uint32_t>> static_funcs_out) {
     // Open the temporary output file
     std::filesystem::path temp_path = output_path;
     temp_path.replace_extension(".tmp");
@@ -1340,7 +1340,7 @@ bool recompile_single_function(const RecompPort::Context& context, const RecompP
         return false;
     }
 
-    if (!RecompPort::recompile_function(context, config, func, output_file, static_funcs_out, true)) {
+    if (!RecompPort::recompile_function(context, func, recomp_include, output_file, static_funcs_out, true)) {
         return false;
     }
     
@@ -1828,7 +1828,7 @@ int main(int argc, char** argv) {
                 "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
             bool result;
             if (config.single_file_output || config.functions_per_output_file > 1) {
-                result = RecompPort::recompile_function(context, config, func, current_output_file, static_funcs_by_section, false);
+                result = RecompPort::recompile_function(context, func, config.recomp_include, current_output_file, static_funcs_by_section, false);
                 if (!config.single_file_output) {
                     cur_file_function_count++;
                     if (cur_file_function_count >= config.functions_per_output_file) {
@@ -1837,7 +1837,7 @@ int main(int argc, char** argv) {
                 }
             }
             else {
-                result = recompile_single_function(context, config, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section);
+                result = recompile_single_function(context, func, config.recomp_include, config.output_func_path / (func.name + ".c"), static_funcs_by_section);
             }
             if (result == false) {
                 fmt::print(stderr, "Error recompiling {}\n", func.name);
@@ -1907,7 +1907,7 @@ int main(int argc, char** argv) {
             size_t prev_num_statics = static_funcs_by_section[func.section_index].size();
 
             if (config.single_file_output || config.functions_per_output_file > 1) {
-                result = RecompPort::recompile_function(context, config, func, current_output_file, static_funcs_by_section, false);
+                result = RecompPort::recompile_function(context, func, config.recomp_include, current_output_file, static_funcs_by_section, false);
                 if (!config.single_file_output) {
                     cur_file_function_count++;
                     if (cur_file_function_count >= config.functions_per_output_file) {
@@ -1916,7 +1916,7 @@ int main(int argc, char** argv) {
                 }
             }
             else {
-                result = recompile_single_function(context, config, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section);
+                result = recompile_single_function(context, func, config.recomp_include, config.output_func_path / (func.name + ".c"), static_funcs_by_section);
             }
 
             // Add any new static functions that were found while recompiling this one.

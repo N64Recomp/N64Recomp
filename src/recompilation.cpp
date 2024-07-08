@@ -109,7 +109,7 @@ std::string_view ctx_gpr_prefix(int reg) {
 }
 
 // Major TODO, this function grew very organically and needs to be cleaned up. Ideally, it'll get split up into some sort of lookup table grouped by similar instruction types.
-bool process_instruction(const RecompPort::Context& context, const RecompPort::Config& config, const RecompPort::Function& func, const RecompPort::FunctionStats& stats, const std::unordered_set<uint32_t>& skipped_insns, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ofstream& output_file, bool indent, bool emit_link_branch, int link_branch_index, size_t reloc_index, bool& needs_link_branch, bool& is_branch_likely, std::span<std::vector<uint32_t>> static_funcs_out) {
+bool process_instruction(const RecompPort::Context& context, const RecompPort::Function& func, const RecompPort::FunctionStats& stats, const std::unordered_set<uint32_t>& skipped_insns, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ofstream& output_file, bool indent, bool emit_link_branch, int link_branch_index, size_t reloc_index, bool& needs_link_branch, bool& is_branch_likely, std::span<std::vector<uint32_t>> static_funcs_out) {
     using namespace RecompPort;
 
     const auto& section = context.sections[func.section_index];
@@ -225,7 +225,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             if (reloc_index + 1 < section.relocs.size() && next_vram > section.relocs[reloc_index].address) {
                 next_reloc_index++;
             }
-            if (!process_instruction(context, config, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out)) {
+            if (!process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out)) {
                 return false;
             }
         }
@@ -320,7 +320,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             if (reloc_index + 1 < section.relocs.size() && next_vram > section.relocs[reloc_index].address) {
                 next_reloc_index++;
             }
-            if (!process_instruction(context, config, func, stats, skipped_insns, instr_index + 1, instructions, output_file, true, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out)) {
+            if (!process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, true, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out)) {
                 return false;
             }
         }
@@ -490,7 +490,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
                 if (reloc_index + 1 < section.relocs.size() && next_vram > section.relocs[reloc_index].address) {
                     next_reloc_index++;
                 }
-                if (!process_instruction(context, config, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out)) {
+                if (!process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out)) {
                     return false;
                 }
                 print_indent();
@@ -717,7 +717,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     return true;
 }
 
-bool RecompPort::recompile_function(const RecompPort::Context& context, const RecompPort::Config& config, const RecompPort::Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool write_header) {
+bool RecompPort::recompile_function(const RecompPort::Context& context, const RecompPort::Function& func, const std::string& recomp_include, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool write_header) {
     //fmt::print("Recompiling {}\n", func.name);
     std::vector<rabbitizer::InstructionCpu> instructions;
 
@@ -726,7 +726,7 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
         fmt::print(output_file,
             "{}\n"
             "\n",
-            config.recomp_include);
+            recomp_include);
     }
 
     fmt::print(output_file,
@@ -808,7 +808,7 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
             }
 
             // Process the current instruction and check for errors
-            if (process_instruction(context, config, func, stats, skipped_insns, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, reloc_index, needs_link_branch, is_branch_likely, static_funcs_out) == false) {
+            if (process_instruction(context, func, stats, skipped_insns, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, reloc_index, needs_link_branch, is_branch_likely, static_funcs_out) == false) {
                 fmt::print(stderr, "Error in recompiling {}, clearing output file\n", func.name);
                 output_file.clear();
                 return false;
