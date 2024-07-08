@@ -1,6 +1,6 @@
 #include "operations.h"
 
-namespace RecompPort {
+namespace N64Recomp {
     const std::unordered_map<InstrId, UnaryOp> unary_ops {
         { InstrId::cpu_lui,  { UnaryOpType::Lui,  Operand::Rt, Operand::ImmU16 } },
         { InstrId::cpu_mthi, { UnaryOpType::None, Operand::Hi, Operand::Rs } },

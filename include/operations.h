@@ -5,7 +5,7 @@
 
 #include "rabbitizer.hpp"
 
-namespace RecompPort {
+namespace N64Recomp {
     using InstrId = rabbitizer::InstrId::UniqueId;
     using Cop0Reg = rabbitizer::Registers::Cpu::Cop0;
 

@@ -10,7 +10,7 @@
 #include "fmt/format.h"
 #include "fmt/ostream.h"
 
-#include "recomp_port.h"
+#include "n64recomp.h"
 #include "config.h"
 #include <set>
 
@@ -680,7 +680,7 @@ struct DataSymbol {
     DataSymbol(uint32_t vram, std::string&& name) : vram(vram), name(std::move(name)) {}
 };
 
-bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint, bool has_entrypoint, bool use_absolute_symbols, bool dumping_context, std::unordered_map<uint16_t, std::vector<DataSymbol>>& data_syms) {
+bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint, bool has_entrypoint, bool use_absolute_symbols, bool dumping_context, std::unordered_map<uint16_t, std::vector<DataSymbol>>& data_syms) {
     bool found_entrypoint_func = false;
     ELFIO::symbol_section_accessor symbols{ elf_file, symtab_section };
     fmt::print("Num symbols: {}\n", symbols.get_symbols_num());
@@ -692,7 +692,7 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
     if (dumping_context) {
         // Process bss and reloc sections
         for (size_t cur_section_index = 0; cur_section_index < context.sections.size(); cur_section_index++) {
-            const RecompPort::Section& cur_section = context.sections[cur_section_index];
+            const N64Recomp::Section& cur_section = context.sections[cur_section_index];
             // Check if a bss section was found that corresponds with this section.
             if (cur_section.bss_section_index != (uint16_t)-1) {
                 bss_section_to_target_section[cur_section.bss_section_index] = cur_section_index;
@@ -844,7 +844,7 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
             // Place this symbol in the absolute symbol list if it's in the absolute section.
             uint16_t target_section_index = section_index;
             if (section_index == ELFIO::SHN_ABS) {
-                target_section_index = RecompPort::SectionAbsolute;
+                target_section_index = N64Recomp::SectionAbsolute;
             }
             else if (section_index >= context.sections.size()) {
                 fmt::print("Symbol \"{}\" not in a valid section ({})\n", name, section_index);
@@ -867,7 +867,7 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
     return found_entrypoint_func;
 }
 
-void add_manual_functions(RecompPort::Context& context, const ELFIO::elfio& elf_file, const std::vector<RecompPort::ManualFunction>& manual_funcs) {
+void add_manual_functions(N64Recomp::Context& context, const ELFIO::elfio& elf_file, const std::vector<N64Recomp::ManualFunction>& manual_funcs) {
     auto exit_failure = [](const std::string& error_str) {
         fmt::vprint(stderr, error_str, fmt::make_format_args());
         std::exit(EXIT_FAILURE);
@@ -881,7 +881,7 @@ void add_manual_functions(RecompPort::Context& context, const ELFIO::elfio& elf_
         section_indices_by_name.emplace(context.sections[i].name, i);
     }
 
-    for (const RecompPort::ManualFunction& cur_func_def : manual_funcs) {
+    for (const N64Recomp::ManualFunction& cur_func_def : manual_funcs) {
         const auto section_find_it = section_indices_by_name.find(cur_func_def.section_name);
         if (section_find_it == section_indices_by_name.end()) {
             exit_failure(fmt::format("Manual function {} specified with section {}, which doesn't exist!\n", cur_func_def.func_name, cur_func_def.section_name));
@@ -946,7 +946,7 @@ std::optional<size_t> get_segment(const std::vector<SegmentEntry>& segments, ELF
     return std::nullopt;
 }
 
-ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Config& config, const ELFIO::elfio& elf_file) {
+ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::Config& config, const ELFIO::elfio& elf_file) {
     ELFIO::section* symtab_section = nullptr;
     std::vector<SegmentEntry> segments{};
     segments.resize(elf_file.segments.size());
@@ -1076,7 +1076,7 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
 
     // Process bss and reloc sections
     for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
-        RecompPort::Section& section_out = context.sections[section_index];
+        N64Recomp::Section& section_out = context.sections[section_index];
         // Check if a bss section was found that corresponds with this section
         auto bss_find = bss_sections_by_name.find(section_out.name);
         if (bss_find != bss_sections_by_name.end()) {
@@ -1106,7 +1106,7 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
                     ELFIO::Elf_Sxword bad_rel_addend; // Addends aren't encoded in the reloc, so ignore this one
                     rel_accessor.get_entry(i, rel_offset, rel_symbol, rel_type, bad_rel_addend);
 
-                    RecompPort::Reloc& reloc_out = section_out.relocs[i];
+                    N64Recomp::Reloc& reloc_out = section_out.relocs[i];
 
                     // Get the real full_immediate by extracting the immediate from the instruction
                     uint32_t reloc_rom_addr = section_out.rom_addr + rel_offset - section_out.ram_addr;
@@ -1116,7 +1116,7 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
 
                     reloc_out.address = rel_offset;
                     reloc_out.symbol_index = rel_symbol;
-                    reloc_out.type = static_cast<RecompPort::RelocType>(rel_type);
+                    reloc_out.type = static_cast<N64Recomp::RelocType>(rel_type);
 
                     std::string       rel_symbol_name;
                     ELFIO::Elf64_Addr rel_symbol_value;
@@ -1151,11 +1151,11 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
 
                         bool target_section_relocatable = false;
 
-                        if (reloc_out.target_section != RecompPort::SectionAbsolute && context.reference_sections[reloc_out.target_section].relocatable) {
+                        if (reloc_out.target_section != N64Recomp::SectionAbsolute && context.reference_sections[reloc_out.target_section].relocatable) {
                             target_section_relocatable = true;
                         }
 
-                        if (reloc_out.type == RecompPort::RelocType::R_MIPS_32 && target_section_relocatable) {
+                        if (reloc_out.type == N64Recomp::RelocType::R_MIPS_32 && target_section_relocatable) {
                             fmt::print(stderr, "Cannot reference {} in a statically initialized variable as it's defined in a relocatable section!\n",
                                 rel_symbol_name);
                             return nullptr;
@@ -1167,7 +1167,7 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
                     }
 
                     // Reloc pairing, see MIPS System V ABI documentation page 4-18 (https://refspecs.linuxfoundation.org/elf/mipsabi.pdf)
-                    if (reloc_out.type == RecompPort::RelocType::R_MIPS_LO16) {
+                    if (reloc_out.type == N64Recomp::RelocType::R_MIPS_LO16) {
                         uint32_t rel_immediate = instr.getProcessedImmediate();
                         uint32_t full_immediate = (prev_hi_immediate << 16) + (int16_t)rel_immediate;
                         reloc_out.section_offset = full_immediate + rel_symbol_offset - rel_section_vram;
@@ -1215,7 +1215,7 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
                         prev_lo = false;
                     }
 
-                    if (reloc_out.type == RecompPort::RelocType::R_MIPS_HI16) {
+                    if (reloc_out.type == N64Recomp::RelocType::R_MIPS_HI16) {
                         uint32_t rel_immediate = instr.getProcessedImmediate();
                         prev_hi = true;
                         prev_hi_immediate = rel_immediate;
@@ -1224,7 +1224,7 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
                         prev_hi = false;
                     }
 
-                    if (reloc_out.type == RecompPort::RelocType::R_MIPS_32) {
+                    if (reloc_out.type == N64Recomp::RelocType::R_MIPS_32) {
                         // The reloc addend is just the existing word before relocation, so the section offset can just be the symbol's section offset.
                         // Incorporating the addend will be handled at load-time.
                         reloc_out.section_offset = rel_symbol_offset;
@@ -1232,7 +1232,7 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
 
                         if (reloc_out.reference_symbol) {
                             uint32_t reloc_target_section_addr = 0;
-                            if (reloc_out.target_section != RecompPort::SectionAbsolute) {
+                            if (reloc_out.target_section != N64Recomp::SectionAbsolute) {
                                 reloc_target_section_addr = context.reference_sections[reloc_out.target_section].ram_addr;
                             }
                             // Patch the word in the ROM to incorporate the symbol's value.
@@ -1241,7 +1241,7 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
                         }
                     }
 
-                    if (reloc_out.type == RecompPort::RelocType::R_MIPS_26) {
+                    if (reloc_out.type == N64Recomp::RelocType::R_MIPS_26) {
                         uint32_t rel_immediate = instr.getProcessedImmediate();
                         reloc_out.section_offset = rel_immediate + rel_symbol_offset;
                     }
@@ -1252,7 +1252,7 @@ ELFIO::section* read_sections(RecompPort::Context& context, const RecompPort::Co
             // This is safe to do as the entire full_immediate in present in relocs due to the pairing that was done earlier, so the HI16 does not
             // need to directly preceed the matching LO16 anymore.
             std::sort(section_out.relocs.begin(), section_out.relocs.end(), 
-                [](const RecompPort::Reloc& a, const RecompPort::Reloc& b) {
+                [](const N64Recomp::Reloc& a, const N64Recomp::Reloc& b) {
                     return a.address < b.address;
                 }
             );
@@ -1271,22 +1271,22 @@ for_each_if(Iterator begin, Iterator end, Pred p, Operation op) {
     }
 }
 
-void analyze_sections(RecompPort::Context& context, const ELFIO::elfio& elf_file) {
-    std::vector<RecompPort::Section*> executable_sections{};
+void analyze_sections(N64Recomp::Context& context, const ELFIO::elfio& elf_file) {
+    std::vector<N64Recomp::Section*> executable_sections{};
     
     executable_sections.reserve(context.executable_section_count);
 
     for_each_if(context.sections.begin(), context.sections.end(),
-        [](const RecompPort::Section& section) {
+        [](const N64Recomp::Section& section) {
             return section.executable && section.rom_addr >= 0x1000;
         },
-        [&](RecompPort::Section& section) {
+        [&](N64Recomp::Section& section) {
             executable_sections.push_back(&section);
         }
     );
 
     std::sort(executable_sections.begin(), executable_sections.end(),
-        [](const RecompPort::Section* a, const RecompPort::Section* b) {
+        [](const N64Recomp::Section* a, const N64Recomp::Section* b) {
             return a->ram_addr < b->ram_addr;
         }
     );
@@ -1331,7 +1331,7 @@ bool compare_files(const std::filesystem::path& file1_path, const std::filesyste
     return std::equal(begin1, std::istreambuf_iterator<char>(), begin2); //Second argument is end-of-range iterator
 }
 
-bool recompile_single_function(const RecompPort::Context& context, const RecompPort::Function& func, const std::string& recomp_include, const std::filesystem::path& output_path, std::span<std::vector<uint32_t>> static_funcs_out) {
+bool recompile_single_function(const N64Recomp::Context& context, const N64Recomp::Function& func, const std::string& recomp_include, const std::filesystem::path& output_path, std::span<std::vector<uint32_t>> static_funcs_out) {
     // Open the temporary output file
     std::filesystem::path temp_path = output_path;
     temp_path.replace_extension(".tmp");
@@ -1341,7 +1341,7 @@ bool recompile_single_function(const RecompPort::Context& context, const RecompP
         return false;
     }
 
-    if (!RecompPort::recompile_function(context, func, recomp_include, output_file, static_funcs_out, true)) {
+    if (!N64Recomp::recompile_function(context, func, recomp_include, output_file, static_funcs_out, true)) {
         return false;
     }
     
@@ -1371,7 +1371,7 @@ std::vector<std::string> reloc_names {
     "R_MIPS_GPREL16",
 };
 
-void dump_context(const RecompPort::Context& context, const std::unordered_map<uint16_t, std::vector<DataSymbol>>& data_syms, const std::filesystem::path& func_path, const std::filesystem::path& data_path) {
+void dump_context(const N64Recomp::Context& context, const std::unordered_map<uint16_t, std::vector<DataSymbol>>& data_syms, const std::filesystem::path& func_path, const std::filesystem::path& data_path) {
     std::ofstream func_context_file {func_path};
     std::ofstream data_context_file {data_path};
     
@@ -1401,7 +1401,7 @@ void dump_context(const RecompPort::Context& context, const std::unordered_map<u
     };
 
     for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
-        const RecompPort::Section& section = context.sections[section_index];
+        const N64Recomp::Section& section = context.sections[section_index];
         const std::vector<size_t>& section_funcs = context.section_functions[section_index];
         if (!section_funcs.empty()) {
             print_section(func_context_file, section.name, section.rom_addr, section.ram_addr, section.size);
@@ -1410,10 +1410,10 @@ void dump_context(const RecompPort::Context& context, const std::unordered_map<u
             if (!section.relocs.empty()) {
                 fmt::print(func_context_file, "relocs = [\n");
 
-                for (const RecompPort::Reloc& reloc : section.relocs) {
+                for (const N64Recomp::Reloc& reloc : section.relocs) {
                     if (reloc.target_section == section_index || reloc.target_section == section.bss_section_index) {
                         // TODO allow emitting MIPS32 relocs for specific sections via a toml option for TLB mapping support.
-                        if (reloc.type == RecompPort::RelocType::R_MIPS_HI16 || reloc.type == RecompPort::RelocType::R_MIPS_LO16) {
+                        if (reloc.type == N64Recomp::RelocType::R_MIPS_HI16 || reloc.type == N64Recomp::RelocType::R_MIPS_LO16) {
                             fmt::print(func_context_file, "    {{ type = \"{}\", vram = 0x{:08X}, target_vram = 0x{:08X} }},\n",
                                 reloc_names[static_cast<int>(reloc.type)], reloc.address, reloc.section_offset + section.ram_addr);
                         }
@@ -1427,7 +1427,7 @@ void dump_context(const RecompPort::Context& context, const std::unordered_map<u
             fmt::print(func_context_file, "functions = [\n");
 
             for (const size_t& function_index : section_funcs) {
-                const RecompPort::Function& func = context.functions[function_index];
+                const N64Recomp::Function& func = context.functions[function_index];
                 fmt::print(func_context_file, "    {{ name = \"{}\", vram = 0x{:08X}, size = 0x{:X} }},\n",
                     func.name, func.vram, func.words.size() * sizeof(func.words[0]));
             }
@@ -1483,7 +1483,7 @@ static std::vector<uint8_t> read_file(const std::filesystem::path& path) {
     return ret;
 }
 
-static void setup_context_for_elf(RecompPort::Context& context, const ELFIO::elfio& elf_file) {
+static void setup_context_for_elf(N64Recomp::Context& context, const ELFIO::elfio& elf_file) {
     context.sections.resize(elf_file.sections.size());
     context.section_functions.resize(elf_file.sections.size());
     context.functions.reserve(1024);
@@ -1509,7 +1509,7 @@ int main(int argc, char** argv) {
 
     const char* config_path = argv[1];
 
-    RecompPort::Config config{ config_path };
+    N64Recomp::Config config{ config_path };
     if (!config.good()) {
         exit_failure(fmt::format("Failed to load config file: {}\n", config_path));
     }
@@ -1531,7 +1531,7 @@ int main(int argc, char** argv) {
     std::unordered_set<std::string> relocatable_sections{};
     relocatable_sections.insert(relocatable_sections_ordered.begin(), relocatable_sections_ordered.end());
 
-    RecompPort::Context context{};
+    N64Recomp::Context context{};
     
     if (!config.elf_path.empty() && !config.symbols_file_path.empty()) {
         exit_failure("Config file cannot provide both an elf and a symbols file\n");
@@ -1561,8 +1561,8 @@ int main(int argc, char** argv) {
             {
                 // Create a new temporary context to read the function reference symbol file into, since it's the same format as the recompilation symbol file.
                 std::vector<uint8_t> dummy_rom{};
-                RecompPort::Context reference_context{};
-                if (!RecompPort::Context::from_symbol_file(config.func_reference_syms_file_path, std::move(dummy_rom), reference_context, false)) {
+                N64Recomp::Context reference_context{};
+                if (!N64Recomp::Context::from_symbol_file(config.func_reference_syms_file_path, std::move(dummy_rom), reference_context, false)) {
                     exit_failure("Failed to load provided function reference symbol file\n");
                 }
 
@@ -1636,12 +1636,12 @@ int main(int argc, char** argv) {
             exit_failure("Failed to load ROM file: " + config.rom_file_path.string() + "\n");
         }
         
-        if (!RecompPort::Context::from_symbol_file(config.symbols_file_path, std::move(rom), context, true)) {
+        if (!N64Recomp::Context::from_symbol_file(config.symbols_file_path, std::move(rom), context, true)) {
             exit_failure("Failed to load symbols file\n");
         }
 
         auto rename_function = [&context](size_t func_index, const std::string& new_name) {
-            RecompPort::Function& func = context.functions[func_index];
+            N64Recomp::Function& func = context.functions[func_index];
 
             context.functions_by_name.erase(func.name);
             func.name = new_name;
@@ -1649,7 +1649,7 @@ int main(int argc, char** argv) {
         };
 
         for (size_t func_index = 0; func_index < context.functions.size(); func_index++) {
-            RecompPort::Function& func = context.functions[func_index];
+            N64Recomp::Function& func = context.functions[func_index];
             if (reimplemented_funcs.contains(func.name)) {
                 rename_function(func_index, func.name + "_recomp");
                 func.reimplemented = true;
@@ -1734,7 +1734,7 @@ int main(int argc, char** argv) {
     }
 
     // Apply any single-instruction patches.
-    for (const RecompPort::InstructionPatch& patch : config.instruction_patches) {
+    for (const N64Recomp::InstructionPatch& patch : config.instruction_patches) {
         // Check if the specified function exists.
         auto func_find = context.functions_by_name.find(patch.func_name);
         if (func_find == context.functions_by_name.end()) {
@@ -1743,7 +1743,7 @@ int main(int argc, char** argv) {
             exit_failure(fmt::format("Function {} has an instruction patch but does not exist!", patch.func_name));
         }
 
-        RecompPort::Function& func = context.functions[func_find->second];
+        N64Recomp::Function& func = context.functions[func_find->second];
         int32_t func_vram = func.vram;
 
         // Check that the function actually contains this vram address.
@@ -1757,7 +1757,7 @@ int main(int argc, char** argv) {
     }
 
     // Apply any function hooks.
-    for (const RecompPort::FunctionHook& patch : config.function_hooks) {
+    for (const N64Recomp::FunctionHook& patch : config.function_hooks) {
         // Check if the specified function exists.
         auto func_find = context.functions_by_name.find(patch.func_name);
         if (func_find == context.functions_by_name.end()) {
@@ -1766,7 +1766,7 @@ int main(int argc, char** argv) {
             exit_failure(fmt::format("Function {} has a function hook but does not exist!", patch.func_name));
         }
 
-        RecompPort::Function& func = context.functions[func_find->second];
+        N64Recomp::Function& func = context.functions[func_find->second];
         int32_t func_vram = func.vram;
 
         // Check that the function actually contains this vram address.
@@ -1829,7 +1829,7 @@ int main(int argc, char** argv) {
                 "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
             bool result;
             if (config.single_file_output || config.functions_per_output_file > 1) {
-                result = RecompPort::recompile_function(context, func, config.recomp_include, current_output_file, static_funcs_by_section, false);
+                result = N64Recomp::recompile_function(context, func, config.recomp_include, current_output_file, static_funcs_by_section, false);
                 if (!config.single_file_output) {
                     cur_file_function_count++;
                     if (cur_file_function_count >= config.functions_per_output_file) {
@@ -1892,7 +1892,7 @@ int main(int argc, char** argv) {
             std::vector<uint32_t> insn_words((cur_func_end - static_func_addr) / sizeof(uint32_t));
             insn_words.assign(func_rom_start, func_rom_start + insn_words.size());
 
-            RecompPort::Function func {
+            N64Recomp::Function func {
                 static_func_addr,
                 rom_addr,
                 std::move(insn_words),
@@ -1906,9 +1906,8 @@ int main(int argc, char** argv) {
 
             bool result;
             size_t prev_num_statics = static_funcs_by_section[func.section_index].size();
-
             if (config.single_file_output || config.functions_per_output_file > 1) {
-                result = RecompPort::recompile_function(context, func, config.recomp_include, current_output_file, static_funcs_by_section, false);
+                result = N64Recomp::recompile_function(context, func, config.recomp_include, current_output_file, static_funcs_by_section, false);
                 if (!config.single_file_output) {
                     cur_file_function_count++;
                     if (cur_file_function_count >= config.functions_per_output_file) {

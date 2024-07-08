@@ -21,7 +21,7 @@ constexpr uint32_t byteswap(uint32_t val) {
 }
 #endif
 
-namespace RecompPort {
+namespace N64Recomp {
     struct Function {
         uint32_t vram;
         uint32_t rom;

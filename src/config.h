@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <vector>
 
-namespace RecompPort {
+namespace N64Recomp {
     struct InstructionPatch {
         std::string func_name;
         int32_t vram;

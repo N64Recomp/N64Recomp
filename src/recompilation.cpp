@@ -8,7 +8,7 @@
 #include "fmt/format.h"
 #include "fmt/ostream.h"
 
-#include "recomp_port.h"
+#include "n64recomp.h"
 #include "analysis.h"
 #include "operations.h"
 #include "generator.h"
@@ -21,9 +21,9 @@ enum class JalResolutionResult {
     Error
 };
 
-JalResolutionResult resolve_jal(const RecompPort::Context& context, size_t cur_section_index, uint32_t target_func_vram, size_t& matched_function_index) {
+JalResolutionResult resolve_jal(const N64Recomp::Context& context, size_t cur_section_index, uint32_t target_func_vram, size_t& matched_function_index) {
     // Look for symbols with the target vram address
-    const RecompPort::Section& cur_section = context.sections[cur_section_index];
+    const N64Recomp::Section& cur_section = context.sections[cur_section_index];
     const auto matching_funcs_find = context.functions_by_vram.find(target_func_vram);
     uint32_t section_vram_start = cur_section.ram_addr;
     uint32_t section_vram_end = cur_section.ram_addr + cur_section.size;
@@ -110,8 +110,8 @@ std::string_view ctx_gpr_prefix(int reg) {
 }
 
 // Major TODO, this function grew very organically and needs to be cleaned up. Ideally, it'll get split up into some sort of lookup table grouped by similar instruction types.
-bool process_instruction(const RecompPort::Context& context, const RecompPort::Function& func, const RecompPort::FunctionStats& stats, const std::unordered_set<uint32_t>& skipped_insns, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ofstream& output_file, bool indent, bool emit_link_branch, int link_branch_index, size_t reloc_index, bool& needs_link_branch, bool& is_branch_likely, std::span<std::vector<uint32_t>> static_funcs_out) {
-    using namespace RecompPort;
+bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Function& func, const N64Recomp::FunctionStats& stats, const std::unordered_set<uint32_t>& skipped_insns, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ofstream& output_file, bool indent, bool emit_link_branch, int link_branch_index, size_t reloc_index, bool& needs_link_branch, bool& is_branch_likely, std::span<std::vector<uint32_t>> static_funcs_out) {
+    using namespace N64Recomp;
 
     const auto& section = context.sections[func.section_index];
     const auto& instr = instructions[instr_index];
@@ -144,7 +144,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         return true;
     }
 
-    RecompPort::RelocType reloc_type = RecompPort::RelocType::R_MIPS_NONE;
+    N64Recomp::RelocType reloc_type = N64Recomp::RelocType::R_MIPS_NONE;
     uint32_t reloc_section = 0;
     uint32_t reloc_target_section_offset = 0;
     size_t reloc_reference_symbol = (size_t)-1;
@@ -172,31 +172,31 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
                     reloc_type = reloc.type;
                     reloc_target_section_offset = reloc.section_offset;
                     // Ignore all relocs that aren't HI16 or LO16.
-                    if (reloc_type == RecompPort::RelocType::R_MIPS_HI16 || reloc_type == RecompPort::RelocType::R_MIPS_LO16 || reloc_type == RecompPort::RelocType::R_MIPS_26) {
+                    if (reloc_type == N64Recomp::RelocType::R_MIPS_HI16 || reloc_type == N64Recomp::RelocType::R_MIPS_LO16 || reloc_type == N64Recomp::RelocType::R_MIPS_26) {
                         if (reloc.reference_symbol) {
                             reloc_reference_symbol = reloc.symbol_index;
-                            static RecompPort::ReferenceSection dummy_section{
+                            static N64Recomp::ReferenceSection dummy_section{
                                 .rom_addr = 0,
                                 .ram_addr = 0,
                                 .size = 0,
                                 .relocatable = false
                             };
-                            const auto& reloc_reference_section = reloc.target_section == RecompPort::SectionAbsolute ? dummy_section : context.reference_sections[reloc.target_section];
+                            const auto& reloc_reference_section = reloc.target_section == N64Recomp::SectionAbsolute ? dummy_section : context.reference_sections[reloc.target_section];
                             // Resolve HI16 and LO16 reference symbol relocs to non-relocatable sections by patching the instruction immediate.
-                            if (!reloc_reference_section.relocatable && (reloc_type == RecompPort::RelocType::R_MIPS_HI16 || reloc_type == RecompPort::RelocType::R_MIPS_LO16)) {
+                            if (!reloc_reference_section.relocatable && (reloc_type == N64Recomp::RelocType::R_MIPS_HI16 || reloc_type == N64Recomp::RelocType::R_MIPS_LO16)) {
                                 uint32_t full_immediate = reloc.section_offset + reloc_reference_section.ram_addr;
                                 
-                                if (reloc_type == RecompPort::RelocType::R_MIPS_HI16) {
+                                if (reloc_type == N64Recomp::RelocType::R_MIPS_HI16) {
                                     imm = (full_immediate >> 16) + ((full_immediate >> 15) & 1);
-                                    reloc_type = RecompPort::RelocType::R_MIPS_NONE;
+                                    reloc_type = N64Recomp::RelocType::R_MIPS_NONE;
                                 }
-                                else if (reloc_type == RecompPort::RelocType::R_MIPS_LO16) {
+                                else if (reloc_type == N64Recomp::RelocType::R_MIPS_LO16) {
                                     imm = full_immediate & 0xFFFF;
-                                    reloc_type = RecompPort::RelocType::R_MIPS_NONE;
+                                    reloc_type = N64Recomp::RelocType::R_MIPS_NONE;
                                 }
                                 
                                 // The reloc has been processed, so delete it to none to prevent it getting processed a second time during instruction code generation.
-                                reloc_type = RecompPort::RelocType::R_MIPS_NONE;
+                                reloc_type = N64Recomp::RelocType::R_MIPS_NONE;
                                 reloc_reference_symbol = (size_t)-1;
                             }
                         }
@@ -248,7 +248,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
             const auto& ref_symbol = context.reference_symbols[reloc_reference_symbol];
             const std::string& ref_symbol_name = context.reference_symbol_names[reloc_reference_symbol];
 
-            if (reloc_type != RecompPort::RelocType::R_MIPS_26) {
+            if (reloc_type != N64Recomp::RelocType::R_MIPS_26) {
                 fmt::print(stderr, "Unsupported reloc type {} on jal instruction in {}\n", (int)reloc_type, func.name);
                 return false;
             }
@@ -388,12 +388,12 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
         {
             // Check if this addu belongs to a jump table load
             auto find_result = std::find_if(stats.jump_tables.begin(), stats.jump_tables.end(),
-                [instr_vram](const RecompPort::JumpTable& jtbl) {
+                [instr_vram](const N64Recomp::JumpTable& jtbl) {
                 return jtbl.addu_vram == instr_vram;
             });
             // If so, create a temp to preserve the addend register's value
             if (find_result != stats.jump_tables.end()) {
-                const RecompPort::JumpTable& cur_jtbl = *find_result;
+                const N64Recomp::JumpTable& cur_jtbl = *find_result;
                 print_line("gpr jr_addend_{:08X} = {}{}", cur_jtbl.jr_vram, ctx_gpr_prefix(cur_jtbl.addend_reg), cur_jtbl.addend_reg);
             }
         }
@@ -479,12 +479,12 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
             print_unconditional_branch("return");
         } else {
             auto jtbl_find_result = std::find_if(stats.jump_tables.begin(), stats.jump_tables.end(),
-                [instr_vram](const RecompPort::JumpTable& jtbl) {
+                [instr_vram](const N64Recomp::JumpTable& jtbl) {
                     return jtbl.jr_vram == instr_vram;
                 });
 
             if (jtbl_find_result != stats.jump_tables.end()) {
-                const RecompPort::JumpTable& cur_jtbl = *jtbl_find_result;
+                const N64Recomp::JumpTable& cur_jtbl = *jtbl_find_result;
                 bool dummy_needs_link_branch, dummy_is_branch_likely;
                 size_t next_reloc_index = reloc_index;
                 uint32_t next_vram = instr_vram + 4;
@@ -508,7 +508,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
             }
 
             auto jump_find_result = std::find_if(stats.absolute_jumps.begin(), stats.absolute_jumps.end(),
-                [instr_vram](const RecompPort::AbsoluteJump& jump) {
+                [instr_vram](const N64Recomp::AbsoluteJump& jump) {
                 return jump.instruction_vram == instr_vram;
             });
 
@@ -718,7 +718,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::F
     return true;
 }
 
-bool RecompPort::recompile_function(const RecompPort::Context& context, const RecompPort::Function& func, const std::string& recomp_include, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool write_header) {
+bool N64Recomp::recompile_function(const N64Recomp::Context& context, const N64Recomp::Function& func, const std::string& recomp_include, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool write_header) {
     //fmt::print("Recompiling {}\n", func.name);
     std::vector<rabbitizer::InstructionCpu> instructions;
 
@@ -764,8 +764,8 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
         }
 
         // Analyze function
-        RecompPort::FunctionStats stats{};
-        if (!RecompPort::analyze_function(context, func, instructions, stats)) {
+        N64Recomp::FunctionStats stats{};
+        if (!N64Recomp::analyze_function(context, func, instructions, stats)) {
             fmt::print(stderr, "Failed to analyze {}\n", func.name);
             output_file.clear();
             return false;

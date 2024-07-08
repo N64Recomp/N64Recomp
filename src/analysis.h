@@ -4,9 +4,9 @@
 #include <cstdint>
 #include <vector>
 
-#include "recomp_port.h"
+#include "n64recomp.h"
 
-namespace RecompPort {
+namespace N64Recomp {
     struct JumpTable {
         uint32_t vram;
         uint32_t addend_reg;
