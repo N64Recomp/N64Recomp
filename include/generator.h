@@ -1,10 +1,10 @@
 #ifndef __GENERATOR_H__
 #define __GENERATOR_H__
 
-#include "recomp_port.h"
+#include "n64recomp.h"
 #include "operations.h"
 
-namespace RecompPort {
+namespace N64Recomp {
     struct InstructionContext {
         int rd;
         int rs;

@@ -10,11 +10,11 @@ struct BinaryOpFields { std::string func_string; std::string infix_string; };
 
 std::vector<BinaryOpFields> c_op_fields = []() {
     std::vector<BinaryOpFields> ret{};
-    ret.resize(static_cast<size_t>(RecompPort::BinaryOpType::COUNT));
+    ret.resize(static_cast<size_t>(N64Recomp::BinaryOpType::COUNT));
     std::vector<char> ops_setup{};
-    ops_setup.resize(static_cast<size_t>(RecompPort::BinaryOpType::COUNT));
+    ops_setup.resize(static_cast<size_t>(N64Recomp::BinaryOpType::COUNT));
 
-    auto setup_op = [&ret, &ops_setup](RecompPort::BinaryOpType op_type, const std::string& func_string, const std::string& infix_string) {
+    auto setup_op = [&ret, &ops_setup](N64Recomp::BinaryOpType op_type, const std::string& func_string, const std::string& infix_string) {
         size_t index = static_cast<size_t>(op_type);
         // Prevent setting up an operation twice.
         assert(ops_setup[index] == false && "Operation already setup!");
@@ -22,47 +22,47 @@ std::vector<BinaryOpFields> c_op_fields = []() {
         ret[index] = { func_string, infix_string };
     };
 
-    setup_op(RecompPort::BinaryOpType::Add32,     "ADD32",  "");
-    setup_op(RecompPort::BinaryOpType::Sub32,     "SUB32",  "");
-    setup_op(RecompPort::BinaryOpType::Add64,     "",       "+");
-    setup_op(RecompPort::BinaryOpType::Sub64,     "",       "-");
-    setup_op(RecompPort::BinaryOpType::And64,     "",       "&");
-    setup_op(RecompPort::BinaryOpType::AddFloat,  "",       "+");
-    setup_op(RecompPort::BinaryOpType::AddDouble, "",       "+");
-    setup_op(RecompPort::BinaryOpType::SubFloat,  "",       "-");
-    setup_op(RecompPort::BinaryOpType::SubDouble, "",       "-");
-    setup_op(RecompPort::BinaryOpType::MulFloat,  "MUL_S",  "");
-    setup_op(RecompPort::BinaryOpType::MulDouble, "MUL_D",  "");
-    setup_op(RecompPort::BinaryOpType::DivFloat,  "DIV_S",  "");
-    setup_op(RecompPort::BinaryOpType::DivDouble, "DIV_D",  "");
-    setup_op(RecompPort::BinaryOpType::Or64,      "",       "|");
-    setup_op(RecompPort::BinaryOpType::Nor64,     "~",      "|");
-    setup_op(RecompPort::BinaryOpType::Xor64,     "",       "^");
-    setup_op(RecompPort::BinaryOpType::Sll32,     "S32",    "<<");
-    setup_op(RecompPort::BinaryOpType::Sll64,     "",       "<<");
-    setup_op(RecompPort::BinaryOpType::Srl32,     "S32",    ">>");
-    setup_op(RecompPort::BinaryOpType::Srl64,     "",       ">>");
-    setup_op(RecompPort::BinaryOpType::Sra32,     "S32",    ">>"); // Arithmetic aspect will be taken care of by unary op for first operand.
-    setup_op(RecompPort::BinaryOpType::Sra64,     "",       ">>"); // Arithmetic aspect will be taken care of by unary op for first operand.
-    setup_op(RecompPort::BinaryOpType::Equal,     "",       "==");
-    setup_op(RecompPort::BinaryOpType::NotEqual,  "",       "!=");
-    setup_op(RecompPort::BinaryOpType::Less,      "",       "<");
-    setup_op(RecompPort::BinaryOpType::LessEq,    "",       "<=");
-    setup_op(RecompPort::BinaryOpType::Greater,   "",       ">");
-    setup_op(RecompPort::BinaryOpType::GreaterEq, "",       ">=");
-    setup_op(RecompPort::BinaryOpType::LD,        "LD",     "");
-    setup_op(RecompPort::BinaryOpType::LW,        "MEM_W",  "");
-    setup_op(RecompPort::BinaryOpType::LWU,       "MEM_WU", "");
-    setup_op(RecompPort::BinaryOpType::LH,        "MEM_H",  "");
-    setup_op(RecompPort::BinaryOpType::LHU,       "MEM_HU", "");
-    setup_op(RecompPort::BinaryOpType::LB,        "MEM_B",  "");
-    setup_op(RecompPort::BinaryOpType::LBU,       "MEM_BU", "");
-    setup_op(RecompPort::BinaryOpType::LDL,       "do_ldl", "");
-    setup_op(RecompPort::BinaryOpType::LDR,       "do_ldr", "");
-    setup_op(RecompPort::BinaryOpType::LWL,       "do_lwl", "");
-    setup_op(RecompPort::BinaryOpType::LWR,       "do_lwr", "");
-    setup_op(RecompPort::BinaryOpType::True,      "", "");
-    setup_op(RecompPort::BinaryOpType::False,     "", "");
+    setup_op(N64Recomp::BinaryOpType::Add32,     "ADD32",  "");
+    setup_op(N64Recomp::BinaryOpType::Sub32,     "SUB32",  "");
+    setup_op(N64Recomp::BinaryOpType::Add64,     "",       "+");
+    setup_op(N64Recomp::BinaryOpType::Sub64,     "",       "-");
+    setup_op(N64Recomp::BinaryOpType::And64,     "",       "&");
+    setup_op(N64Recomp::BinaryOpType::AddFloat,  "",       "+");
+    setup_op(N64Recomp::BinaryOpType::AddDouble, "",       "+");
+    setup_op(N64Recomp::BinaryOpType::SubFloat,  "",       "-");
+    setup_op(N64Recomp::BinaryOpType::SubDouble, "",       "-");
+    setup_op(N64Recomp::BinaryOpType::MulFloat,  "MUL_S",  "");
+    setup_op(N64Recomp::BinaryOpType::MulDouble, "MUL_D",  "");
+    setup_op(N64Recomp::BinaryOpType::DivFloat,  "DIV_S",  "");
+    setup_op(N64Recomp::BinaryOpType::DivDouble, "DIV_D",  "");
+    setup_op(N64Recomp::BinaryOpType::Or64,      "",       "|");
+    setup_op(N64Recomp::BinaryOpType::Nor64,     "~",      "|");
+    setup_op(N64Recomp::BinaryOpType::Xor64,     "",       "^");
+    setup_op(N64Recomp::BinaryOpType::Sll32,     "S32",    "<<");
+    setup_op(N64Recomp::BinaryOpType::Sll64,     "",       "<<");
+    setup_op(N64Recomp::BinaryOpType::Srl32,     "S32",    ">>");
+    setup_op(N64Recomp::BinaryOpType::Srl64,     "",       ">>");
+    setup_op(N64Recomp::BinaryOpType::Sra32,     "S32",    ">>"); // Arithmetic aspect will be taken care of by unary op for first operand.
+    setup_op(N64Recomp::BinaryOpType::Sra64,     "",       ">>"); // Arithmetic aspect will be taken care of by unary op for first operand.
+    setup_op(N64Recomp::BinaryOpType::Equal,     "",       "==");
+    setup_op(N64Recomp::BinaryOpType::NotEqual,  "",       "!=");
+    setup_op(N64Recomp::BinaryOpType::Less,      "",       "<");
+    setup_op(N64Recomp::BinaryOpType::LessEq,    "",       "<=");
+    setup_op(N64Recomp::BinaryOpType::Greater,   "",       ">");
+    setup_op(N64Recomp::BinaryOpType::GreaterEq, "",       ">=");
+    setup_op(N64Recomp::BinaryOpType::LD,        "LD",     "");
+    setup_op(N64Recomp::BinaryOpType::LW,        "MEM_W",  "");
+    setup_op(N64Recomp::BinaryOpType::LWU,       "MEM_WU", "");
+    setup_op(N64Recomp::BinaryOpType::LH,        "MEM_H",  "");
+    setup_op(N64Recomp::BinaryOpType::LHU,       "MEM_HU", "");
+    setup_op(N64Recomp::BinaryOpType::LB,        "MEM_B",  "");
+    setup_op(N64Recomp::BinaryOpType::LBU,       "MEM_BU", "");
+    setup_op(N64Recomp::BinaryOpType::LDL,       "do_ldl", "");
+    setup_op(N64Recomp::BinaryOpType::LDR,       "do_ldr", "");
+    setup_op(N64Recomp::BinaryOpType::LWL,       "do_lwl", "");
+    setup_op(N64Recomp::BinaryOpType::LWR,       "do_lwr", "");
+    setup_op(N64Recomp::BinaryOpType::True,      "", "");
+    setup_op(N64Recomp::BinaryOpType::False,     "", "");
 
     // Ensure every operation has been setup.
     for (char is_set : ops_setup) {
@@ -100,22 +100,22 @@ std::string fpr_u64_to_string(int fpr_index) {
     return fmt::format("ctx->f{}.u64", fpr_index);
 }
 
-std::string unsigned_reloc(const RecompPort::InstructionContext& context) {
+std::string unsigned_reloc(const N64Recomp::InstructionContext& context) {
     switch (context.reloc_type) {
-        case RecompPort::RelocType::R_MIPS_HI16:
+        case N64Recomp::RelocType::R_MIPS_HI16:
             return fmt::format("RELOC_HI16({}, {:#X})", context.reloc_section_index, context.reloc_target_section_offset);
-        case RecompPort::RelocType::R_MIPS_LO16:
+        case N64Recomp::RelocType::R_MIPS_LO16:
             return fmt::format("RELOC_LO16({}, {:#X})", context.reloc_section_index, context.reloc_target_section_offset);
         default:
             throw std::runtime_error(fmt::format("Unexpected reloc type {}\n", static_cast<int>(context.reloc_type)));
     }
 }
 
-std::string signed_reloc(const RecompPort::InstructionContext& context) {
+std::string signed_reloc(const N64Recomp::InstructionContext& context) {
     return "(int16_t)" + unsigned_reloc(context);
 }
 
-void RecompPort::CGenerator::get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string) const {
+void N64Recomp::CGenerator::get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string) const {
     switch (operand) {
         case Operand::Rd:
             operand_string = gpr_to_string(context.rd);
@@ -172,7 +172,7 @@ void RecompPort::CGenerator::get_operand_string(Operand operand, UnaryOpType ope
             operand_string = fpr_u64_to_string(context.ft);
             break;
         case Operand::ImmU16:
-            if (context.reloc_type != RecompPort::RelocType::R_MIPS_NONE) {
+            if (context.reloc_type != N64Recomp::RelocType::R_MIPS_NONE) {
                 operand_string = unsigned_reloc(context);
             }
             else {
@@ -180,7 +180,7 @@ void RecompPort::CGenerator::get_operand_string(Operand operand, UnaryOpType ope
             }
             break;
         case Operand::ImmS16:
-            if (context.reloc_type != RecompPort::RelocType::R_MIPS_NONE) {
+            if (context.reloc_type != N64Recomp::RelocType::R_MIPS_NONE) {
                 operand_string = signed_reloc(context);
             }
             else {
@@ -311,12 +311,12 @@ void RecompPort::CGenerator::get_operand_string(Operand operand, UnaryOpType ope
     }
 }
 
-void RecompPort::CGenerator::get_notation(BinaryOpType op_type, std::string& func_string, std::string& infix_string) const {
+void N64Recomp::CGenerator::get_notation(BinaryOpType op_type, std::string& func_string, std::string& infix_string) const {
     func_string = c_op_fields[static_cast<size_t>(op_type)].func_string;
     infix_string = c_op_fields[static_cast<size_t>(op_type)].infix_string;
 }
 
-void RecompPort::CGenerator::get_binary_expr_string(BinaryOpType type, const BinaryOperands& operands, const InstructionContext& ctx, const std::string& output, std::string& expr_string) const {
+void N64Recomp::CGenerator::get_binary_expr_string(BinaryOpType type, const BinaryOperands& operands, const InstructionContext& ctx, const std::string& output, std::string& expr_string) const {
     thread_local std::string input_a{};
     thread_local std::string input_b{};
     thread_local std::string func_string{};
@@ -363,7 +363,7 @@ void RecompPort::CGenerator::get_binary_expr_string(BinaryOpType type, const Bin
     }
 }
 
-void RecompPort::CGenerator::emit_branch_condition(std::ostream& output_file, const ConditionalBranchOp& op, const InstructionContext& ctx) const {
+void N64Recomp::CGenerator::emit_branch_condition(std::ostream& output_file, const ConditionalBranchOp& op, const InstructionContext& ctx) const {
     // Thread local variables to prevent allocations when possible.
     // TODO these thread locals probably don't actually help right now, so figure out a better way to prevent allocations.
     thread_local std::string expr_string{};
@@ -371,19 +371,19 @@ void RecompPort::CGenerator::emit_branch_condition(std::ostream& output_file, co
     fmt::print(output_file, "if ({}) {{\n", expr_string);
 }
 
-void RecompPort::CGenerator::emit_branch_close(std::ostream& output_file) const {
+void N64Recomp::CGenerator::emit_branch_close(std::ostream& output_file) const {
     fmt::print(output_file, "    }}\n");
 }
 
-void RecompPort::CGenerator::emit_check_fr(std::ostream& output_file, int fpr) const {
+void N64Recomp::CGenerator::emit_check_fr(std::ostream& output_file, int fpr) const {
     fmt::print(output_file, "CHECK_FR(ctx, {});\n    ", fpr);
 }
 
-void RecompPort::CGenerator::emit_check_nan(std::ostream& output_file, int fpr, bool is_double) const {
+void N64Recomp::CGenerator::emit_check_nan(std::ostream& output_file, int fpr, bool is_double) const {
     fmt::print(output_file, "NAN_CHECK(ctx->f{}.{}); ", fpr, is_double ? "d" : "fl");
 }
 
-void RecompPort::CGenerator::process_binary_op(std::ostream& output_file, const BinaryOp& op, const InstructionContext& ctx) const {
+void N64Recomp::CGenerator::process_binary_op(std::ostream& output_file, const BinaryOp& op, const InstructionContext& ctx) const {
     // Thread local variables to prevent allocations when possible.
     // TODO these thread locals probably don't actually help right now, so figure out a better way to prevent allocations.
     thread_local std::string output{};
@@ -393,7 +393,7 @@ void RecompPort::CGenerator::process_binary_op(std::ostream& output_file, const 
     fmt::print(output_file, "{} = {};\n", output, expression);
 }
 
-void RecompPort::CGenerator::process_unary_op(std::ostream& output_file, const UnaryOp& op, const InstructionContext& ctx) const {
+void N64Recomp::CGenerator::process_unary_op(std::ostream& output_file, const UnaryOp& op, const InstructionContext& ctx) const {
     // Thread local variables to prevent allocations when possible.
     // TODO these thread locals probably don't actually help right now, so figure out a better way to prevent allocations.
     thread_local std::string output{};
@@ -404,7 +404,7 @@ void RecompPort::CGenerator::process_unary_op(std::ostream& output_file, const U
     fmt::print(output_file, "{} = {};\n", output, input);
 }
 
-void RecompPort::CGenerator::process_store_op(std::ostream& output_file, const StoreOp& op, const InstructionContext& ctx) const {
+void N64Recomp::CGenerator::process_store_op(std::ostream& output_file, const StoreOp& op, const InstructionContext& ctx) const {
     // Thread local variables to prevent allocations when possible.
     // TODO these thread locals probably don't actually help right now, so figure out a better way to prevent allocations.
     thread_local std::string base_str{};
