@@ -2,6 +2,7 @@
 
 #include <toml++/toml.hpp>
 #include "fmt/format.h"
+#include "config.h"
 #include "recomp_port.h"
 
 std::filesystem::path concat_if_not_empty(const std::filesystem::path& parent, const std::filesystem::path& child) {
@@ -101,68 +102,6 @@ std::vector<std::string> get_ignored_funcs(const toml::table* patches_data) {
     }
 
     return ignored_funcs;
-}
-
-std::unordered_map<std::string, RecompPort::FunctionArgType> arg_type_map{
-    {"u32", RecompPort::FunctionArgType::u32},
-    {"s32", RecompPort::FunctionArgType::s32},
-};
-
-std::vector<RecompPort::FunctionArgType> parse_args(const toml::array* args_in) {
-    std::vector<RecompPort::FunctionArgType> ret(args_in->size());
-
-    args_in->for_each([&ret](auto&& el) {
-        if constexpr (toml::is_string<decltype(el)>) {
-            const std::string& arg_str = *el;
-
-            // Check if the argument type string is valid.
-            auto type_find = arg_type_map.find(arg_str);
-            if (type_find == arg_type_map.end()) {
-                // It's not, so throw an error (and make it look like a normal toml one).
-                throw toml::parse_error(("Invalid argument type: " + arg_str).c_str(), el.source());
-            }
-            ret.push_back(type_find->second);
-        }
-        else {
-            throw toml::parse_error("Invalid function argument entry", el.source());
-        }
-    });
-
-    return ret;
-}
-
-RecompPort::DeclaredFunctionMap get_declared_funcs(const toml::table* patches_data) {
-    RecompPort::DeclaredFunctionMap declared_funcs{};
-
-    // Check if the func array exists.
-    const toml::node_view funcs_data = (*patches_data)["func"];
-
-    if (funcs_data.is_array()) {
-        const toml::array* funcs_array = funcs_data.as_array();
-
-        // Reserve room for all the funcs in the map.
-        declared_funcs.reserve(funcs_array->size());
-
-        // Gather the funcs and place them into the map.
-        funcs_array->for_each([&declared_funcs](auto&& el) {
-            if constexpr (toml::is_table<decltype(el)>) {
-                std::optional<std::string> func_name = el["name"].template value<std::string>();
-                toml::node_view args_in = el["args"];
-
-                if (func_name.has_value() && args_in.is_array()) {
-                    const toml::array* args_array = args_in.as_array();
-                    declared_funcs.emplace(func_name.value(), parse_args(args_array));
-                } else {
-                    throw toml::parse_error("Missing required value in func array", el.source());
-                }
-            }
-            else {
-                throw toml::parse_error("Invalid declared function entry", el.source());
-            }
-        });
-    }
-
-    return declared_funcs;
 }
 
 std::vector<RecompPort::FunctionSize> get_func_sizes(const toml::table* patches_data) {
@@ -438,16 +377,13 @@ RecompPort::Config::Config(const char* path) {
             // Ignored funcs array (optional)
             ignored_funcs = get_ignored_funcs(table);
 
-            // Functions (optional)
-            declared_funcs = get_declared_funcs(table);
-
             // Single-instruction patches (optional)
             instruction_patches = get_instruction_patches(table);
 
             // Manual function sizes (optional)
             manual_func_sizes = get_func_sizes(table);
 
-            // Fonction hooks (optional)
+            // Function hooks (optional)
             function_hooks = get_function_hooks(table);
         }
 

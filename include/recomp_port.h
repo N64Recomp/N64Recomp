@@ -22,96 +22,6 @@ constexpr uint32_t byteswap(uint32_t val) {
 #endif
 
 namespace RecompPort {
-
-    // Potential argument types for function declarations
-    enum class FunctionArgType {
-        u32,
-        s32,
-    };
-
-    // Mapping of function name to argument types
-    using DeclaredFunctionMap = std::unordered_map<std::string, std::vector<FunctionArgType>>;
-
-    struct InstructionPatch {
-        std::string func_name;
-        int32_t vram;
-        uint32_t value;
-    };
-
-    struct FunctionHook {
-        std::string func_name;
-        int32_t before_vram;
-        std::string text;
-    };
-
-    struct FunctionSize {
-        std::string func_name;
-        uint32_t size_bytes;
-
-        FunctionSize(const std::string& func_name, uint32_t size_bytes) : func_name(std::move(func_name)), size_bytes(size_bytes) {}
-    };
-
-    struct ManualFunction {
-        std::string func_name;
-        std::string section_name;
-        uint32_t vram;
-        uint32_t size;
-
-        ManualFunction(const std::string& func_name, std::string section_name, uint32_t vram, uint32_t size) : func_name(std::move(func_name)), section_name(std::move(section_name)), vram(vram), size(size) {}
-    };
-
-    struct Config {
-        int32_t entrypoint;
-        int32_t functions_per_output_file;
-        bool has_entrypoint;
-        bool uses_mips3_float_mode;
-        bool single_file_output;
-        bool use_absolute_symbols;
-        bool unpaired_lo16_warnings;
-        std::filesystem::path elf_path;
-        std::filesystem::path symbols_file_path;
-        std::filesystem::path func_reference_syms_file_path;
-        std::vector<std::filesystem::path> data_reference_syms_file_paths;
-        std::filesystem::path rom_file_path;
-        std::filesystem::path output_func_path;
-        std::filesystem::path relocatable_sections_path;
-        std::filesystem::path output_binary_path;
-        std::vector<std::string> stubbed_funcs;
-        std::vector<std::string> ignored_funcs;
-        DeclaredFunctionMap declared_funcs;
-        std::vector<InstructionPatch> instruction_patches;
-        std::vector<FunctionHook> function_hooks;
-        std::vector<FunctionSize> manual_func_sizes;
-        std::vector<ManualFunction> manual_functions;
-        std::string bss_section_suffix;
-        std::string recomp_include;
-
-        Config(const char* path);
-        bool good() { return !bad; }
-    private:
-        bool bad;
-    };
-
-    struct JumpTable {
-        uint32_t vram;
-        uint32_t addend_reg;
-        uint32_t rom;
-        uint32_t lw_vram;
-        uint32_t addu_vram;
-        uint32_t jr_vram;
-        std::vector<uint32_t> entries;
-
-        JumpTable(uint32_t vram, uint32_t addend_reg, uint32_t rom, uint32_t lw_vram, uint32_t addu_vram, uint32_t jr_vram, std::vector<uint32_t>&& entries)
-                : vram(vram), addend_reg(addend_reg), rom(rom), lw_vram(lw_vram), addu_vram(addu_vram), jr_vram(jr_vram), entries(std::move(entries)) {}
-    };
-
-    struct AbsoluteJump {
-        uint32_t jump_target;
-        uint32_t instruction_vram;
-
-        AbsoluteJump(uint32_t jump_target, uint32_t instruction_vram) : jump_target(jump_target), instruction_vram(instruction_vram) {}
-    };
-
     struct Function {
         uint32_t vram;
         uint32_t rom;
@@ -163,11 +73,6 @@ namespace RecompPort {
         bool has_mips32_relocs = false;
     };
 
-    struct FunctionStats {
-        std::vector<JumpTable> jump_tables;
-        std::vector<AbsoluteJump> absolute_jumps;
-    };
-
     struct ReferenceSection {
         uint32_t rom_addr;
         uint32_t ram_addr;
@@ -217,7 +122,6 @@ namespace RecompPort {
         Context() = default;
     };
 
-    bool analyze_function(const Context& context, const Function& function, const std::vector<rabbitizer::InstructionCpu>& instructions, FunctionStats& stats);
     bool recompile_function(const Context& context, const Function& func, const std::string& recomp_include, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs, bool write_header);
 }
 

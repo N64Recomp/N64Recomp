@@ -5,6 +5,7 @@
 #include "fmt/format.h"
 
 #include "recomp_port.h"
+#include "analysis.h"
 
 extern "C" const char* RabbitizerRegister_getNameGpr(uint8_t regValue);
 
