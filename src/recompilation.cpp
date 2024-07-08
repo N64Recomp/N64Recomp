@@ -9,6 +9,7 @@
 #include "fmt/ostream.h"
 
 #include "recomp_port.h"
+#include "analysis.h"
 #include "operations.h"
 #include "generator.h"
 
