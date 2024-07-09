@@ -462,7 +462,7 @@ bool N64Recomp::Context::from_symbol_file(const std::filesystem::path& symbol_fi
                     throw toml::parse_error("Section entry missing required field(s)", el.source());
                 }
 
-                size_t section_index = ret.sections.size();
+                uint16_t section_index = (uint16_t)ret.sections.size();
 
                 Section& section = ret.sections.emplace_back(Section{});
                 section.rom_addr = rom_addr.value();
@@ -561,7 +561,7 @@ bool N64Recomp::Context::from_symbol_file(const std::filesystem::path& symbol_fi
 
                                 Reloc cur_reloc{};
                                 cur_reloc.address = vram.value();
-                                cur_reloc.section_offset = target_vram.value() - section.ram_addr;
+                                cur_reloc.target_section_offset = target_vram.value() - section.ram_addr;
                                 cur_reloc.symbol_index = (uint32_t)-1;
                                 cur_reloc.target_section = section_index;
                                 cur_reloc.type = reloc_type;

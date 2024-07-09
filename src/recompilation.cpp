@@ -170,7 +170,7 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
                 if (reloc_section == func.section_index || reloc_section == section.bss_section_index || reloc.reference_symbol) {
                     // Record the reloc's data.
                     reloc_type = reloc.type;
-                    reloc_target_section_offset = reloc.section_offset;
+                    reloc_target_section_offset = reloc.target_section_offset;
                     // Ignore all relocs that aren't HI16 or LO16.
                     if (reloc_type == N64Recomp::RelocType::R_MIPS_HI16 || reloc_type == N64Recomp::RelocType::R_MIPS_LO16 || reloc_type == N64Recomp::RelocType::R_MIPS_26) {
                         if (reloc.reference_symbol) {
@@ -184,7 +184,7 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
                             const auto& reloc_reference_section = reloc.target_section == N64Recomp::SectionAbsolute ? dummy_section : context.reference_sections[reloc.target_section];
                             // Resolve HI16 and LO16 reference symbol relocs to non-relocatable sections by patching the instruction immediate.
                             if (!reloc_reference_section.relocatable && (reloc_type == N64Recomp::RelocType::R_MIPS_HI16 || reloc_type == N64Recomp::RelocType::R_MIPS_LO16)) {
-                                uint32_t full_immediate = reloc.section_offset + reloc_reference_section.ram_addr;
+                                uint32_t full_immediate = reloc.target_section_offset + reloc_reference_section.ram_addr;
                                 
                                 if (reloc_type == N64Recomp::RelocType::R_MIPS_HI16) {
                                     imm = (full_immediate >> 16) + ((full_immediate >> 15) & 1);

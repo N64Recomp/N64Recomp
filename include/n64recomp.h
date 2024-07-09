@@ -9,7 +9,6 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <filesystem>
-#include "rabbitizer.hpp"
 
 #ifdef _MSC_VER
 inline uint32_t byteswap(uint32_t val) {
@@ -51,9 +50,9 @@ namespace N64Recomp {
 
     struct Reloc {
         uint32_t address;
-        uint32_t section_offset;
-        uint32_t symbol_index;
-        uint32_t target_section;
+        uint32_t target_section_offset;
+        uint32_t symbol_index; // Only used for reference symbols
+        uint16_t target_section;
         RelocType type;
         bool reference_symbol;
     };
@@ -127,6 +126,36 @@ namespace N64Recomp {
     };
 
     bool recompile_function(const Context& context, const Function& func, const std::string& recomp_include, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs, bool write_header);
+    
+    enum class ReplacementFlags : uint32_t {
+        Force = 1 << 0,
+    };
+    
+    struct FunctionReplacement {
+        uint32_t func_index;
+        uint32_t original_vram;
+        ReplacementFlags flags;
+    };
+
+    struct ModSectionInfo {
+        uint32_t original_rom_addr;
+        std::vector<FunctionReplacement> replacements;
+
+    };
+
+    struct ModContext {
+        Context base_context;
+        std::vector<ModSectionInfo> section_info;
+    };
+    enum class ModSymbolsError {
+        Good,
+        NotASymbolFile,
+        UnknownSymbolFileVersion,
+        CorruptSymbolFile,
+        FunctionOutOfBounds,
+    };
+
+    ModSymbolsError parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, Context& context_out, ModContext& mod_context_out);
 }
 
 #endif

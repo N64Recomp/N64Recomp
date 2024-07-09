@@ -71,6 +71,7 @@ target_sources(N64Recomp PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/operations.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/cgenerator.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/recompilation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/mod_symbols.cpp
 )
 
 target_include_directories(N64Recomp PUBLIC
