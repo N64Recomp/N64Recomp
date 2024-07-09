@@ -64,12 +64,13 @@ namespace N64Recomp {
         uint32_t rom_addr = 0;
         uint32_t ram_addr = 0;
         uint32_t size = 0;
-        std::vector<uint32_t> function_addrs;
+        uint32_t bss_size = 0; // not populated when using a symbol toml
+        std::vector<uint32_t> function_addrs; // only used by the CLI (to find the size of static functions)
         std::vector<Reloc> relocs;
         std::string name;
         uint16_t bss_section_index = (uint16_t)-1;
         bool executable = false;
-        bool relocatable = false;
+        bool relocatable = false; // TODO is this needed? relocs being non-empty should be an equivalent check.
         bool has_mips32_relocs = false;
     };
 
@@ -91,14 +92,18 @@ namespace N64Recomp {
         std::vector<Section> sections;
         std::vector<Function> functions;
         std::unordered_map<uint32_t, std::vector<size_t>> functions_by_vram;
-        // A mapping of function name to index in the functions vector
-        std::unordered_map<std::string, size_t> functions_by_name;
+        // The target ROM being recompiled, TODO move this outside of the context to avoid making a copy for mod contexts.
+        // Used for reading relocations and for the output binary feature.
         std::vector<uint8_t> rom;
+
+        //// Only used by the CLI, TODO move these to a struct in the internal headers.
+        // A mapping of function name to index in the functions vector
+        std::unordered_map<std::string, size_t> functions_by_name; 
         // A list of the list of each function (by index in `functions`) in a given section
         std::vector<std::vector<size_t>> section_functions;
-        // The section names that were specified as relocatable
-        std::unordered_set<std::string> relocatable_sections;
-        // Functions with manual size overrides
+        // The section names that were specified as relocatable (only used for elf files)
+        std::unordered_set<std::string> relocatable_sections; // 
+        // Functions with manual size overrides (only used for elf files)
         std::unordered_map<std::string, size_t> manually_sized_funcs;
 
         //// Reference symbols (used for populating relocations for patches)
@@ -110,7 +115,6 @@ namespace N64Recomp {
         std::vector<std::string> reference_symbol_names;
         // Mapping of symbol name to reference symbol index.
         std::unordered_map<std::string, size_t> reference_symbols_by_name;
-        int executable_section_count;
 
         // Imports sections and function symbols from a provided context into this context's reference sections and reference functions.
         void import_reference_context(const Context& reference_context);
