@@ -1059,7 +1059,6 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::Conf
         // Check if this section is marked as executable, which means it has code in it
         if (section->get_flags() & ELFIO::SHF_EXECINSTR) {
             section_out.executable = true;
-            context.executable_section_count++;
         }
         section_out.name = section_name;
     }
@@ -1081,6 +1080,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::Conf
         auto bss_find = bss_sections_by_name.find(section_out.name);
         if (bss_find != bss_sections_by_name.end()) {
             section_out.bss_section_index = bss_find->second->get_index();
+            section_out.bss_size = bss_find->second->get_size();
         }
 
         if (!context.reference_symbols.empty() || section_out.relocatable) {
@@ -1269,27 +1269,6 @@ for_each_if(Iterator begin, Iterator end, Pred p, Operation op) {
             op(*begin);
         }
     }
-}
-
-void analyze_sections(N64Recomp::Context& context, const ELFIO::elfio& elf_file) {
-    std::vector<N64Recomp::Section*> executable_sections{};
-    
-    executable_sections.reserve(context.executable_section_count);
-
-    for_each_if(context.sections.begin(), context.sections.end(),
-        [](const N64Recomp::Section& section) {
-            return section.executable && section.rom_addr >= 0x1000;
-        },
-        [&](N64Recomp::Section& section) {
-            executable_sections.push_back(&section);
-        }
-    );
-
-    std::sort(executable_sections.begin(), executable_sections.end(),
-        [](const N64Recomp::Section* a, const N64Recomp::Section* b) {
-            return a->ram_addr < b->ram_addr;
-        }
-    );
 }
 
 bool read_list_file(const std::filesystem::path& filename, std::vector<std::string>& entries_out) {
@@ -1490,7 +1469,6 @@ static void setup_context_for_elf(N64Recomp::Context& context, const ELFIO::elfi
     context.functions_by_vram.reserve(context.functions.capacity());
     context.functions_by_name.reserve(context.functions.capacity());
     context.rom.reserve(8 * 1024 * 1024);
-    context.executable_section_count = 0;
 }
 
 int main(int argc, char** argv) {
@@ -1579,9 +1557,6 @@ int main(int argc, char** argv) {
 
         // Read all of the sections in the elf and look for the symbol table section
         ELFIO::section* symtab_section = read_sections(context, config, elf_file);
-
-        // Search the sections to see if any are overlays or TLB-mapped
-        analyze_sections(context, elf_file);
 
         // If no symbol table was found then exit
         if (symtab_section == nullptr) {
