@@ -1170,7 +1170,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::Conf
                     if (reloc_out.type == N64Recomp::RelocType::R_MIPS_LO16) {
                         uint32_t rel_immediate = instr.getProcessedImmediate();
                         uint32_t full_immediate = (prev_hi_immediate << 16) + (int16_t)rel_immediate;
-                        reloc_out.section_offset = full_immediate + rel_symbol_offset - rel_section_vram;
+                        reloc_out.target_section_offset = full_immediate + rel_symbol_offset - rel_section_vram;
                         if (prev_hi) {
                             if (prev_hi_symbol != rel_symbol) {
                                 fmt::print(stderr, "Paired HI16 and LO16 relocations have different symbols\n"
@@ -1180,7 +1180,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::Conf
                             }
 
                             // Set the previous HI16 relocs' relocated address.
-                            section_out.relocs[i - 1].section_offset = reloc_out.section_offset;
+                            section_out.relocs[i - 1].target_section_offset = reloc_out.target_section_offset;
                         }
                         else {
                             // Orphaned LO16 reloc warnings.
@@ -1227,7 +1227,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::Conf
                     if (reloc_out.type == N64Recomp::RelocType::R_MIPS_32) {
                         // The reloc addend is just the existing word before relocation, so the section offset can just be the symbol's section offset.
                         // Incorporating the addend will be handled at load-time.
-                        reloc_out.section_offset = rel_symbol_offset;
+                        reloc_out.target_section_offset = rel_symbol_offset;
                         // TODO set section_out.has_mips32_relocs to true if this section should emit its mips32 relocs (mainly for TLB mapping).
 
                         if (reloc_out.reference_symbol) {
@@ -1236,14 +1236,14 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::Conf
                                 reloc_target_section_addr = context.reference_sections[reloc_out.target_section].ram_addr;
                             }
                             // Patch the word in the ROM to incorporate the symbol's value.
-                            uint32_t updated_reloc_word = reloc_rom_word + reloc_target_section_addr + reloc_out.section_offset;
+                            uint32_t updated_reloc_word = reloc_rom_word + reloc_target_section_addr + reloc_out.target_section_offset;
                             *reinterpret_cast<uint32_t*>(context.rom.data() + reloc_rom_addr) = byteswap(updated_reloc_word);
                         }
                     }
 
                     if (reloc_out.type == N64Recomp::RelocType::R_MIPS_26) {
                         uint32_t rel_immediate = instr.getProcessedImmediate();
-                        reloc_out.section_offset = rel_immediate + rel_symbol_offset;
+                        reloc_out.target_section_offset = rel_immediate + rel_symbol_offset;
                     }
                 }
             }
@@ -1394,7 +1394,7 @@ void dump_context(const N64Recomp::Context& context, const std::unordered_map<ui
                         // TODO allow emitting MIPS32 relocs for specific sections via a toml option for TLB mapping support.
                         if (reloc.type == N64Recomp::RelocType::R_MIPS_HI16 || reloc.type == N64Recomp::RelocType::R_MIPS_LO16) {
                             fmt::print(func_context_file, "    {{ type = \"{}\", vram = 0x{:08X}, target_vram = 0x{:08X} }},\n",
-                                reloc_names[static_cast<int>(reloc.type)], reloc.address, reloc.section_offset + section.ram_addr);
+                                reloc_names[static_cast<int>(reloc.type)], reloc.address, reloc.target_section_offset + section.ram_addr);
                         }
                     }
                 }
