@@ -133,19 +133,14 @@ namespace N64Recomp {
     
     struct FunctionReplacement {
         uint32_t func_index;
+        uint32_t original_section_vrom;
         uint32_t original_vram;
         ReplacementFlags flags;
     };
 
-    struct ModSectionInfo {
-        uint32_t original_rom_addr;
-        std::vector<FunctionReplacement> replacements;
-
-    };
-
     struct ModContext {
         Context base_context;
-        std::vector<ModSectionInfo> section_info;
+        std::vector<FunctionReplacement> replacements;
     };
     enum class ModSymbolsError {
         Good,
