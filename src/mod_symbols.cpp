@@ -7,17 +7,16 @@ struct FileHeader {
 
 struct FileSubHeaderV1 {
     uint32_t num_sections;
+    uint32_t num_replacements;
 };
 
 struct SectionHeaderV1 {
     uint32_t file_offset;
     uint32_t vram;
-    uint32_t original_vrom; // 0 if this is a new section
     uint32_t rom_size;
     uint32_t bss_size;
     uint32_t num_funcs;
     uint32_t num_relocs;
-    uint32_t num_replacements;
 };
 
 struct FuncV1 {
@@ -34,6 +33,7 @@ struct RelocV1 {
 
 struct ReplacementV1 {
     uint32_t func_index;
+    uint32_t original_section_vrom;
     uint32_t original_vram;
     uint32_t flags; // force
 };
@@ -64,9 +64,10 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
     }
 
     size_t num_sections = subheader->num_sections;
+    size_t num_replacements = subheader->num_replacements;
 
     ret.sections.resize(num_sections);
-    mod_context.section_info.resize(num_sections);
+    mod_context.replacements.resize(num_replacements);
     for (size_t section_index = 0; section_index < num_sections; section_index++) {
         const SectionHeaderV1* section_header = reinterpret_data<SectionHeaderV1>(data, offset);
         if (section_header == nullptr) {
@@ -74,17 +75,14 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
         }
 
         N64Recomp::Section& cur_section = ret.sections[section_index];
-        N64Recomp::ModSectionInfo& cur_mod_section = mod_context.section_info[section_index];
 
         cur_section.rom_addr = section_header->file_offset;
         cur_section.ram_addr = section_header->vram;
         cur_section.size = section_header->rom_size;
         cur_section.bss_size = section_header->bss_size;
         cur_section.name = "mod_section_" + std::to_string(section_index);
-        cur_mod_section.original_rom_addr = section_header->original_vrom;
         uint32_t num_funcs = section_header->num_funcs;
         uint32_t num_relocs = section_header->num_relocs;
-        uint32_t num_replacements = section_header->num_replacements;
 
 
         const FuncV1* funcs = reinterpret_data<FuncV1>(data, offset, num_funcs);
@@ -99,16 +97,9 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
             return false;
         }
 
-        const ReplacementV1* replacements = reinterpret_data<ReplacementV1>(data, offset, num_replacements);
-        if (replacements == nullptr) {
-            printf("Failed to read replacements (count: %d)\n", num_replacements);
-            return false;
-        }
-
         size_t start_func_index = ret.functions.size();
         ret.functions.resize(ret.functions.size() + num_funcs);
         cur_section.relocs.resize(num_relocs);
-        cur_mod_section.replacements.resize(num_replacements);
 
         for (size_t func_index = 0; func_index < num_funcs; func_index++) {
             uint32_t func_rom_addr = cur_section.rom_addr + funcs[func_index].section_offset;
@@ -149,14 +140,21 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
                 cur_reloc.target_section = find_section_it->second;
             }
         }
+    }
 
-        for (size_t replacement_index = 0; replacement_index < num_replacements; replacement_index++) {
-            N64Recomp::FunctionReplacement& cur_replacement = cur_mod_section.replacements[replacement_index];
-            
-            cur_replacement.func_index = replacements[replacement_index].func_index;
-            cur_replacement.original_vram = replacements[replacement_index].original_vram;
-            cur_replacement.flags = static_cast<N64Recomp::ReplacementFlags>(replacements[replacement_index].flags);
-        }
+    const ReplacementV1* replacements = reinterpret_data<ReplacementV1>(data, offset, num_replacements);
+    if (replacements == nullptr) {
+        printf("Failed to read replacements (count: %d)\n", num_replacements);
+        return false;
+    }
+
+    for (size_t replacement_index = 0; replacement_index < num_replacements; replacement_index++) {
+        N64Recomp::FunctionReplacement& cur_replacement = mod_context.replacements[replacement_index];
+
+        cur_replacement.func_index = replacements[replacement_index].func_index;
+        cur_replacement.original_section_vrom = replacements[replacement_index].original_section_vrom;
+        cur_replacement.original_vram = replacements[replacement_index].original_vram;
+        cur_replacement.flags = static_cast<N64Recomp::ReplacementFlags>(replacements[replacement_index].flags);
     }
 
     return offset == data.size();
