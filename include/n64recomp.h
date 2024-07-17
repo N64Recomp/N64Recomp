@@ -96,6 +96,7 @@ namespace N64Recomp {
         int32_t entrypoint_address;
         bool use_absolute_symbols;
         bool unpaired_lo16_warnings;
+        bool all_sections_relocatable;
     };
     
     struct DataSymbol {
@@ -114,16 +115,17 @@ namespace N64Recomp {
     struct Context {
         std::vector<Section> sections;
         std::vector<Function> functions;
+        // A list of the list of each function (by index in `functions`) in a given section
+        std::vector<std::vector<size_t>> section_functions;
+        // A mapping of vram address to every function with that address.
         std::unordered_map<uint32_t, std::vector<size_t>> functions_by_vram;
         // The target ROM being recompiled, TODO move this outside of the context to avoid making a copy for mod contexts.
         // Used for reading relocations and for the output binary feature.
         std::vector<uint8_t> rom;
 
-        //// Only used by the CLI, TODO move these to a struct in the internal headers.
+        //// Only used by the CLI, TODO move this to a struct in the internal headers.
         // A mapping of function name to index in the functions vector
-        std::unordered_map<std::string, size_t> functions_by_name; 
-        // A list of the list of each function (by index in `functions`) in a given section
-        std::vector<std::vector<size_t>> section_functions;
+        std::unordered_map<std::string, size_t> functions_by_name;
 
         //// Reference symbols (used for populating relocations for patches)
         // A list of the sections that contain the reference symbols.
@@ -151,6 +153,8 @@ namespace N64Recomp {
     enum class ReplacementFlags : uint32_t {
         Force = 1 << 0,
     };
+    inline ReplacementFlags operator&(ReplacementFlags lhs, ReplacementFlags rhs) { return ReplacementFlags(uint32_t(lhs) & uint32_t(rhs)); }
+    inline ReplacementFlags operator|(ReplacementFlags lhs, ReplacementFlags rhs) { return ReplacementFlags(uint32_t(lhs) | uint32_t(rhs)); }
     
     struct FunctionReplacement {
         uint32_t func_index;
@@ -172,6 +176,7 @@ namespace N64Recomp {
     };
 
     ModSymbolsError parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, Context& context_out, ModContext& mod_context_out);
+    std::vector<uint8_t> symbols_to_bin_v1(const ModContext& mod_context);
 }
 
 #endif

@@ -7,7 +7,6 @@
 bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, const N64Recomp::ElfParsingConfig& elf_config, bool dumping_context, std::unordered_map<uint16_t, std::vector<N64Recomp::DataSymbol>>& data_syms) {
     bool found_entrypoint_func = false;
     ELFIO::symbol_section_accessor symbols{ elf_file, symtab_section };
-    fmt::print("Num symbols: {}\n", symbols.get_symbols_num());
 
     std::unordered_map<uint16_t, uint16_t> bss_section_to_target_section{};
 
@@ -234,7 +233,6 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
     std::unordered_map<std::string, ELFIO::section*> bss_sections_by_name;
 
     // Iterate over every section to record rom addresses and find the symbol table
-    fmt::print("Sections\n");
     for (const auto& section : elf_file.sections) {
         auto& section_out = context.sections[section->get_index()];
         //fmt::print("  {}: {} @ 0x{:08X}, 0x{:08X}\n", section->get_index(), section->get_name(), section->get_address(), context.rom.size());
@@ -249,7 +247,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
             symtab_section = section.get();
         }
 
-        if (elf_config.relocatable_sections.contains(section_name)) {
+        if (elf_config.all_sections_relocatable || elf_config.relocatable_sections.contains(section_name)) {
             section_out.relocatable = true;
         }
         
@@ -265,7 +263,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
 
             // If this reloc section is for a section that has been marked as relocatable, record it in the reloc section lookup.
             // Alternatively, if this recompilation uses reference symbols then record all reloc sections.
-            if (!context.reference_sections.empty() || elf_config.relocatable_sections.contains(reloc_target_section)) {
+            if (elf_config.all_sections_relocatable || !context.reference_sections.empty() || elf_config.relocatable_sections.contains(reloc_target_section)) {
                 reloc_sections_by_name[reloc_target_section] = section.get();
             }
         }
@@ -275,7 +273,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
             std::string bss_target_section = section_name.substr(0, section_name.size() - elf_config.bss_section_suffix.size());
 
             // If this bss section is for a section that has been marked as relocatable, record it in the reloc section lookup
-            if (elf_config.relocatable_sections.contains(bss_target_section)) {
+            if (elf_config.all_sections_relocatable || elf_config.relocatable_sections.contains(bss_target_section)) {
                 bss_sections_by_name[bss_target_section] = section.get();
             }
         }
@@ -559,7 +557,6 @@ bool N64Recomp::Context::from_elf_file(const std::filesystem::path& elf_file_pat
 
     // If no symbol table was found then exit
     if (symtab_section == nullptr) {
-        fmt::print("No symbol table section found\n");
         return false;
     }
 

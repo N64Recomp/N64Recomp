@@ -137,3 +137,20 @@ target_link_libraries(RSPRecomp fmt rabbitizer tomlplusplus::tomlplusplus)
 
 target_sources(RSPRecomp PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/RSPRecomp/src/rsp_recomp.cpp)
+
+# Mod tool
+project(RecompModTool)
+add_executable(RecompModTool)
+
+target_sources(RecompModTool PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/config.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/mod_symbols.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/RecompModTool/main.cpp
+)
+
+target_include_directories(RecompModTool PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/ELFIO
+)
+
+target_link_libraries(RecompModTool fmt tomlplusplus::tomlplusplus N64RecompElf)
+

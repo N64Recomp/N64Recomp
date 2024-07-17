@@ -114,6 +114,7 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
             }
 
             N64Recomp::Function& cur_func = ret.functions[start_func_index + func_index];
+            cur_func.vram = cur_section.ram_addr + funcs[func_index].section_offset;
             cur_func.rom = cur_section.rom_addr + funcs[func_index].section_offset;
             cur_func.words.resize(funcs[func_index].size / sizeof(uint32_t)); // Filled in later
             cur_func.name = "mod_func_" + std::to_string(start_func_index + func_index);
@@ -126,7 +127,7 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
             cur_reloc.type = static_cast<N64Recomp::RelocType>(relocs[reloc_index].type);
             cur_reloc.target_section_offset = relocs[reloc_index].target_section_offset;
             uint32_t target_section_vrom = relocs[reloc_index].target_section_vrom;
-            if (target_section_vrom == (uint32_t)-1) {
+            if (target_section_vrom == 0) {
                 cur_reloc.target_section = N64Recomp::SectionSelf;
             }
             else {
@@ -144,7 +145,7 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
 
     const ReplacementV1* replacements = reinterpret_data<ReplacementV1>(data, offset, num_replacements);
     if (replacements == nullptr) {
-        printf("Failed to read replacements (count: %d)\n", num_replacements);
+        printf("Failed to read replacements (count: %zu)\n", num_replacements);
         return false;
     }
 
@@ -204,4 +205,94 @@ N64Recomp::ModSymbolsError N64Recomp::parse_mod_symbols(std::span<const char> da
     }
 
     return ModSymbolsError::Good;
+}
+
+template <typename T>
+void vec_put(std::vector<uint8_t>& vec, const T* data) {
+    size_t start_size = vec.size();
+    vec.resize(vec.size() + sizeof(T));
+    memcpy(vec.data() + start_size, reinterpret_cast<const uint8_t*>(data), sizeof(T));
+}
+
+std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::ModContext& mod_context) {
+    std::vector<uint8_t> ret{};
+    ret.reserve(1024);
+    const N64Recomp::Context& context = mod_context.base_context;
+
+    const static FileHeader header {
+        .magic = {'N', '6', '4', 'R', 'S', 'Y', 'M', 'S'},
+        .version = 1
+    };
+
+    vec_put(ret, &header);
+
+    FileSubHeaderV1 sub_header {
+        .num_sections = static_cast<uint32_t>(context.sections.size()),
+        .num_replacements = static_cast<uint32_t>(mod_context.replacements.size()),
+    };
+
+    vec_put(ret, &sub_header);
+
+    for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
+        const Section& cur_section = context.sections[section_index];
+        SectionHeaderV1 section_out {
+            .file_offset = cur_section.rom_addr,
+            .vram = cur_section.ram_addr,
+            .rom_size = cur_section.size,
+            .bss_size = cur_section.bss_size,
+            .num_funcs = static_cast<uint32_t>(context.section_functions[section_index].size()),
+            .num_relocs = static_cast<uint32_t>(cur_section.relocs.size())
+        };
+
+        vec_put(ret, &section_out);
+
+        for (size_t func_index : context.section_functions[section_index]) {
+            const Function& cur_func = context.functions[func_index];
+            FuncV1 func_out {
+                .section_offset = cur_func.vram - cur_section.ram_addr,
+                .size = (uint32_t)(cur_func.words.size() * sizeof(cur_func.words[0])) 
+            };
+
+            vec_put(ret, &func_out);
+        }
+
+        for (const Reloc& cur_reloc : cur_section.relocs) {
+            uint32_t target_section_vrom;
+            if (cur_reloc.target_section == SectionSelf) {
+                target_section_vrom = 0;
+            }
+            else if (cur_reloc.reference_symbol) {
+                target_section_vrom = context.reference_sections[cur_reloc.target_section].rom_addr;
+            }
+            else {
+                target_section_vrom = context.sections[cur_reloc.target_section].rom_addr;
+            }
+            RelocV1 reloc_out {
+                .section_offset = cur_reloc.address - cur_section.ram_addr,
+                .type = static_cast<uint32_t>(cur_reloc.type),
+                .target_section_offset = cur_reloc.target_section_offset,
+                .target_section_vrom = target_section_vrom
+            };
+
+            vec_put(ret, &reloc_out);
+        }
+    }
+
+    for (const FunctionReplacement& cur_replacement : mod_context.replacements) {
+        uint32_t flags = 0;
+        if ((cur_replacement.flags & ReplacementFlags::Force) == ReplacementFlags::Force) {
+            flags |= 0x1;
+        }
+
+        ReplacementV1 replacement_out {
+            .func_index = cur_replacement.func_index,
+            .original_section_vrom = cur_replacement.original_section_vrom,
+            .original_vram = cur_replacement.original_vram,
+            .flags = flags
+        };
+
+        vec_put(ret, &replacement_out);
+    };
+
+    return ret;
 }

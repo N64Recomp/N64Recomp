@@ -336,7 +336,8 @@ int main(int argc, char** argv) {
             .has_entrypoint = config.has_entrypoint,
             .entrypoint_address = config.entrypoint,
             .use_absolute_symbols = config.use_absolute_symbols,
-            .unpaired_lo16_warnings = config.unpaired_lo16_warnings
+            .unpaired_lo16_warnings = config.unpaired_lo16_warnings,
+            .all_sections_relocatable = false,
         };
 
         for (const auto& func_size : config.manual_func_sizes) {
