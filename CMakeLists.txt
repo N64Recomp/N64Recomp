@@ -62,6 +62,18 @@ add_subdirectory(lib/fmt)
 set(TOML_ENABLE_FORMATTERS OFF)
 add_subdirectory(lib/tomlplusplus)
 
+# Hardcoded symbol lists (separate library to not force a dependency on N64Recomp)
+project(SymbolLists)
+add_library(SymbolLists)
+
+target_sources(SymbolLists PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/symbol_lists.cpp
+)
+
+target_include_directories(SymbolLists PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+
 # N64 recompiler core library
 project(N64Recomp)
 add_library(N64Recomp)
@@ -75,9 +87,29 @@ target_sources(N64Recomp PRIVATE
 )
 
 target_include_directories(N64Recomp PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
 
-target_link_libraries(N64Recomp fmt rabbitizer tomlplusplus::tomlplusplus)
+target_link_libraries(N64Recomp SymbolLists fmt rabbitizer tomlplusplus::tomlplusplus)
+
+# N64 recompiler elf parsing
+project(N64RecompElf)
+add_library(N64RecompElf)
+
+target_sources(N64RecompElf PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/elf.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/symbol_lists.cpp
+)
+
+target_include_directories(N64RecompElf PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+
+target_include_directories(N64RecompElf PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/lib/ELFIO"
+)
+
+target_link_libraries(N64RecompElf fmt)
 
 # N64 recompiler executable
 project(N64RecompCLI)
@@ -89,10 +121,10 @@ target_sources(N64RecompCLI PRIVATE
 )
 
 target_include_directories(N64RecompCLI PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/lib/ELFIO"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
 
-target_link_libraries(N64RecompCLI fmt rabbitizer tomlplusplus::tomlplusplus N64Recomp)
+target_link_libraries(N64RecompCLI fmt rabbitizer tomlplusplus::tomlplusplus N64Recomp N64RecompElf)
 set_target_properties(N64RecompCLI PROPERTIES OUTPUT_NAME N64Recomp)
 
 # RSP recompiler

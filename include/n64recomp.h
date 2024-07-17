@@ -107,6 +107,10 @@ namespace N64Recomp {
 
     using DataSymbolMap = std::unordered_map<uint16_t, std::vector<DataSymbol>>;
 
+    extern const std::unordered_set<std::string> reimplemented_funcs;
+    extern const std::unordered_set<std::string> ignored_funcs;
+    extern const std::unordered_set<std::string> renamed_funcs;
+
     struct Context {
         std::vector<Section> sections;
         std::vector<Function> functions;
