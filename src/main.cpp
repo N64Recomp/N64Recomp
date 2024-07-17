@@ -673,14 +673,7 @@ std::unordered_set<std::string> renamed_funcs{
     "_matherr",
 };
 
-struct DataSymbol {
-    uint32_t vram;
-    std::string name;
-
-    DataSymbol(uint32_t vram, std::string&& name) : vram(vram), name(std::move(name)) {}
-};
-
-bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, uint32_t entrypoint, bool has_entrypoint, bool use_absolute_symbols, bool dumping_context, std::unordered_map<uint16_t, std::vector<DataSymbol>>& data_syms) {
+bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, const N64Recomp::ElfParsingConfig& elf_config, bool dumping_context, std::unordered_map<uint16_t, std::vector<N64Recomp::DataSymbol>>& data_syms) {
     bool found_entrypoint_func = false;
     ELFIO::symbol_section_accessor symbols{ elf_file, symtab_section };
     fmt::print("Num symbols: {}\n", symbols.get_symbols_num());
@@ -716,7 +709,7 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
         symbols.get_symbol(sym_index, name, value, size, bind, type,
             section_index, other);
 
-        if (section_index == ELFIO::SHN_ABS && use_absolute_symbols) {
+        if (section_index == ELFIO::SHN_ABS && elf_config.use_absolute_symbols) {
             uint32_t vram = static_cast<uint32_t>(value);
             context.functions_by_vram[vram].push_back(context.functions.size());
 
@@ -735,7 +728,7 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
 
         if (section_index < context.sections.size()) {        
             // Check if this symbol is the entrypoint
-            if (has_entrypoint && value == entrypoint && type == ELFIO::STT_FUNC) {
+            if (elf_config.has_entrypoint && value == elf_config.entrypoint_address && type == ELFIO::STT_FUNC) {
                 if (found_entrypoint_func) {
                     fmt::print(stderr, "Ambiguous entrypoint: {}\n", name);
                     return false;
@@ -747,8 +740,8 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
             }
 
             // Check if this symbol has a size override
-            auto size_find = context.manually_sized_funcs.find(name);
-            if (size_find != context.manually_sized_funcs.end()) {
+            auto size_find = elf_config.manually_sized_funcs.find(name);
+            if (size_find != elf_config.manually_sized_funcs.end()) {
                 size = size_find->second;
                 type = ELFIO::STT_FUNC;
             }
@@ -787,8 +780,8 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
                     context.functions_by_vram[vram].push_back(context.functions.size());
 
                     // Find the entrypoint by rom address in case it doesn't have vram as its value
-                    if (has_entrypoint && rom_address == 0x1000 && type == ELFIO::STT_FUNC) {
-                        vram = entrypoint;
+                    if (elf_config.has_entrypoint && rom_address == 0x1000 && type == ELFIO::STT_FUNC) {
+                        vram = elf_config.entrypoint_address;
                         found_entrypoint_func = true;
                         name = "recomp_entrypoint";
                         if (size == 0) {
@@ -853,7 +846,6 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
             // Move this symbol into the corresponding non-bss section if it's in a bss section.
             auto find_bss_it = bss_section_to_target_section.find(target_section_index);
             if (find_bss_it != bss_section_to_target_section.end()) {
-                fmt::print("mapping {} to {}\n", context.sections[section_index].name, context.sections[find_bss_it->second].name);
                 target_section_index = find_bss_it->second;
             }
 
@@ -867,7 +859,7 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
     return found_entrypoint_func;
 }
 
-void add_manual_functions(N64Recomp::Context& context, const ELFIO::elfio& elf_file, const std::vector<N64Recomp::ManualFunction>& manual_funcs) {
+void add_manual_functions(N64Recomp::Context& context, const std::vector<N64Recomp::ManualFunction>& manual_funcs) {
     auto exit_failure = [](const std::string& error_str) {
         fmt::vprint(stderr, error_str, fmt::make_format_args());
         std::exit(EXIT_FAILURE);
@@ -903,7 +895,7 @@ void add_manual_functions(N64Recomp::Context& context, const ELFIO::elfio& elf_f
 
         std::vector<uint32_t> words;
         words.resize(cur_func_def.size / 4);
-        const uint32_t* elf_words = reinterpret_cast<const uint32_t*>(elf_file.sections[section_index]->get_data() + section_offset);
+        const uint32_t* elf_words = reinterpret_cast<const uint32_t*>(context.rom.data() + context.sections[section_index].rom_addr + section_offset);
 
         words.assign(elf_words, elf_words + words.size());
 
@@ -946,7 +938,7 @@ std::optional<size_t> get_segment(const std::vector<SegmentEntry>& segments, ELF
     return std::nullopt;
 }
 
-ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::Config& config, const ELFIO::elfio& elf_file) {
+ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfParsingConfig& elf_config, const ELFIO::elfio& elf_file) {
     ELFIO::section* symtab_section = nullptr;
     std::vector<SegmentEntry> segments{};
     segments.resize(elf_file.segments.size());
@@ -985,7 +977,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::Conf
             symtab_section = section.get();
         }
 
-        if (context.relocatable_sections.contains(section_name)) {
+        if (elf_config.relocatable_sections.contains(section_name)) {
             section_out.relocatable = true;
         }
         
@@ -1001,17 +993,17 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::Conf
 
             // If this reloc section is for a section that has been marked as relocatable, record it in the reloc section lookup.
             // Alternatively, if this recompilation uses reference symbols then record all reloc sections.
-            if (!context.reference_sections.empty() || context.relocatable_sections.contains(reloc_target_section)) {
+            if (!context.reference_sections.empty() || elf_config.relocatable_sections.contains(reloc_target_section)) {
                 reloc_sections_by_name[reloc_target_section] = section.get();
             }
         }
 
         // If the section is bss (SHT_NOBITS) and ends with the bss suffix, add it to the bss section map
-        if (type == ELFIO::SHT_NOBITS && section_name.ends_with(config.bss_section_suffix)) {
-            std::string bss_target_section = section_name.substr(0, section_name.size() - config.bss_section_suffix.size());
+        if (type == ELFIO::SHT_NOBITS && section_name.ends_with(elf_config.bss_section_suffix)) {
+            std::string bss_target_section = section_name.substr(0, section_name.size() - elf_config.bss_section_suffix.size());
 
             // If this bss section is for a section that has been marked as relocatable, record it in the reloc section lookup
-            if (context.relocatable_sections.contains(bss_target_section)) {
+            if (elf_config.relocatable_sections.contains(bss_target_section)) {
                 bss_sections_by_name[bss_target_section] = section.get();
             }
         }
@@ -1184,7 +1176,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::Conf
                         }
                         else {
                             // Orphaned LO16 reloc warnings.
-                            if (config.unpaired_lo16_warnings) {
+                            if (elf_config.unpaired_lo16_warnings) {
                                 if (prev_lo) {
                                     // Don't warn if multiple LO16 in a row reference the same symbol, as some linkers will use this behavior.
                                     if (prev_hi_symbol != rel_symbol) {
@@ -1350,15 +1342,15 @@ std::vector<std::string> reloc_names {
     "R_MIPS_GPREL16",
 };
 
-void dump_context(const N64Recomp::Context& context, const std::unordered_map<uint16_t, std::vector<DataSymbol>>& data_syms, const std::filesystem::path& func_path, const std::filesystem::path& data_path) {
+void dump_context(const N64Recomp::Context& context, const std::unordered_map<uint16_t, std::vector<N64Recomp::DataSymbol>>& data_syms, const std::filesystem::path& func_path, const std::filesystem::path& data_path) {
     std::ofstream func_context_file {func_path};
     std::ofstream data_context_file {data_path};
     
     fmt::print(func_context_file, "# Autogenerated from an ELF via N64Recomp\n");
     fmt::print(data_context_file, "# Autogenerated from an ELF via N64Recomp\n");
 
-    auto print_section = [](std::ofstream& output_file, const std::string& name, uint64_t rom_addr, uint64_t ram_addr, uint64_t size) {
-        if (rom_addr == (uint64_t)-1) {
+    auto print_section = [](std::ofstream& output_file, const std::string& name, uint32_t rom_addr, uint32_t ram_addr, uint32_t size) {
+        if (rom_addr == (uint32_t)-1) {
             fmt::print(output_file,
                 "[[section]]\n"
                 "name = \"{}\"\n"
@@ -1416,15 +1408,12 @@ void dump_context(const N64Recomp::Context& context, const std::unordered_map<ui
         
         const auto find_syms_it = data_syms.find((uint16_t)section_index);
         if (find_syms_it != data_syms.end() && !find_syms_it->second.empty()) {
-            if (section.name.ends_with(".bss")) {
-                fmt::print("asdasd {}\n", section.name);
-            }
             print_section(data_context_file, section.name, section.rom_addr, section.ram_addr, section.size);
 
             // Dump other symbols into the data context file.
             fmt::print(data_context_file, "symbols = [\n");
 
-            for (const DataSymbol& cur_sym : find_syms_it->second) {
+            for (const N64Recomp::DataSymbol& cur_sym : find_syms_it->second) {
                 fmt::print(data_context_file, "    {{ name = \"{}\", vram = 0x{:08X} }},\n", cur_sym.name, cur_sym.vram);
             }
             
@@ -1432,13 +1421,13 @@ void dump_context(const N64Recomp::Context& context, const std::unordered_map<ui
         }
     }
 
-    const auto find_abs_syms_it = data_syms.find((uint16_t)-1);
+    const auto find_abs_syms_it = data_syms.find(N64Recomp::SectionAbsolute);
     if (find_abs_syms_it != data_syms.end() && !find_abs_syms_it->second.empty()) {
         // Dump absolute symbols into the data context file.
-        print_section(data_context_file, "ABSOLUTE_SYMS", (uint64_t)-1, 0, 0);
+        print_section(data_context_file, "ABSOLUTE_SYMS", (uint32_t)-1, 0, 0);
         fmt::print(data_context_file, "symbols = [\n");
 
-        for (const DataSymbol& cur_sym : find_abs_syms_it->second) {
+        for (const N64Recomp::DataSymbol& cur_sym : find_abs_syms_it->second) {
             fmt::print(data_context_file, "    {{ name = \"{}\", vram = 0x{:08X} }},\n", cur_sym.name, cur_sym.vram);
         }
 
@@ -1471,6 +1460,41 @@ static void setup_context_for_elf(N64Recomp::Context& context, const ELFIO::elfi
     context.rom.reserve(8 * 1024 * 1024);
 }
 
+bool N64Recomp::Context::from_elf_file(const std::filesystem::path& elf_file_path, Context& out, const ElfParsingConfig& elf_config, bool for_dumping_context, DataSymbolMap& data_syms_out, bool& found_entrypoint_out) {
+    ELFIO::elfio elf_file;
+
+    if (!elf_file.load(elf_file_path.string())) {
+        fmt::print("Failed to load provided elf file\n");
+        return false;
+    }
+
+    if (elf_file.get_class() != ELFIO::ELFCLASS32) {
+        fmt::print("Incorrect elf class\n");
+        return false;
+    }
+
+    if (elf_file.get_encoding() != ELFIO::ELFDATA2MSB) {
+        fmt::print("Incorrect endianness\n");
+        return false;
+    }
+
+    setup_context_for_elf(out, elf_file);
+
+    // Read all of the sections in the elf and look for the symbol table section
+    ELFIO::section* symtab_section = read_sections(out, elf_config, elf_file);
+
+    // If no symbol table was found then exit
+    if (symtab_section == nullptr) {
+        fmt::print("No symbol table section found\n");
+        return false;
+    }
+
+    // Read all of the symbols in the elf and look for the entrypoint function
+    found_entrypoint_out = read_symbols(out, elf_file, symtab_section, elf_config, for_dumping_context, data_syms_out);
+
+    return true;
+}
+
 int main(int argc, char** argv) {
     auto exit_failure = [] (const std::string& error_str) {
         fmt::vprint(stderr, error_str, fmt::make_format_args());
@@ -1478,7 +1502,7 @@ int main(int argc, char** argv) {
     };
 
     // TODO expose a way to dump the context from the command line.
-    bool dumping_context = false;
+    bool dumping_context = true;// false;
 
     if (argc != 2) {
         fmt::print("Usage: {} [config file]\n", argv[0]);
@@ -1517,22 +1541,8 @@ int main(int argc, char** argv) {
 
     // Build a context from the provided elf file.
     if (!config.elf_path.empty()) {
-        ELFIO::elfio elf_file;
-
-        if (!elf_file.load(config.elf_path.string())) {
-            exit_failure("Failed to load provided elf file\n");
-        }
-
-        if (elf_file.get_class() != ELFIO::ELFCLASS32) {
-            exit_failure("Incorrect elf class\n");
-        }
-
-        if (elf_file.get_encoding() != ELFIO::ELFDATA2MSB) {
-            exit_failure("Incorrect endianness\n");
-        }
-
-        setup_context_for_elf(context, elf_file);
-        context.relocatable_sections = std::move(relocatable_sections);
+        // Lists of data symbols organized by section, only used if dumping context.
+        std::unordered_map<uint16_t, std::vector<N64Recomp::DataSymbol>> data_syms;
 
         // Import symbols from any reference symbols files that were provided.
         if (!config.func_reference_syms_file_path.empty()) {
@@ -1555,27 +1565,24 @@ int main(int argc, char** argv) {
             }
         }
 
-        // Read all of the sections in the elf and look for the symbol table section
-        ELFIO::section* symtab_section = read_sections(context, config, elf_file);
+        N64Recomp::ElfParsingConfig elf_config {
+            .bss_section_suffix = config.bss_section_suffix,
+            .relocatable_sections = std::move(relocatable_sections),
+            .has_entrypoint = config.has_entrypoint,
+            .entrypoint_address = config.entrypoint,
+            .use_absolute_symbols = config.use_absolute_symbols,
+            .unpaired_lo16_warnings = config.unpaired_lo16_warnings
+        };
 
-        // If no symbol table was found then exit
-        if (symtab_section == nullptr) {
-            exit_failure("No symbol table section found\n");
-        }
-
-        // Manually sized functions
         for (const auto& func_size : config.manual_func_sizes) {
-            context.manually_sized_funcs.emplace(func_size.func_name, func_size.size_bytes);
+            elf_config.manually_sized_funcs.emplace(func_size.func_name, func_size.size_bytes);
         }
 
-        // Lists of data symbols organized by section, only used if dumping context.
-        std::unordered_map<uint16_t, std::vector<DataSymbol>> data_syms;
-
-        // Read all of the symbols in the elf and look for the entrypoint function
-        bool found_entrypoint_func = read_symbols(context, elf_file, symtab_section, config.entrypoint, config.has_entrypoint, config.use_absolute_symbols, dumping_context, data_syms);
+        bool found_entrypoint_func;
+        N64Recomp::Context::from_elf_file(config.elf_path, context, elf_config, dumping_context, data_syms, found_entrypoint_func);
 
         // Add any manual functions
-        add_manual_functions(context, elf_file, config.manual_functions);
+        add_manual_functions(context, config.manual_functions);
 
         if (config.has_entrypoint && !found_entrypoint_func) {
             exit_failure("Could not find entrypoint function\n");
@@ -1586,7 +1593,7 @@ int main(int argc, char** argv) {
             // Sort the data syms by address so the output is nicer.
             for (auto& [section_index, section_syms] : data_syms) {
                 std::sort(section_syms.begin(), section_syms.end(),
-                    [](const DataSymbol& a, const DataSymbol& b) {
+                    [](const N64Recomp::DataSymbol& a, const N64Recomp::DataSymbol& b) {
                         return a.vram < b.vram;
                     }
                 );

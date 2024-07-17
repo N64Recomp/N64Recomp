@@ -86,8 +86,28 @@ namespace N64Recomp {
         bool is_function;
     };
 
+    struct ElfParsingConfig {
+        std::string bss_section_suffix;
+        // Functions with manual size overrides
+        std::unordered_map<std::string, size_t> manually_sized_funcs;
+        // The section names that were specified as relocatable
+        std::unordered_set<std::string> relocatable_sections;
+        bool has_entrypoint;
+        int32_t entrypoint_address;
+        bool use_absolute_symbols;
+        bool unpaired_lo16_warnings;
+    };
+    
+    struct DataSymbol {
+        uint32_t vram;
+        std::string name;
+
+        DataSymbol(uint32_t vram, std::string&& name) : vram(vram), name(std::move(name)) {}
+    };
+
+    using DataSymbolMap = std::unordered_map<uint16_t, std::vector<DataSymbol>>;
+
     struct Context {
-        // ROM address of each section
         std::vector<Section> sections;
         std::vector<Function> functions;
         std::unordered_map<uint32_t, std::vector<size_t>> functions_by_vram;
@@ -100,10 +120,6 @@ namespace N64Recomp {
         std::unordered_map<std::string, size_t> functions_by_name; 
         // A list of the list of each function (by index in `functions`) in a given section
         std::vector<std::vector<size_t>> section_functions;
-        // The section names that were specified as relocatable (only used for elf files)
-        std::unordered_set<std::string> relocatable_sections; // 
-        // Functions with manual size overrides (only used for elf files)
-        std::unordered_map<std::string, size_t> manually_sized_funcs;
 
         //// Reference symbols (used for populating relocations for patches)
         // A list of the sections that contain the reference symbols.
@@ -121,6 +137,7 @@ namespace N64Recomp {
         bool read_data_reference_syms(const std::filesystem::path& data_syms_file_path);
 
         static bool from_symbol_file(const std::filesystem::path& symbol_file_path, std::vector<uint8_t>&& rom, Context& out, bool with_relocs);
+        static bool from_elf_file(const std::filesystem::path& elf_file_path, Context& out, const ElfParsingConfig& flags, bool for_dumping_context, DataSymbolMap& data_syms_out, bool& found_entrypoint_out);
 
         Context() = default;
     };
