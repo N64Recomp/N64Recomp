@@ -59,6 +59,7 @@ namespace N64Recomp {
 
     constexpr uint16_t SectionSelf = (uint16_t)-1;
     constexpr uint16_t SectionAbsolute = (uint16_t)-2;
+    constexpr uint16_t SectionImport = (uint16_t)-3; // Imported symbols for mods
     struct Section {
         uint32_t rom_addr = 0;
         uint32_t ram_addr = 0;

@@ -390,7 +390,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                     bool found_rel_symbol = symbol_accessor.get_symbol(
                         rel_symbol, rel_symbol_name, rel_symbol_value, rel_symbol_size, rel_symbol_bind, rel_symbol_type, rel_symbol_section_index, rel_symbol_other);
 
-                    uint32_t rel_section_vram = section_out.ram_addr;
+                    uint32_t rel_section_vram = 0;
                     uint32_t rel_symbol_offset = 0;
 
                     // Check if the symbol is undefined and to know whether to look for it in the reference symbols.
@@ -412,7 +412,13 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
 
                         bool target_section_relocatable = false;
 
-                        if (reloc_out.target_section != N64Recomp::SectionAbsolute && context.reference_sections[reloc_out.target_section].relocatable) {
+                        if (reloc_out.target_section == N64Recomp::SectionImport) {
+                            target_section_relocatable = true;
+                        }
+                        else if (reloc_out.target_section == N64Recomp::SectionAbsolute) {
+                            target_section_relocatable = false;
+                        }
+                        else if (context.reference_sections[reloc_out.target_section].relocatable) {
                             target_section_relocatable = true;
                         }
 
@@ -425,6 +431,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                     else {
                         reloc_out.reference_symbol = false;
                         reloc_out.target_section = rel_symbol_section_index;
+                        rel_section_vram = context.sections[rel_symbol_section_index].ram_addr;
                     }
 
                     // Reloc pairing, see MIPS System V ABI documentation page 4-18 (https://refspecs.linuxfoundation.org/elf/mipsabi.pdf)

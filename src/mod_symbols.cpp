@@ -8,6 +8,8 @@ struct FileHeader {
 struct FileSubHeaderV1 {
     uint32_t num_sections;
     uint32_t num_replacements;
+    uint32_t num_exports;
+    uint32_t num_imports;
 };
 
 struct SectionHeaderV1 {
@@ -37,6 +39,9 @@ struct ReplacementV1 {
     uint32_t original_vram;
     uint32_t flags; // force
 };
+
+constexpr uint32_t SectionSelfVromV1 = 0xFFFFFFFF;
+constexpr uint32_t SectionImportVromV1 = 0xFFFFFFFE;
 
 template <typename T>
 const T* reinterpret_data(std::span<const char> data, size_t& offset, size_t count = 1) {
@@ -127,8 +132,11 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
             cur_reloc.type = static_cast<N64Recomp::RelocType>(relocs[reloc_index].type);
             cur_reloc.target_section_offset = relocs[reloc_index].target_section_offset;
             uint32_t target_section_vrom = relocs[reloc_index].target_section_vrom;
-            if (target_section_vrom == 0) {
+            if (target_section_vrom == SectionSelfVromV1) {
                 cur_reloc.target_section = N64Recomp::SectionSelf;
+            }
+            else if (target_section_vrom == SectionImportVromV1) {
+                cur_reloc.target_section = N64Recomp::SectionImport;
             }
             else {
                 // TODO lookup by section index by original vrom
@@ -259,7 +267,10 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::ModContext& m
         for (const Reloc& cur_reloc : cur_section.relocs) {
             uint32_t target_section_vrom;
             if (cur_reloc.target_section == SectionSelf) {
-                target_section_vrom = 0;
+                target_section_vrom = SectionSelfVromV1;
+            }
+            else if (cur_reloc.target_section == SectionImport) {
+                target_section_vrom = SectionImportVromV1;
             }
             else if (cur_reloc.reference_symbol) {
                 target_section_vrom = context.reference_sections[cur_reloc.target_section].rom_addr;

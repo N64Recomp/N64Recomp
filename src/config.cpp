@@ -612,6 +612,7 @@ void N64Recomp::Context::import_reference_context(const N64Recomp::Context& refe
     for (const N64Recomp::Function& func_in: reference_context.functions) {
         const N64Recomp::Section& func_section = reference_context.sections[func_in.section_index];
 
+        // TODO Check if reference_symbols_by_name already contains the name and show a conflict error if so.
         reference_symbols_by_name.emplace(func_in.name, reference_symbols.size());
 
         reference_symbols.emplace_back(N64Recomp::ReferenceSymbol{
@@ -708,6 +709,7 @@ bool N64Recomp::Context::read_data_reference_syms(const std::filesystem::path& d
                             throw toml::parse_error("Reference data symbol entry is missing required field(s)", data_sym_el.source());
                         }
 
+                        // TODO Check if reference_symbols_by_name already contains the name and show a conflict error if so.
                         this->reference_symbols_by_name.emplace(name.value(), reference_symbols.size());
 
                         this->reference_symbols.emplace_back(
