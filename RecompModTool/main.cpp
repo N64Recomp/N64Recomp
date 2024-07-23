@@ -199,7 +199,7 @@ static inline uint32_t round_up_16(uint32_t value) {
     return (value + 15) & (~15);
 }
 
-N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context, bool& good) {
+N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context, std::vector<std::string>&& import_symbol_mod_ids, bool& good) {
     N64Recomp::ModContext ret{};
     good = false;
 
@@ -330,14 +330,23 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
                 );
             }
 
+            std::string name_out;
+
+            if (export_section) {
+                ret.exported_funcs.push_back(output_func_index);
+                // Names are required for exported funcs, so copy the input function's name if we're in the export section.
+                name_out = cur_func.name;
+            }
+
             ret.base_context.section_functions[output_section_index].push_back(output_func_index);
+
 
             // Add this function to the output context.
             ret.base_context.functions.emplace_back(
                 cur_func.vram,
                 cur_func.rom,
                 std::vector<uint32_t>{}, // words
-                "", // name
+                std::move(name_out), // name
                 (uint16_t)output_section_index,
                 false, // ignored
                 false, // reimplemented
@@ -427,10 +436,29 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
                 });
             }
         }
+    }
 
-        // TODO exports
+    ret.import_symbol_mod_ids = std::move(import_symbol_mod_ids);
 
-        // TODO imports
+    // Copy the import reference symbols from the end of the input context to this context.
+    size_t num_imports = ret.import_symbol_mod_ids.size();
+    size_t import_symbol_start_index = input_context.reference_symbols.size() - num_imports;
+    ret.base_context.reference_symbols.resize(num_imports);
+    ret.base_context.reference_symbol_names.resize(num_imports);
+    for (size_t import_symbol_index = 0; import_symbol_index < num_imports; import_symbol_index++) {
+        size_t reference_symbol_index = import_symbol_index + import_symbol_start_index;
+        const auto& reference_symbol = input_context.reference_symbols[reference_symbol_index];
+        const std::string& reference_symbol_name = input_context.reference_symbol_names[reference_symbol_index];
+
+        if (reference_symbol.section_index != N64Recomp::SectionImport) {
+            fmt::print("Import symbol index {} (reference symbol index {}, name {}) is not in the import section!\n",
+                import_symbol_index, reference_symbol_index, reference_symbol_name);
+            return {};
+        }
+
+        ret.base_context.reference_symbols[import_symbol_index] = reference_symbol;
+        ret.base_context.reference_symbol_names[import_symbol_index] = reference_symbol_name;
+        ret.base_context.reference_symbols_by_name[reference_symbol_name] = import_symbol_index;
     }
 
     good = true;
@@ -467,19 +495,19 @@ int main(int argc, const char** argv) {
         context.import_reference_context(reference_context);
     }
 
-    size_t import_section_symbol_start = context.reference_symbols.size();
+    for (const std::filesystem::path& cur_data_sym_path : config.data_reference_syms_file_paths) {
+        if (!context.read_data_reference_syms(cur_data_sym_path)) {
+            fmt::print(stderr, "Failed to load provided data reference symbol file: {}\n", cur_data_sym_path.string());
+            return EXIT_FAILURE;
+        }
+    }
+
+    // Read the imported symbols, placing them at the end of the reference symbol list.
     std::vector<std::string> import_symbol_mod_ids{};
 
     for (const std::filesystem::path& dependency_path : config.dependency_paths) {
         if (!read_dependency_file(dependency_path, context, import_symbol_mod_ids)) {
             fmt::print(stderr, "Failed to read dependency file: {}\n", dependency_path.string());
-            return EXIT_FAILURE;
-        }
-    }
-
-    for (const std::filesystem::path& cur_data_sym_path : config.data_reference_syms_file_paths) {
-        if (!context.read_data_reference_syms(cur_data_sym_path)) {
-            fmt::print(stderr, "Failed to load provided data reference symbol file: {}\n", cur_data_sym_path.string());
             return EXIT_FAILURE;
         }
     }
@@ -509,7 +537,7 @@ int main(int argc, const char** argv) {
     }
 
     bool mod_context_good;
-    N64Recomp::ModContext mod_context = build_mod_context(context, mod_context_good);
+    N64Recomp::ModContext mod_context = build_mod_context(context, std::move(import_symbol_mod_ids), mod_context_good);
     std::vector<uint8_t> symbols_bin = N64Recomp::symbols_to_bin_v1(mod_context);
 
     std::ofstream output_syms_file{ config.output_syms_path, std::ios::binary };

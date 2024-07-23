@@ -167,6 +167,10 @@ namespace N64Recomp {
     struct ModContext {
         Context base_context;
         std::vector<FunctionReplacement> replacements;
+        // Mod id of every imported function (which exist at the end of `base_context.reference_symbols`).
+        std::vector<std::string> import_symbol_mod_ids;
+        // Indices of every exported function.
+        std::vector<size_t> exported_funcs;
     };
     enum class ModSymbolsError {
         Good,

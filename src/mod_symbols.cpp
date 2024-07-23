@@ -10,6 +10,7 @@ struct FileSubHeaderV1 {
     uint32_t num_replacements;
     uint32_t num_exports;
     uint32_t num_imports;
+    uint32_t string_data_size;
 };
 
 struct SectionHeaderV1 {
@@ -38,6 +39,19 @@ struct ReplacementV1 {
     uint32_t original_section_vrom;
     uint32_t original_vram;
     uint32_t flags; // force
+};
+
+struct ExportV1 {
+    uint32_t func_index;
+    uint32_t name_start; // offset into the string data
+    uint32_t name_size;
+};
+
+struct ImportV1 {
+    uint32_t name_start;
+    uint32_t name_size;
+    uint32_t mod_id_start;
+    uint32_t mod_id_size;
 };
 
 constexpr uint32_t SectionSelfVromV1 = 0xFFFFFFFF;
@@ -219,7 +233,13 @@ template <typename T>
 void vec_put(std::vector<uint8_t>& vec, const T* data) {
     size_t start_size = vec.size();
     vec.resize(vec.size() + sizeof(T));
-    memcpy(vec.data() + start_size, reinterpret_cast<const uint8_t*>(data), sizeof(T));
+    memcpy(vec.data() + start_size, data, sizeof(T));
+}
+
+void vec_put(std::vector<uint8_t>& vec, const std::string& data) {
+    size_t start_size = vec.size();
+    vec.resize(vec.size() + data.size());
+    memcpy(vec.data() + start_size, data.data(), data.size());
 }
 
 std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::ModContext& mod_context) {
@@ -234,12 +254,66 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::ModContext& m
 
     vec_put(ret, &header);
 
+    size_t num_exported_funcs = mod_context.exported_funcs.size();
+    size_t num_imported_funcs = mod_context.import_symbol_mod_ids.size();
+
     FileSubHeaderV1 sub_header {
         .num_sections = static_cast<uint32_t>(context.sections.size()),
         .num_replacements = static_cast<uint32_t>(mod_context.replacements.size()),
+        .num_exports = static_cast<uint32_t>(num_exported_funcs),
+        .num_imports = static_cast<uint32_t>(num_imported_funcs),
+        .string_data_size = 0,
     };
 
+    // Record the sub-header offset so the string data size can be filled in later.
+    size_t sub_header_offset = ret.size();
     vec_put(ret, &sub_header);
+
+    // Build the string data from the exports and imports.
+    size_t strings_start = ret.size();
+
+    // Track the start of every exported function's name in the string data. Size comes from the function, so no need to store it.
+    std::vector<uint32_t> exported_func_name_positions{};
+    exported_func_name_positions.resize(num_exported_funcs);
+    for (size_t export_index = 0; export_index < num_exported_funcs; export_index++) {
+        size_t function_index = mod_context.exported_funcs[export_index];
+        const Function& exported_func = mod_context.base_context.functions[function_index];
+
+        exported_func_name_positions[export_index] = static_cast<uint32_t>(ret.size() - strings_start);
+        vec_put(ret, exported_func.name);
+    }
+
+    // Track the start of every imported function's name in the string data, as well as any mod ids that have been written to the string data.
+    std::vector<uint32_t> imported_func_name_positions{};
+    imported_func_name_positions.resize(num_imported_funcs);
+    std::unordered_map<std::string, uint32_t> mod_id_name_positions{};
+    // Calculate the index of the first import symbol. Import symbols are all grouped at the end of the reference symbol list.
+    size_t import_symbol_base_index = mod_context.base_context.reference_symbols.size() - num_imported_funcs;
+    for (size_t import_index = 0; import_index < num_imported_funcs; import_index++) {
+        // Get the index of the reference symbol for this import.
+        size_t reference_symbol_index = import_symbol_base_index + import_index;
+        const ReferenceSymbol& imported_func = mod_context.base_context.reference_symbols[reference_symbol_index];
+        const std::string& imported_func_name = mod_context.base_context.reference_symbol_names[reference_symbol_index];
+        const std::string& cur_mod_id = mod_context.import_symbol_mod_ids[import_index];
+
+        // If this import's mod id hasn't been written into the strings data, write it now. 
+        auto mod_id_find_it = mod_id_name_positions.find(cur_mod_id);
+        if (mod_id_find_it == mod_id_name_positions.end()) {
+            mod_id_name_positions.emplace(cur_mod_id, static_cast<uint32_t>(ret.size() - strings_start));
+            vec_put(ret, cur_mod_id);
+        }
+
+        // Write this import's name into the strings data.
+        imported_func_name_positions[import_index] = static_cast<uint32_t>(ret.size() - strings_start);
+        vec_put(ret, imported_func_name);
+    }
+
+    // Align the data after the strings to 4 bytes.
+    size_t strings_size = round_up_4(ret.size() - strings_start);
+    ret.resize(strings_size + strings_start);
+
+    // Fill in the string data size in the sub-header.
+    reinterpret_cast<FileSubHeaderV1*>(ret.data() + sub_header_offset)->string_data_size = strings_size;
 
     for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
         const Section& cur_section = context.sections[section_index];
@@ -289,6 +363,7 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::ModContext& m
         }
     }
 
+    // Write the function replacements.
     for (const FunctionReplacement& cur_replacement : mod_context.replacements) {
         uint32_t flags = 0;
         if ((cur_replacement.flags & ReplacementFlags::Force) == ReplacementFlags::Force) {
@@ -304,6 +379,44 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::ModContext& m
 
         vec_put(ret, &replacement_out);
     };
+
+    // Write the exported functions.
+    for (size_t export_index = 0; export_index < num_exported_funcs; export_index++) {
+        size_t function_index = mod_context.exported_funcs[export_index];
+        const Function& exported_func = mod_context.base_context.functions[function_index];
+
+        ExportV1 export_out {
+            .func_index = static_cast<uint32_t>(function_index),
+            .name_start = exported_func_name_positions[export_index],
+            .name_size = static_cast<uint32_t>(exported_func.name.size())
+        };
+
+        vec_put(ret, &export_out);
+    }
+
+    // Write the imported functions.
+    for (size_t import_index = 0; import_index < num_imported_funcs; import_index++) {
+        // Get the index of the reference symbol for this import.
+        size_t reference_symbol_index = import_symbol_base_index + import_index;
+        const ReferenceSymbol& imported_func = mod_context.base_context.reference_symbols[reference_symbol_index];
+        const std::string& imported_func_name = mod_context.base_context.reference_symbol_names[reference_symbol_index];
+        const std::string& cur_mod_id = mod_context.import_symbol_mod_ids[import_index];
+
+        auto mod_id_find_it = mod_id_name_positions.find(cur_mod_id);
+        if (mod_id_find_it == mod_id_name_positions.end()) {
+            fprintf(stderr, "Internal error: failed to find position of mod id %s in string data\n", cur_mod_id.c_str());
+            return {};
+        }
+
+        ImportV1 import_out {
+            .name_start = imported_func_name_positions[import_index],
+            .name_size = static_cast<uint32_t>(imported_func_name.size()),
+            .mod_id_start = mod_id_find_it->second,
+            .mod_id_size = static_cast<uint32_t>(cur_mod_id.size())
+        };
+
+        vec_put(ret, &import_out);
+    }
 
     return ret;
 }
