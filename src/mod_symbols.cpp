@@ -9,6 +9,7 @@ struct FileSubHeaderV1 {
     uint32_t num_sections;
     uint32_t num_replacements;
     uint32_t num_exports;
+    uint32_t num_dependencies;
     uint32_t num_imports;
     uint32_t string_data_size;
 };
@@ -27,11 +28,14 @@ struct FuncV1 {
     uint32_t size;
 };
 
+constexpr uint32_t SectionSelfVromV1 = 0xFFFFFFFF;
+constexpr uint32_t SectionImportVromV1 = 0xFFFFFFFE;
+
 struct RelocV1 {
     uint32_t section_offset;
     uint32_t type;
-    uint32_t target_section_offset;
-    uint32_t target_section_vrom; // 0 means current section
+    uint32_t target_section_offset; // If this reloc references an import symbol, this indicates the import symbol index instead
+    uint32_t target_section_vrom;
 };
 
 struct ReplacementV1 {
@@ -47,15 +51,20 @@ struct ExportV1 {
     uint32_t name_size;
 };
 
-struct ImportV1 {
-    uint32_t name_start;
-    uint32_t name_size;
+struct DependencyV1 {
+    uint8_t major_version;
+    uint8_t minor_version;
+    uint8_t patch_version;
+    uint8_t reserved;
     uint32_t mod_id_start;
     uint32_t mod_id_size;
 };
 
-constexpr uint32_t SectionSelfVromV1 = 0xFFFFFFFF;
-constexpr uint32_t SectionImportVromV1 = 0xFFFFFFFE;
+struct ImportV1 {
+    uint32_t name_start;
+    uint32_t name_size;
+    uint32_t dependency;
+};
 
 template <typename T>
 const T* reinterpret_data(std::span<const char> data, size_t& offset, size_t count = 1) {
@@ -75,8 +84,13 @@ bool check_magic(const FileHeader* header) {
     return memcmp(header->magic, good_magic, sizeof(good_magic)) == 0;
 }
 
-bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, N64Recomp::Context& ret, N64Recomp::ModContext& mod_context) {
+static inline uint32_t round_up_4(uint32_t value) {
+    return (value + 3) & (~3);
+}
+
+bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, N64Recomp::ModContext& mod_context) {
     size_t offset = sizeof(FileHeader);
+    N64Recomp::Context& base_context = mod_context.base_context;
     const FileSubHeaderV1* subheader = reinterpret_data<FileSubHeaderV1>(data, offset);
     if (subheader == nullptr) {
         return false;
@@ -84,22 +98,44 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
 
     size_t num_sections = subheader->num_sections;
     size_t num_replacements = subheader->num_replacements;
+    size_t num_exports = subheader->num_exports;
+    size_t num_dependencies = subheader->num_dependencies;
+    size_t num_imports = subheader->num_imports;
+    size_t string_data_size = subheader->string_data_size;
 
-    ret.sections.resize(num_sections);
+    if (string_data_size & 0b11) {
+        printf("String data size of %zu is not a multiple of 4\n", string_data_size);
+        return false;
+    }
+
+    const char* string_data = reinterpret_data<char>(data, offset, string_data_size);
+    if (string_data == nullptr) {
+        return false;
+    }
+
+    size_t import_symbol_base_index = base_context.reference_symbols.size();
+
+    base_context.sections.resize(num_sections);
     mod_context.replacements.resize(num_replacements);
+    mod_context.exported_funcs.resize(num_exports);
+    mod_context.dependencies.resize(num_dependencies);
+    mod_context.import_symbol_dependency_indices.resize(num_imports);
+    base_context.reference_symbols.resize(import_symbol_base_index + num_imports);
+    base_context.reference_symbol_names.resize(import_symbol_base_index + num_imports);
     for (size_t section_index = 0; section_index < num_sections; section_index++) {
         const SectionHeaderV1* section_header = reinterpret_data<SectionHeaderV1>(data, offset);
         if (section_header == nullptr) {
             return false;
         }
 
-        N64Recomp::Section& cur_section = ret.sections[section_index];
+        N64Recomp::Section& cur_section = base_context.sections[section_index];
 
         cur_section.rom_addr = section_header->file_offset;
         cur_section.ram_addr = section_header->vram;
         cur_section.size = section_header->rom_size;
         cur_section.bss_size = section_header->bss_size;
         cur_section.name = "mod_section_" + std::to_string(section_index);
+        cur_section.relocatable = true;
         uint32_t num_funcs = section_header->num_funcs;
         uint32_t num_relocs = section_header->num_relocs;
 
@@ -116,8 +152,8 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
             return false;
         }
 
-        size_t start_func_index = ret.functions.size();
-        ret.functions.resize(ret.functions.size() + num_funcs);
+        size_t start_func_index = base_context.functions.size();
+        base_context.functions.resize(base_context.functions.size() + num_funcs);
         cur_section.relocs.resize(num_relocs);
 
         for (size_t func_index = 0; func_index < num_funcs; func_index++) {
@@ -132,7 +168,7 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
                 return false;
             }
 
-            N64Recomp::Function& cur_func = ret.functions[start_func_index + func_index];
+            N64Recomp::Function& cur_func = base_context.functions[start_func_index + func_index];
             cur_func.vram = cur_section.ram_addr + funcs[func_index].section_offset;
             cur_func.rom = cur_section.rom_addr + funcs[func_index].section_offset;
             cur_func.words.resize(funcs[func_index].size / sizeof(uint32_t)); // Filled in later
@@ -151,16 +187,20 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
             }
             else if (target_section_vrom == SectionImportVromV1) {
                 cur_reloc.target_section = N64Recomp::SectionImport;
+                cur_reloc.reference_symbol = true;
+                // Import symbol relocs encode the import symbol index into the target_section_offset field.
+                cur_reloc.symbol_index = cur_reloc.target_section_offset + import_symbol_base_index;
             }
             else {
                 // TODO lookup by section index by original vrom
                 auto find_section_it = sections_by_vrom.find(target_section_vrom);
                 if (find_section_it == sections_by_vrom.end()) {
-                    printf("Reloc %zu in section %zu size has a target section vrom (%08X) that doesn't match any original section\n",
+                    printf("Reloc %zu in section %zu has a target section vrom (%08X) that doesn't match any original section\n",
                         reloc_index, section_index, target_section_vrom);
                     return false;
                 }
                 cur_reloc.target_section = find_section_it->second;
+                cur_reloc.reference_symbol = true;
             }
         }
     }
@@ -180,14 +220,101 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
         cur_replacement.flags = static_cast<N64Recomp::ReplacementFlags>(replacements[replacement_index].flags);
     }
 
+    const ExportV1* exports = reinterpret_data<ExportV1>(data, offset, num_exports);
+    if (exports == nullptr) {
+        printf("Failed to read exports (count: %zu)\n", num_exports);
+        return false;
+    }
+
+    for (size_t export_index = 0; export_index < num_exports; export_index++) {
+        const ExportV1& export_in = exports[export_index];
+        uint32_t func_index = export_in.func_index;
+        uint32_t name_start = export_in.name_start;
+        uint32_t name_size = export_in.name_size;
+
+        if (func_index >= base_context.functions.size()) {
+            printf("Export %zu has a function index of %u, but the symbol file only has %zu functions\n",
+                export_index, func_index, base_context.functions.size());
+        }
+
+        if (name_start + name_size > string_data_size) {
+            printf("Export %zu has a name start of %u and size of %u, which extend beyond the string data's total size of %zu\n",
+                export_index, name_start, name_size, string_data_size);
+        }
+
+        // Add the function to the exported function list.
+        mod_context.exported_funcs[export_index] = func_index;
+        // Populate the exported function's name from the string data.
+        base_context.functions[func_index].name = std::string_view(string_data + name_start, string_data + name_start + name_size);
+    }
+
+    const DependencyV1* dependencies = reinterpret_data<DependencyV1>(data, offset, num_dependencies);
+    if (dependencies == nullptr) {
+        printf("Failed to read dependencies (count: %zu)\n", num_dependencies);
+        return false;
+    }
+
+    for (size_t dependency_index = 0; dependency_index < num_dependencies; dependency_index++) {
+        const DependencyV1& dependency_in = dependencies[dependency_index];
+        uint32_t mod_id_start = dependency_in.mod_id_start;
+        uint32_t mod_id_size = dependency_in.mod_id_size;
+
+        if (mod_id_start + mod_id_size > string_data_size) {
+            printf("Dependency %zu has a name start of %u and size of %u, which extend beyond the string data's total size of %zu\n",
+                dependency_index, mod_id_start, mod_id_size, string_data_size);
+        }
+
+        auto& dependency_out = mod_context.dependencies[dependency_index];
+        dependency_out.major_version = dependency_in.major_version;
+        dependency_out.minor_version = dependency_in.minor_version;
+        dependency_out.patch_version = dependency_in.patch_version;
+        dependency_out.mod_id = std::string_view(string_data + mod_id_start, string_data + mod_id_start + mod_id_size);
+    }
+
+    const ImportV1* imports = reinterpret_data<ImportV1>(data, offset, num_imports);
+    if (imports == nullptr) {
+        printf("Failed to read imports (count: %zu)\n", num_imports);
+        return false;
+    }
+
+    for (size_t import_index = 0; import_index < num_imports; import_index++) {
+        const ImportV1& import_in = imports[import_index];
+        uint32_t name_start = import_in.name_start;
+        uint32_t name_size = import_in.name_size;
+        uint32_t dependency_index = import_in.dependency;
+        size_t reference_symbol_index = import_symbol_base_index + import_index;
+
+        if (name_start + name_size > string_data_size) {
+            printf("Import %zu has a name start of %u and size of %u, which extend beyond the string data's total size of %zu\n",
+                import_index, name_start, name_size, string_data_size);
+        }
+
+        if (dependency_index >= num_dependencies) {
+            printf("Import %zu belongs to dependency %u, but only %zu dependencies were specified\n",
+                import_index, dependency_index, num_dependencies);
+        }
+
+        std::string_view import_name{ string_data + name_start, string_data + name_start + name_size };
+
+        base_context.reference_symbols[reference_symbol_index] = N64Recomp::ReferenceSymbol{
+            .section_index = N64Recomp::SectionImport,
+            .section_offset = static_cast<uint32_t>(import_index),
+            .is_function = true,
+        };
+        base_context.reference_symbol_names[reference_symbol_index] = import_name;
+        base_context.reference_symbols_by_name[std::string{import_name}] = reference_symbol_index;
+        mod_context.import_symbol_dependency_indices[import_index] = dependency_index;
+    }
+
     return offset == data.size();
 }
 
-N64Recomp::ModSymbolsError N64Recomp::parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, Context& context_out, ModContext& mod_context_out) {
+N64Recomp::ModSymbolsError N64Recomp::parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, const Context& reference_context, ModContext& mod_context_out) {
     size_t offset = 0;
-    context_out = {};
     mod_context_out = {};
     const FileHeader* header = reinterpret_data<FileHeader>(data, offset);
+
+    mod_context_out.base_context.import_reference_context(reference_context);
 
     if (header == nullptr) {
         return ModSymbolsError::NotASymbolFile;
@@ -201,22 +328,20 @@ N64Recomp::ModSymbolsError N64Recomp::parse_mod_symbols(std::span<const char> da
 
     switch (header->version) {
         case 1:
-            valid = parse_v1(data, sections_by_vrom, context_out, mod_context_out);
+            valid = parse_v1(data, sections_by_vrom, mod_context_out);
             break;
         default:
             return ModSymbolsError::UnknownSymbolFileVersion;
     }
 
     if (!valid) {
-        context_out = {};
         mod_context_out = {};
         return ModSymbolsError::CorruptSymbolFile;
     }
 
     // Fill in the words for each function.
-    for (auto& cur_func : context_out.functions) {
+    for (auto& cur_func : mod_context_out.base_context.functions) {
         if (cur_func.rom + cur_func.words.size() * sizeof(cur_func.words[0]) > binary.size()) {
-            context_out = {};
             mod_context_out = {};
             return ModSymbolsError::FunctionOutOfBounds;
         }
@@ -255,12 +380,14 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::ModContext& m
     vec_put(ret, &header);
 
     size_t num_exported_funcs = mod_context.exported_funcs.size();
-    size_t num_imported_funcs = mod_context.import_symbol_mod_ids.size();
+    size_t num_dependencies = mod_context.dependencies.size();
+    size_t num_imported_funcs = mod_context.import_symbol_dependency_indices.size();
 
     FileSubHeaderV1 sub_header {
         .num_sections = static_cast<uint32_t>(context.sections.size()),
         .num_replacements = static_cast<uint32_t>(mod_context.replacements.size()),
         .num_exports = static_cast<uint32_t>(num_exported_funcs),
+        .num_dependencies = static_cast<uint32_t>(num_dependencies),
         .num_imports = static_cast<uint32_t>(num_imported_funcs),
         .string_data_size = 0,
     };
@@ -283,7 +410,17 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::ModContext& m
         vec_put(ret, exported_func.name);
     }
 
-    // Track the start of every imported function's name in the string data, as well as any mod ids that have been written to the string data.
+    // Track the start of every dependency's name in the string data.
+    std::vector<uint32_t> dependency_name_positions{};
+    dependency_name_positions.resize(num_dependencies);
+    for (size_t dependency_index = 0; dependency_index < num_dependencies; dependency_index++) {
+        const Dependency& dependency = mod_context.dependencies[dependency_index];
+
+        dependency_name_positions[dependency_index] = static_cast<uint32_t>(ret.size() - strings_start);
+        vec_put(ret, dependency.mod_id);
+    }
+
+    // Track the start of every imported function's name in the string data.
     std::vector<uint32_t> imported_func_name_positions{};
     imported_func_name_positions.resize(num_imported_funcs);
     std::unordered_map<std::string, uint32_t> mod_id_name_positions{};
@@ -294,14 +431,6 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::ModContext& m
         size_t reference_symbol_index = import_symbol_base_index + import_index;
         const ReferenceSymbol& imported_func = mod_context.base_context.reference_symbols[reference_symbol_index];
         const std::string& imported_func_name = mod_context.base_context.reference_symbol_names[reference_symbol_index];
-        const std::string& cur_mod_id = mod_context.import_symbol_mod_ids[import_index];
-
-        // If this import's mod id hasn't been written into the strings data, write it now. 
-        auto mod_id_find_it = mod_id_name_positions.find(cur_mod_id);
-        if (mod_id_find_it == mod_id_name_positions.end()) {
-            mod_id_name_positions.emplace(cur_mod_id, static_cast<uint32_t>(ret.size() - strings_start));
-            vec_put(ret, cur_mod_id);
-        }
 
         // Write this import's name into the strings data.
         imported_func_name_positions[import_index] = static_cast<uint32_t>(ret.size() - strings_start);
@@ -340,11 +469,13 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::ModContext& m
 
         for (const Reloc& cur_reloc : cur_section.relocs) {
             uint32_t target_section_vrom;
+            uint32_t target_section_offset = cur_reloc.target_section_offset;
             if (cur_reloc.target_section == SectionSelf) {
                 target_section_vrom = SectionSelfVromV1;
             }
             else if (cur_reloc.target_section == SectionImport) {
                 target_section_vrom = SectionImportVromV1;
+                target_section_offset = cur_reloc.symbol_index;
             }
             else if (cur_reloc.reference_symbol) {
                 target_section_vrom = context.reference_sections[cur_reloc.target_section].rom_addr;
@@ -355,7 +486,7 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::ModContext& m
             RelocV1 reloc_out {
                 .section_offset = cur_reloc.address - cur_section.ram_addr,
                 .type = static_cast<uint32_t>(cur_reloc.type),
-                .target_section_offset = cur_reloc.target_section_offset,
+                .target_section_offset = target_section_offset,
                 .target_section_vrom = target_section_vrom
             };
 
@@ -394,25 +525,33 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::ModContext& m
         vec_put(ret, &export_out);
     }
 
+    // Write the dependencies.
+    for (size_t dependency_index = 0; dependency_index < num_dependencies; dependency_index++) {
+        const Dependency& dependency = mod_context.dependencies[dependency_index];
+
+        DependencyV1 dependency_out {
+            .major_version = dependency.major_version,
+            .minor_version = dependency.minor_version,
+            .patch_version = dependency.patch_version,
+            .mod_id_start = dependency_name_positions[dependency_index],
+            .mod_id_size = static_cast<uint32_t>(dependency.mod_id.size())
+        };
+
+        vec_put(ret, &dependency_out);
+    }
+
     // Write the imported functions.
     for (size_t import_index = 0; import_index < num_imported_funcs; import_index++) {
         // Get the index of the reference symbol for this import.
         size_t reference_symbol_index = import_symbol_base_index + import_index;
         const ReferenceSymbol& imported_func = mod_context.base_context.reference_symbols[reference_symbol_index];
         const std::string& imported_func_name = mod_context.base_context.reference_symbol_names[reference_symbol_index];
-        const std::string& cur_mod_id = mod_context.import_symbol_mod_ids[import_index];
-
-        auto mod_id_find_it = mod_id_name_positions.find(cur_mod_id);
-        if (mod_id_find_it == mod_id_name_positions.end()) {
-            fprintf(stderr, "Internal error: failed to find position of mod id %s in string data\n", cur_mod_id.c_str());
-            return {};
-        }
+        size_t dependency_index = mod_context.import_symbol_dependency_indices[import_index];
 
         ImportV1 import_out {
             .name_start = imported_func_name_positions[import_index],
             .name_size = static_cast<uint32_t>(imported_func_name.size()),
-            .mod_id_start = mod_id_find_it->second,
-            .mod_id_size = static_cast<uint32_t>(cur_mod_id.size())
+            .dependency = static_cast<uint32_t>(dependency_index)
         };
 
         vec_put(ret, &import_out);

@@ -39,7 +39,7 @@ static std::vector<std::filesystem::path> get_toml_path_array(const toml::array*
     return ret;
 }
 
-static bool read_dependency_file(const std::filesystem::path& dependency_path, N64Recomp::Context& context, std::vector<std::string>& import_symbol_mod_ids) {
+static bool read_dependency_file(const std::filesystem::path& dependency_path, N64Recomp::Context& context, std::vector<N64Recomp::Dependency>& dependencies, std::vector<size_t>& import_symbol_dependency_indices) {
     toml::table toml_data{};
 
     try {
@@ -60,6 +60,30 @@ static bool read_dependency_file(const std::filesystem::path& dependency_path, N
             if (!dependency_node.is_table()) {
                 throw toml::parse_error("Invalid dependency entry", dependency_node.source());
             }
+            
+            size_t dependency_index = dependencies.size();
+
+            auto read_number = [](const toml::node& node, const std::string& key, const std::string& name, int64_t min_limit, int64_t max_limit) {
+                toml::node_view mod_id_node = node[toml::path{key}];
+                if (!mod_id_node.is_number()) {
+                    if (mod_id_node) {
+                        throw toml::parse_error(fmt::format("Invalid {}", name).c_str(), mod_id_node.node()->source());
+                    }
+                    else {
+                        throw toml::parse_error(fmt::format("Dependency entry is missing {}", name).c_str(), node.source());
+                    }
+                }
+                int64_t number_value = mod_id_node.ref<int64_t>();
+                if (number_value < min_limit || number_value > max_limit) {
+                    throw toml::parse_error(fmt::format("Dependency {} out of range", name).c_str(), mod_id_node.node()->source());
+                }
+                return number_value;
+            };
+
+            // Version number
+            uint8_t major_version = static_cast<uint8_t>(read_number(dependency_node, "major_version", "major version", 0, std::numeric_limits<uint8_t>::max()));
+            uint8_t minor_version = static_cast<uint8_t>(read_number(dependency_node, "minor_version", "minor version", 0, std::numeric_limits<uint8_t>::max()));
+            uint8_t patch_version = static_cast<uint8_t>(read_number(dependency_node, "patch_version", "patch version", 0, std::numeric_limits<uint8_t>::max()));
 
             // Mod ID
             toml::node_view mod_id_node = dependency_node[toml::path{"mod_id"}];
@@ -71,7 +95,14 @@ static bool read_dependency_file(const std::filesystem::path& dependency_path, N
                     throw toml::parse_error("Dependency entry is missing mod id", dependency_node.source());
                 }
             }
+
             const std::string& mod_id = mod_id_node.ref<std::string>();
+            dependencies.emplace_back(N64Recomp::Dependency{
+                .major_version = major_version,
+                .minor_version = minor_version,
+                .patch_version = patch_version,
+                .mod_id = mod_id
+            });
 
             // Symbol list
             toml::node_view functions_data = dependency_node[toml::path{"functions"}];
@@ -91,7 +122,7 @@ static bool read_dependency_file(const std::filesystem::path& dependency_path, N
                             .is_function = true
                         }
                     );
-                    import_symbol_mod_ids.emplace_back(mod_id);
+                    import_symbol_dependency_indices.emplace_back(dependency_index);
                 }
             }
             else {
@@ -199,7 +230,7 @@ static inline uint32_t round_up_16(uint32_t value) {
     return (value + 15) & (~15);
 }
 
-N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context, std::vector<std::string>&& import_symbol_mod_ids, bool& good) {
+N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context, std::vector<N64Recomp::Dependency>&& dependencies, std::vector<size_t>&& import_symbol_dependency_indices, bool& good) {
     N64Recomp::ModContext ret{};
     good = false;
 
@@ -224,10 +255,15 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
 
     // TODO avoid a copy here.
     ret.base_context.rom = input_context.rom;
+    ret.dependencies = std::move(dependencies);
+    ret.import_symbol_dependency_indices = std::move(import_symbol_dependency_indices);
 
     uint32_t rom_to_ram = (uint32_t)-1;
     size_t output_section_index = (size_t)-1;
     ret.base_context.sections.resize(1);
+        
+    size_t num_imports = ret.import_symbol_dependency_indices.size();
+    size_t import_symbol_start_index = input_context.reference_symbols.size() - num_imports;
 
     // Iterate over the input sections in their sorted order.
     for (uint16_t section_index : section_order) {
@@ -365,9 +401,11 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
                 continue;
             }
             // Reloc to an imported symbol.
-            if (cur_reloc.reference_symbol && cur_reloc.target_section == N64Recomp::SectionImport) {
-                // Copy the reloc as-is.
-                section_out.relocs.emplace_back(cur_reloc);
+            if (cur_reloc.target_section == N64Recomp::SectionImport) {
+                // Copy the reloc and set the target section offset to be the import symbol index.
+                N64Recomp::Reloc reloc_out = cur_reloc;
+                reloc_out.symbol_index = reloc_out.symbol_index - import_symbol_start_index;
+                section_out.relocs.emplace_back(reloc_out);
             }
             // Reloc to a reference symbol.
             else if (cur_reloc.reference_symbol) {
@@ -383,6 +421,10 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
                         case N64Recomp::RelocType::R_MIPS_32:
                             // Don't patch MIPS32 relocations, as they've already been patched during elf parsing.
                             break;
+                        case N64Recomp::RelocType::R_MIPS_26:
+                            // Don't patch MIPS26 relocations, as there may be multiple functions with the same vram. Emit the reloc instead.
+                            section_out.relocs.emplace_back(cur_reloc);
+                            break;
                         case N64Recomp::RelocType::R_MIPS_NONE:
                             // Nothing to do.
                             break;
@@ -393,15 +435,6 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
                         case N64Recomp::RelocType::R_MIPS_LO16:
                             reloc_word &= 0xFFFF0000;
                             reloc_word |= reloc_target_address & 0xFFFF;
-                            break;
-                        case N64Recomp::RelocType::R_MIPS_26:
-                            if (reloc_target_address & 0x3) {
-                                fmt::print("R_MIPS_26 reloc at address 0x{:08X} in section {} has a target address not divisible by 4!\n",
-                                    cur_reloc.address, cur_section.name);
-                                return {};
-                            }
-                            reloc_word &= 0xFC000000;
-                            reloc_word |= (reloc_target_address >> 2) & 0x3FFFFFF;
                             break;
                         default:
                             fmt::print("Unsupported or unknown relocation type {} in reloc at address 0x{:08X} in section {}!\n",
@@ -438,11 +471,7 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
         }
     }
 
-    ret.import_symbol_mod_ids = std::move(import_symbol_mod_ids);
-
     // Copy the import reference symbols from the end of the input context to this context.
-    size_t num_imports = ret.import_symbol_mod_ids.size();
-    size_t import_symbol_start_index = input_context.reference_symbols.size() - num_imports;
     ret.base_context.reference_symbols.resize(num_imports);
     ret.base_context.reference_symbol_names.resize(num_imports);
     for (size_t import_symbol_index = 0; import_symbol_index < num_imports; import_symbol_index++) {
@@ -460,6 +489,9 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
         ret.base_context.reference_symbol_names[import_symbol_index] = reference_symbol_name;
         ret.base_context.reference_symbols_by_name[reference_symbol_name] = import_symbol_index;
     }
+
+    // Copy the reference sections from the input context as-is for resolving reference symbol relocations.
+    ret.base_context.reference_sections = input_context.reference_sections;
 
     good = true;
     return ret;
@@ -503,10 +535,11 @@ int main(int argc, const char** argv) {
     }
 
     // Read the imported symbols, placing them at the end of the reference symbol list.
-    std::vector<std::string> import_symbol_mod_ids{};
+    std::vector<N64Recomp::Dependency> dependencies{}; 
+    std::vector<size_t> import_symbol_dependency_indices{};
 
     for (const std::filesystem::path& dependency_path : config.dependency_paths) {
-        if (!read_dependency_file(dependency_path, context, import_symbol_mod_ids)) {
+        if (!read_dependency_file(dependency_path, context, dependencies, import_symbol_dependency_indices)) {
             fmt::print(stderr, "Failed to read dependency file: {}\n", dependency_path.string());
             return EXIT_FAILURE;
         }
@@ -537,7 +570,7 @@ int main(int argc, const char** argv) {
     }
 
     bool mod_context_good;
-    N64Recomp::ModContext mod_context = build_mod_context(context, std::move(import_symbol_mod_ids), mod_context_good);
+    N64Recomp::ModContext mod_context = build_mod_context(context, std::move(dependencies), std::move(import_symbol_dependency_indices), mod_context_good);
     std::vector<uint8_t> symbols_bin = N64Recomp::symbols_to_bin_v1(mod_context);
 
     std::ofstream output_syms_file{ config.output_syms_path, std::ios::binary };

@@ -51,7 +51,7 @@ namespace N64Recomp {
     struct Reloc {
         uint32_t address;
         uint32_t target_section_offset;
-        uint32_t symbol_index; // Only used for reference symbols
+        uint32_t symbol_index; // Only used for reference symbols and import symbols
         uint16_t target_section;
         RelocType type;
         bool reference_symbol;
@@ -164,13 +164,23 @@ namespace N64Recomp {
         ReplacementFlags flags;
     };
 
+    struct Dependency {
+        uint8_t major_version;
+        uint8_t minor_version;
+        uint8_t patch_version;
+        std::string mod_id;
+    };
+
     struct ModContext {
         Context base_context;
         std::vector<FunctionReplacement> replacements;
-        // Mod id of every imported function (which exist at the end of `base_context.reference_symbols`).
-        std::vector<std::string> import_symbol_mod_ids;
         // Indices of every exported function.
         std::vector<size_t> exported_funcs;
+        // List of dependencies of this mod.
+        std::vector<Dependency> dependencies;
+        // Index of the dependency that each imported function belongs to.
+        // Imported symbols exist at the end of `base_context.reference_symbols`.
+        std::vector<size_t> import_symbol_dependency_indices;
     };
     enum class ModSymbolsError {
         Good,
@@ -180,7 +190,7 @@ namespace N64Recomp {
         FunctionOutOfBounds,
     };
 
-    ModSymbolsError parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, Context& context_out, ModContext& mod_context_out);
+    ModSymbolsError parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, const Context& reference_context, ModContext& mod_context_out);
     std::vector<uint8_t> symbols_to_bin_v1(const ModContext& mod_context);
 }
 
