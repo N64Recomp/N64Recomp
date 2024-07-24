@@ -154,3 +154,13 @@ target_include_directories(RecompModTool PRIVATE
 
 target_link_libraries(RecompModTool fmt tomlplusplus::tomlplusplus N64RecompElf)
 
+# Offline mod recompiler
+project(OfflineModRecomp)
+add_executable(OfflineModRecomp)
+
+target_sources(OfflineModRecomp PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/config.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/OfflineModRecomp/main.cpp
+)
+
+target_link_libraries(OfflineModRecomp fmt rabbitizer tomlplusplus::tomlplusplus N64Recomp)
