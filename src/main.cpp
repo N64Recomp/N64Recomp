@@ -796,6 +796,7 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
                     }
 
                     if (!ignored && type == ELFIO::STT_FUNC && num_instructions == 0 && bind != ELFIO::STB_WEAK) {
+                        // TODO: functions ignored on the toml file do not silence this warning
                         fmt::print(stderr, "[WARN] Function '{}' has zero size.\n", name);
                     }
 
