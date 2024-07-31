@@ -732,7 +732,7 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
             continue;
         }
 
-        if (section_index < context.sections.size()) {        
+        if (section_index < context.sections.size()) {
             // Check if this symbol is the entrypoint
             if (has_entrypoint && value == entrypoint && type == ELFIO::STT_FUNC) {
                 if (found_entrypoint_func) {
@@ -795,13 +795,18 @@ bool read_symbols(RecompPort::Context& context, const ELFIO::elfio& elf_file, EL
                         }
                     }
 
+                    if (!ignored && type == ELFIO::STT_FUNC && num_instructions == 0 && bind != ELFIO::STB_WEAK) {
+                        // TODO: functions ignored on the toml file do not silence this warning
+                        fmt::print(stderr, "[WARN] Function '{}' has zero size.\n", name);
+                    }
+
                     // Suffix local symbols to prevent name conflicts.
                     if (bind == ELFIO::STB_LOCAL) {
                         name = fmt::format("{}_{:08X}", name, rom_address);
                     }
-                    
+
                     if (num_instructions > 0) {
-                        context.section_functions[section_index].push_back(context.functions.size());            
+                        context.section_functions[section_index].push_back(context.functions.size());
                         recorded_symbol = true;
                     }
                     context.functions_by_name[name] = context.functions.size();
