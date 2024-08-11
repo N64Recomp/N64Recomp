@@ -408,6 +408,25 @@ N64Recomp::Config::Config(const char* path) {
             const toml::array* array = data_reference_syms_file_data.as_array();
             data_reference_syms_file_paths = get_data_syms_paths(array, basedir);
         }
+
+        // Control whether the recompiler emits exported symbol data.
+        std::optional<bool> allow_exports_opt = input_data["allow_exports"].value<bool>();
+        if (allow_exports_opt.has_value()) {
+            allow_exports = allow_exports_opt.value();
+        }
+        else {
+            allow_exports = false;
+        }
+
+        // Enable patch recompilation strict mode, which ensures that patch functions are marked and that other functions are not marked as patches.
+        std::optional<bool> strict_patch_mode_opt = input_data["strict_patch_mode"].value<bool>();
+        if (strict_patch_mode_opt.has_value()) {
+            strict_patch_mode = strict_patch_mode_opt.value();
+        }
+        else {
+            // Default to strict patch mode if a function reference symbol file was provided.
+            strict_patch_mode = !func_reference_syms_file_path.empty();
+        }
     }
     catch (const toml::parse_error& err) {
         std::cerr << "Syntax error parsing toml: " << *err.source().path << " (" << err.source().begin <<  "):\n" << err.description() << std::endl;

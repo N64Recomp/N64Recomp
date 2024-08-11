@@ -139,9 +139,11 @@ int main(int argc, const char** argv) {
     RabbitizerConfig_Cfg.pseudos.pseudoNot = false;
     RabbitizerConfig_Cfg.pseudos.pseudoBal = false;
 
+    std::string recomp_include = "#include \"librecomp/recomp.h\"";
+
     bool should_write_header = true;
     for (const auto& func : mod_context.base_context.functions) {
-        N64Recomp::recompile_function(mod_context.base_context, func, output_file, static_funcs_by_section, should_write_header);
+        N64Recomp::recompile_function(mod_context.base_context, func, recomp_include, output_file, static_funcs_by_section, should_write_header);
         should_write_header = false;
     }
 

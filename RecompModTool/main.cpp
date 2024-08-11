@@ -307,9 +307,9 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
         }
         
         // Check for special section names.
-        bool patch_section = cur_section.name == ".recomp_patch";
-        bool force_patch_section = cur_section.name == ".recomp_force_patch";
-        bool export_section = cur_section.name == ".recomp_export";
+        bool patch_section = cur_section.name == N64Recomp::PatchSectionName;
+        bool force_patch_section = cur_section.name == N64Recomp::ForcedPatchSectionName;
+        bool export_section = cur_section.name == N64Recomp::ExportSectionName;
 
         // Add the functions from the current input section to the current output section.
         auto& section_out = ret.base_context.sections[output_section_index];

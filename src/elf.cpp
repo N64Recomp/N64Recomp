@@ -431,7 +431,21 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                     else {
                         reloc_out.reference_symbol = false;
                         reloc_out.target_section = rel_symbol_section_index;
-                        rel_section_vram = context.sections[rel_symbol_section_index].ram_addr;
+                        // Handle special sections.
+                        if (rel_symbol_section_index >= context.sections.size()) {
+                            switch (rel_symbol_section_index) {
+                            case ELFIO::SHN_ABS:
+                                rel_section_vram = 0;
+                                break;
+                            default:
+                                fmt::print(stderr, "Reloc {} references symbol {} which is in an unknown section 0x{:04X}!\n",
+                                    i, rel_symbol_name, rel_symbol_section_index);
+                                return nullptr;
+                            }
+                        }
+                        else {
+                            rel_section_vram = context.sections[rel_symbol_section_index].ram_addr;
+                        }
                     }
 
                     // Reloc pairing, see MIPS System V ABI documentation page 4-18 (https://refspecs.linuxfoundation.org/elf/mipsabi.pdf)

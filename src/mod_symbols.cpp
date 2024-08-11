@@ -15,6 +15,7 @@ struct FileSubHeaderV1 {
 };
 
 struct SectionHeaderV1 {
+    uint32_t flags;
     uint32_t file_offset;
     uint32_t vram;
     uint32_t rom_size;

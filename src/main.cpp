@@ -568,6 +568,10 @@ int main(int argc, char** argv) {
         open_new_output_file();
     }
 
+    std::vector<size_t> export_function_indices{};
+
+    bool failed_strict_mode = false;
+
     //#pragma omp parallel for
     for (size_t i = 0; i < context.functions.size(); i++) {
         const auto& func = context.functions[i];
@@ -576,6 +580,33 @@ int main(int argc, char** argv) {
             fmt::print(func_header_file,
                 "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
             bool result;
+            const auto& func_section = context.sections[func.section_index];
+            // Apply strict patch mode validation if enabled.
+            if (config.strict_patch_mode) {
+                bool in_normal_patch_section = func_section.name == N64Recomp::PatchSectionName;
+                bool in_force_patch_section = func_section.name == N64Recomp::ForcedPatchSectionName;
+                bool in_patch_section = in_normal_patch_section || in_force_patch_section;
+                bool reference_symbol_found = context.reference_symbols_by_name.contains(func.name);
+
+                // This is a patch function, but no corresponding symbol was found in the original symbol list.
+                if (in_patch_section && !reference_symbol_found) {
+                    fmt::print(stderr, "Function {} is marked as a replacement, but no function with the same name was found in the reference symbols!\n", func.name);
+                    failed_strict_mode = true;
+                    continue;
+                }
+                // This is not a patch function, but it has the same name as a function in the original symbol list.
+                else if (!in_patch_section && reference_symbol_found) {
+                    fmt::print(stderr, "Function {} is not marked as a replacement, but a function with the same name was found in the reference symbols!\n", func.name);
+                    failed_strict_mode = true;
+                    continue;
+                }
+            }
+            // Check if this is an export and add it to the list if exports are enabled.
+            if (config.allow_exports && func_section.name == N64Recomp::ExportSectionName) {
+                export_function_indices.push_back(i);
+            }
+
+            // Recompile the function.
             if (config.single_file_output || config.functions_per_output_file > 1) {
                 result = N64Recomp::recompile_function(context, func, config.recomp_include, current_output_file, static_funcs_by_section, false);
                 if (!config.single_file_output) {
@@ -596,6 +627,15 @@ int main(int argc, char** argv) {
             fmt::print(func_header_file,
                        "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
         }
+    }
+
+    if (failed_strict_mode) {
+        if (config.single_file_output || config.functions_per_output_file > 1) {
+            current_output_file.close();
+            std::error_code ec;
+            std::filesystem::remove(config.output_func_path / config.elf_path.stem().replace_extension(".c"), ec);
+        }
+        exit_failure("Strict mode validation failed!\n");
     }
 
     for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
@@ -789,6 +829,23 @@ int main(int argc, char** argv) {
             }
         }
         fmt::print(overlay_file, "}};\n");
+
+        if (config.allow_exports) {
+            fmt::print(overlay_file, 
+                "\n"
+                "static FunctionExport export_table[] = {{\n"
+            );
+
+            for (size_t func_index : export_function_indices) {
+                const auto& func = context.functions[func_index];
+                fmt::print(overlay_file, "    {{ \"{}\", 0x{:08X} }},\n", func.name, func.vram);
+            }
+
+            // Add a dummy element at the end to ensure the array has a valid length because C doesn't allow zero-size arrays.
+            fmt::print(overlay_file, "    {{ NULL, 0 }}\n");
+
+            fmt::print(overlay_file, "}};\n");
+        }
     }
 
     if (!config.output_binary_path.empty()) {
