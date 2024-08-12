@@ -50,7 +50,44 @@ RSP microcode can also be recompiled with this tool. Currently there is no suppo
 * Ability to recompile into a dynamic language (such as Lua) to be able to load code at runtime for mod support
 
 ## Building
-This project can be built with CMake 3.20 or above and a C++ compiler that supports C++20. This repo uses git submodules, so be sure to clone recursively (`git clone --recurse-submodules`) or initialize submodules recursively after cloning (`git submodule update --init --recursive`). From there, building is identical to any other cmake project, e.g. run `cmake` in the target build folder and point it at the root of this repo, then run `cmake --build .` from that target folder.
+This project can be built with CMake 3.20 or above and a C++ compiler that supports C++20. This repo uses git submodules, so be sure to clone recursively.
+
+### How To:
+
+**1. Clone the git repository with all the submodules.**
+```
+git clone --recurse-submodules https://github.com/N64Recomp/N64Recomp.git
+```
+or
+```
+git clone https://github.com/N64Recomp/N64Recomp.git
+cd N64Recomp
+git submodule update --init --recursive
+```
+
+**2. Create a new folder called `build` inside N64Recomp**
+```
+cd path/to/N64Recomp
+mkdir build
+```
+- This will create a new folder for the build.
+- You may use a different name other than `build` if you desire.
+
+**3. Enter the `build` folder**
+```
+cd build
+```
+
+**4. Run cmake**
+```
+cmake ..
+```
+- In this case the build folder is a child of the cloned repo, so we point to the root of the repo with `..` in the `cmake` command.
+
+**5. Run cmake build inside the `build` folder**
+```
+cmake --build .
+```
 
 ## Libraries Used
 * [rabbitizer](https://github.com/Decompollaborate/rabbitizer) for instruction decoding/analysis
