@@ -58,7 +58,7 @@ JalResolutionResult resolve_jal(const RecompPort::Context& context, size_t cur_s
                 break;
             }
 
-            // If the function's section isn't non-relocatable, add it as a candidate.
+            // If the function's section isn't relocatable, add the function as a candidate.
             const auto& target_func_section = context.sections[target_func.section_index];
             if (!target_func_section.relocatable) {
                 matched_funcs.push_back(target_func_index);
@@ -1204,8 +1204,9 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
     if (write_header) {
         // Write the file header
         fmt::print(output_file,
-            "#include \"librecomp/recomp.h\"\n"
-            "\n");
+            "{}\n"
+            "\n",
+            config.recomp_include);
     }
 
     fmt::print(output_file,

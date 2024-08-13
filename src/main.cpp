@@ -1683,12 +1683,13 @@ int main(int argc, char** argv) {
     std::ofstream func_header_file{ config.output_func_path / "funcs.h" };
 
     fmt::print(func_header_file,
-        "#include \"librecomp/recomp.h\"\n"
+        "{}\n"
         "\n"
         "#ifdef __cplusplus\n"
         "extern \"C\" {{\n"
         "#endif\n"
-        "\n"
+        "\n",
+        config.recomp_include
     );
 
     std::vector<std::vector<uint32_t>> static_funcs_by_section{ context.sections.size() };
@@ -1785,9 +1786,10 @@ int main(int argc, char** argv) {
         single_output_file.open(config.output_func_path / config.elf_path.stem().replace_extension(".c"));
         // Write the file header
         fmt::print(single_output_file,
-            "#include \"librecomp/recomp.h\"\n"
+            "{}\n"
             "#include \"funcs.h\"\n"
-            "\n");
+            "\n",
+            config.recomp_include);
     }
 
     //#pragma omp parallel for
@@ -1902,8 +1904,9 @@ int main(int argc, char** argv) {
         std::ofstream lookup_file{ config.output_func_path / "lookup.cpp" };
         
         fmt::print(lookup_file,
-            "#include \"librecomp/recomp.h\"\n"
-            "\n"
+            "{}\n"
+            "\n",
+            config.recomp_include
         );
 
         fmt::print(lookup_file,
@@ -1928,10 +1931,11 @@ int main(int argc, char** argv) {
         std::string section_load_table = "static SectionTableEntry section_table[] = {\n";
 
         fmt::print(overlay_file, 
-            "#include \"librecomp/recomp.h\"\n"
+            "{}\n"
             "#include \"funcs.h\"\n"
             "#include \"librecomp/sections.h\"\n"
-            "\n"
+            "\n",
+            config.recomp_include
         );
 
         std::unordered_map<std::string, size_t> relocatable_section_indices{};
