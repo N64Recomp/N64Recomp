@@ -408,6 +408,14 @@ RecompPort::Config::Config(const char* path) {
             unpaired_lo16_warnings = true;
         }
 
+        std::optional<std::string> recomp_include_opt = input_data["recomp_include"].value<std::string>();
+        if (recomp_include_opt.has_value()) {
+            recomp_include = recomp_include_opt.value();
+        }
+        else {
+            recomp_include = "#include \"librecomp/recomp.h\"";
+        }
+
         // Patches section (optional)
         toml::node_view patches_data = config_data["patches"];
         if (patches_data.is_table()) {

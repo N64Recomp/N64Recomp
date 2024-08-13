@@ -85,6 +85,7 @@ namespace RecompPort {
         std::vector<FunctionSize> manual_func_sizes;
         std::vector<ManualFunction> manual_functions;
         std::string bss_section_suffix;
+        std::string recomp_include;
 
         Config(const char* path);
         bool good() { return !bad; }
