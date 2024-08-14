@@ -45,9 +45,13 @@ JalResolutionResult resolve_jal(const RecompPort::Context& context, size_t cur_s
         for (size_t target_func_index : matching_funcs_find->second) {
             const auto& target_func = context.functions[target_func_index];
 
-            // Skip zero-sized symbols.
+            // Zero-sized symbol handling. unless there's only one matching target.
             if (target_func.words.empty()) {
-                continue;
+                // Allow zero-sized symbols between 0x8F000000 and 0x90000000 for use with patches.
+                // TODO make this configurable or come up with a more sensible solution for dealing with manual symbols for patches.
+                if (target_func.vram < 0x8F000000 || target_func.vram > 0x90000000) {
+                    continue;
+                }
             }
 
             // Immediately accept a function in the same section as this one, since it must also be loaded if the current function is.
@@ -218,7 +222,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             if (reloc_index + 1 < section.relocs.size() && next_vram > section.relocs[reloc_index].address) {
                 next_reloc_index++;
             }
-            process_instruction(context, config, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
+            if (!process_instruction(context, config, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out)) {
+                return false;
+            }
         }
         print_indent();
         fmt::vprint(output_file, fmt_str, fmt::make_format_args(args...));
@@ -227,6 +233,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
         } else {
             fmt::print(output_file, ";\n");
         }
+        return true;
     };
 
     auto print_func_call = [reloc_target_section_offset, reloc_reference_symbol, reloc_type, &context, &section, &func, &static_funcs_out, &needs_link_branch, &print_unconditional_branch]
@@ -292,10 +299,12 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             if (context.functions_by_vram.find(branch_target) != context.functions_by_vram.end()) {
                 fmt::print(output_file, "{{\n    ");
                 fmt::print("Tail call in {} to 0x{:08X}\n", func.name, branch_target);
-                print_func_call(branch_target, false, true);
+                if (!print_func_call(branch_target, false, true)) {
+                    return false;
+                }
                 print_line("    return");
                 fmt::print(output_file, "    }}\n");
-                return;
+                return true;
             }
 
             fmt::print(stderr, "[Warn] Function {} is branching outside of the function (to 0x{:08X})\n", func.name, branch_target);
@@ -310,7 +319,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             if (reloc_index + 1 < section.relocs.size() && next_vram > section.relocs[reloc_index].address) {
                 next_reloc_index++;
             }
-            process_instruction(context, config, func, stats, skipped_insns, instr_index + 1, instructions, output_file, true, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
+            if (!process_instruction(context, config, func, stats, skipped_insns, instr_index + 1, instructions, output_file, true, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out)) {
+                return false;
+            }
         }
 
         fmt::print(output_file, "        ");
@@ -319,6 +330,7 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             fmt::print(output_file, ";\n        goto after_{}", link_branch_index);
         }
         fmt::print(output_file, ";\n    }}\n");
+        return true;
     };
 
     if (indent) {
@@ -621,7 +633,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
 
     // Branches
     case InstrId::cpu_jal:
-        print_func_call(instr.getBranchVramGeneric());
+        if (!print_func_call(instr.getBranchVramGeneric())) {
+            return false;
+        }
         break;
     case InstrId::cpu_jalr:
         // jalr can only be handled with $ra as the return address register
@@ -657,7 +671,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
             // FIXME: how to deal with static functions?
             else if (context.functions_by_vram.find(branch_target) != context.functions_by_vram.end()) {
                 fmt::print("Tail call in {} to 0x{:08X}\n", func.name, branch_target);
-                print_func_call(branch_target, false);
+                if (!print_func_call(branch_target, false)) {
+                    return false;
+                }
                 print_line("return");
             }
             else {
@@ -683,7 +699,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
                 if (reloc_index + 1 < section.relocs.size() && next_vram > section.relocs[reloc_index].address) {
                     next_reloc_index++;
                 }
-                process_instruction(context, config, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out);
+                if (!process_instruction(context, config, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out)) {
+                    return false;
+                }
                 print_indent();
                 fmt::print(output_file, "switch (jr_addend_{:08X} >> 2) {{\n", cur_jtbl.jr_vram);
                 for (size_t entry_index = 0; entry_index < cur_jtbl.entries.size(); entry_index++) {
@@ -731,7 +749,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_bne:
         print_indent();
         print_branch_condition("if ({}{} != {}{})", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        print_branch((uint32_t)instr.getBranchVramGeneric());
+        if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
+            return false;
+        }
         break;
     case InstrId::cpu_beql:
         is_branch_likely = true;
@@ -739,7 +759,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_beq:
         print_indent();
         print_branch_condition("if ({}{} == {}{})", ctx_gpr_prefix(rs), rs, ctx_gpr_prefix(rt), rt);
-        print_branch((uint32_t)instr.getBranchVramGeneric());
+        if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
+            return false;
+        }
         break;
     case InstrId::cpu_bgezl:
         is_branch_likely = true;
@@ -747,7 +769,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_bgez:
         print_indent();
         print_branch_condition("if (SIGNED({}{}) >= 0)", ctx_gpr_prefix(rs), rs);
-        print_branch((uint32_t)instr.getBranchVramGeneric());
+        if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
+            return false;
+        }
         break;
     case InstrId::cpu_bgtzl:
         is_branch_likely = true;
@@ -755,7 +779,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_bgtz:
         print_indent();
         print_branch_condition("if (SIGNED({}{}) > 0)", ctx_gpr_prefix(rs), rs);
-        print_branch((uint32_t)instr.getBranchVramGeneric());
+        if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
+            return false;
+        }
         break;
     case InstrId::cpu_blezl:
         is_branch_likely = true;
@@ -763,7 +789,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_blez:
         print_indent();
         print_branch_condition("if (SIGNED({}{}) <= 0)", ctx_gpr_prefix(rs), rs);
-        print_branch((uint32_t)instr.getBranchVramGeneric());
+        if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
+            return false;
+        }
         break;
     case InstrId::cpu_bltzl:
         is_branch_likely = true;
@@ -771,7 +799,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_bltz:
         print_indent();
         print_branch_condition("if (SIGNED({}{}) < 0)", ctx_gpr_prefix(rs), rs);
-        print_branch((uint32_t)instr.getBranchVramGeneric());
+        if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
+            return false;
+        }
         break;
     case InstrId::cpu_break:
         print_line("do_break({})", instr_vram);
@@ -782,7 +812,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_bgezal:
         print_indent();
         print_branch_condition("if (SIGNED({}{}) >= 0) {{", ctx_gpr_prefix(rs), rs);
-        print_func_call(instr.getBranchVramGeneric());
+        if (!print_func_call(instr.getBranchVramGeneric())) {
+            return false;
+        }
         print_line("}}");
         break;
 
@@ -952,7 +984,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_bc1t:
         print_indent();
         print_branch_condition("if (c1cs)", ctx_gpr_prefix(rs), rs);
-        print_branch((uint32_t)instr.getBranchVramGeneric());
+        if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
+            return false;
+        }
         break;
     case InstrId::cpu_bc1fl:
         is_branch_likely = true;
@@ -960,7 +994,9 @@ bool process_instruction(const RecompPort::Context& context, const RecompPort::C
     case InstrId::cpu_bc1f:
         print_indent();
         print_branch_condition("if (!c1cs)", ctx_gpr_prefix(rs), rs);
-        print_branch((uint32_t)instr.getBranchVramGeneric());
+        if (!print_branch((uint32_t)instr.getBranchVramGeneric())) {
+            return false;
+        }
         break;
 
     // Cop1 arithmetic
