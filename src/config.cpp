@@ -416,6 +416,17 @@ RecompPort::Config::Config(const char* path) {
             recomp_include = "#include \"librecomp/recomp.h\"";
         }
 
+        std::optional<int32_t> funcs_per_file_opt = input_data["functions_per_output_file"].value<int32_t>();
+        if (funcs_per_file_opt.has_value()) {
+            functions_per_output_file = funcs_per_file_opt.value();
+            if (functions_per_output_file <= 0) {
+                throw toml::parse_error("Invalid functions_per_output_file value", input_data["functions_per_output_file"].node()->source());
+            }
+        }
+        else {
+            functions_per_output_file = 50;
+        }
+
         // Patches section (optional)
         toml::node_view patches_data = config_data["patches"];
         if (patches_data.is_table()) {

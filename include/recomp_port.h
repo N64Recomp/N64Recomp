@@ -64,6 +64,7 @@ namespace RecompPort {
 
     struct Config {
         int32_t entrypoint;
+        int32_t functions_per_output_file;
         bool has_entrypoint;
         bool uses_mips3_float_mode;
         bool single_file_output;

@@ -1246,7 +1246,7 @@ bool RecompPort::recompile_function(const RecompPort::Context& context, const Re
     }
 
     fmt::print(output_file,
-        "void {}(uint8_t* rdram, recomp_context* ctx) {{\n"
+        "RECOMP_FUNC void {}(uint8_t* rdram, recomp_context* ctx) {{\n"
         // these variables shouldn't need to be preserved across function boundaries, so make them local for more efficient output
         "    uint64_t hi = 0, lo = 0, result = 0;\n"
         "    unsigned int rounding_mode = DEFAULT_ROUNDING_MODE;\n"

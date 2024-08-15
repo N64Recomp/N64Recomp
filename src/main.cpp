@@ -1780,16 +1780,33 @@ int main(int argc, char** argv) {
         func.function_hooks[instruction_index] = patch.text;
     }
 
-    std::ofstream single_output_file;
-
-    if (config.single_file_output) {
-        single_output_file.open(config.output_func_path / config.elf_path.stem().replace_extension(".c"));
+    std::ofstream current_output_file;
+    size_t output_file_count = 0;
+    size_t cur_file_function_count = 0;
+    
+    auto open_new_output_file = [&config, &current_output_file, &output_file_count, &cur_file_function_count]() {
+        current_output_file = std::ofstream{config.output_func_path / fmt::format("funcs_{}.c", output_file_count)};
         // Write the file header
-        fmt::print(single_output_file,
+        fmt::print(current_output_file,
             "{}\n"
             "#include \"funcs.h\"\n"
             "\n",
             config.recomp_include);
+        cur_file_function_count = 0;
+        output_file_count++;
+    };
+
+    if (config.single_file_output) {
+        current_output_file.open(config.output_func_path / config.elf_path.stem().replace_extension(".c"));
+        // Write the file header
+        fmt::print(current_output_file,
+            "{}\n"
+            "#include \"funcs.h\"\n"
+            "\n",
+            config.recomp_include);
+    }
+    else if (config.functions_per_output_file > 1) {
+        open_new_output_file();
     }
 
     //#pragma omp parallel for
@@ -1800,8 +1817,14 @@ int main(int argc, char** argv) {
             fmt::print(func_header_file,
                 "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
             bool result;
-            if (config.single_file_output) {
-                result = RecompPort::recompile_function(context, config, func, single_output_file, static_funcs_by_section, false);
+            if (config.single_file_output || config.functions_per_output_file > 1) {
+                result = RecompPort::recompile_function(context, config, func, current_output_file, static_funcs_by_section, false);
+                if (!config.single_file_output) {
+                    cur_file_function_count++;
+                    if (cur_file_function_count >= config.functions_per_output_file) {
+                        open_new_output_file();
+                    }
+                }
             }
             else {
                 result = recompile_single_function(context, config, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section);
@@ -1873,8 +1896,14 @@ int main(int argc, char** argv) {
             bool result;
             size_t prev_num_statics = static_funcs_by_section[func.section_index].size();
 
-            if (config.single_file_output) {
-                result = RecompPort::recompile_function(context, config, func, single_output_file, static_funcs_by_section, false);
+            if (config.single_file_output || config.functions_per_output_file > 1) {
+                result = RecompPort::recompile_function(context, config, func, current_output_file, static_funcs_by_section, false);
+                if (!config.single_file_output) {
+                    cur_file_function_count++;
+                    if (cur_file_function_count >= config.functions_per_output_file) {
+                        open_new_output_file();
+                    }
+                }
             }
             else {
                 result = recompile_single_function(context, config, func, config.output_func_path / (func.name + ".c"), static_funcs_by_section);
