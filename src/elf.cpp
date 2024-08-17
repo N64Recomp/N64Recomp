@@ -345,7 +345,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
             section_out.bss_size = bss_find->second->get_size();
         }
 
-        if (!context.reference_symbols.empty() || section_out.relocatable) {
+        if (context.has_reference_symbols() || section_out.relocatable) {
             // Check if a reloc section was found that corresponds with this section
             auto reloc_find = reloc_sections_by_name.find(section_out.name);
             if (reloc_find != reloc_sections_by_name.end()) {
@@ -405,22 +405,13 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                         
                         reloc_out.reference_symbol = true;
                         // Replace the reloc's symbol index with the index into the reference symbol array.
-                        reloc_out.symbol_index = sym_find_it->second;
                         rel_section_vram = 0;
-                        rel_symbol_offset = context.reference_symbols[reloc_out.symbol_index].section_offset;
-                        reloc_out.target_section = context.reference_symbols[reloc_out.symbol_index].section_index;
+                        reloc_out.target_section = sym_find_it->second.section_index;
+                        reloc_out.symbol_index = sym_find_it->second.symbol_index;
+                        const auto& reference_symbol = context.get_reference_symbol(reloc_out.target_section, reloc_out.symbol_index);
+                        rel_symbol_offset = reference_symbol.section_offset;
 
-                        bool target_section_relocatable = false;
-
-                        if (reloc_out.target_section == N64Recomp::SectionImport) {
-                            target_section_relocatable = true;
-                        }
-                        else if (reloc_out.target_section == N64Recomp::SectionAbsolute) {
-                            target_section_relocatable = false;
-                        }
-                        else if (context.reference_sections[reloc_out.target_section].relocatable) {
-                            target_section_relocatable = true;
-                        }
+                        bool target_section_relocatable = context.is_reference_section_relocatable(reloc_out.target_section);
 
                         if (reloc_out.type == N64Recomp::RelocType::R_MIPS_32 && target_section_relocatable) {
                             fmt::print(stderr, "Cannot reference {} in a statically initialized variable as it's defined in a relocatable section!\n",

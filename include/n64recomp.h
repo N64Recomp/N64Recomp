@@ -60,6 +60,7 @@ namespace N64Recomp {
     constexpr uint16_t SectionSelf = (uint16_t)-1;
     constexpr uint16_t SectionAbsolute = (uint16_t)-2;
     constexpr uint16_t SectionImport = (uint16_t)-3; // Imported symbols for mods
+    constexpr uint16_t SectionHook = (uint16_t)-4;
     constexpr std::string_view PatchSectionName = ".recomp_patch";
     constexpr std::string_view ForcedPatchSectionName = ".recomp_force_patch";
     constexpr std::string_view ExportSectionName = ".recomp_export";
@@ -85,6 +86,7 @@ namespace N64Recomp {
     };
 
     struct ReferenceSymbol {
+        std::string name;
         uint16_t section_index;
         uint32_t section_offset;
         bool is_function;
@@ -116,6 +118,42 @@ namespace N64Recomp {
     extern const std::unordered_set<std::string> ignored_funcs;
     extern const std::unordered_set<std::string> renamed_funcs;
 
+    struct Dependency {
+        uint8_t major_version;
+        uint8_t minor_version;
+        uint8_t patch_version;
+        std::string mod_id;
+    };
+
+    struct ImportSymbol {
+        ReferenceSymbol base;
+        size_t dependency_index;
+    };
+
+    struct HookSymbol {
+        ReferenceSymbol base;
+        size_t dependency_index;
+    };
+
+    struct SymbolReference {
+        // Reference symbol section index, or one of the special section indices such as SectionImport.
+        uint16_t section_index;
+        size_t symbol_index;
+    };
+
+    enum class ReplacementFlags : uint32_t {
+        Force = 1 << 0,
+    };
+    inline ReplacementFlags operator&(ReplacementFlags lhs, ReplacementFlags rhs) { return ReplacementFlags(uint32_t(lhs) & uint32_t(rhs)); }
+    inline ReplacementFlags operator|(ReplacementFlags lhs, ReplacementFlags rhs) { return ReplacementFlags(uint32_t(lhs) | uint32_t(rhs)); }
+
+    struct FunctionReplacement {
+        uint32_t func_index;
+        uint32_t original_section_vrom;
+        uint32_t original_vram;
+        ReplacementFlags flags;
+    };
+
     struct Context {
         std::vector<Section> sections;
         std::vector<Function> functions;
@@ -136,10 +174,17 @@ namespace N64Recomp {
         std::vector<ReferenceSection> reference_sections;
         // A list of the reference symbols.
         std::vector<ReferenceSymbol> reference_symbols;
-        // Name of every reference symbol in the same order as `reference_symbols`.
-        std::vector<std::string> reference_symbol_names;
         // Mapping of symbol name to reference symbol index.
-        std::unordered_map<std::string, size_t> reference_symbols_by_name;
+        std::unordered_map<std::string, SymbolReference> reference_symbols_by_name;
+
+        //// Mod dependencies and their symbols
+        std::vector<Dependency> dependencies;
+        std::vector<ImportSymbol> import_symbols;
+        std::vector<HookSymbol> hook_symbols;
+        // Indices of every exported function.
+        std::vector<size_t> exported_funcs;
+        
+        std::vector<FunctionReplacement> replacements;
 
         // Imports sections and function symbols from a provided context into this context's reference sections and reference functions.
         void import_reference_context(const Context& reference_context);
@@ -150,41 +195,39 @@ namespace N64Recomp {
         static bool from_elf_file(const std::filesystem::path& elf_file_path, Context& out, const ElfParsingConfig& flags, bool for_dumping_context, DataSymbolMap& data_syms_out, bool& found_entrypoint_out);
 
         Context() = default;
+
+        bool has_reference_symbols() const {
+            return !reference_symbols.empty() || !import_symbols.empty() || !hook_symbols.empty();
+        }
+
+        bool is_regular_reference_section(uint16_t section_index) const {
+            return section_index != SectionImport && section_index != SectionHook;
+        }
+
+        const ReferenceSymbol& get_reference_symbol(uint16_t section_index, size_t symbol_index) const {
+            if (section_index == SectionImport) {
+                return import_symbols[symbol_index].base;
+            }
+            else if (section_index == SectionHook) {
+                return hook_symbols[symbol_index].base;
+            }
+            return reference_symbols[symbol_index];
+        }
+
+        const ReferenceSymbol& get_reference_symbol(const SymbolReference& ref) const {
+            return get_reference_symbol(ref.section_index, ref.symbol_index);
+        }
+
+        bool is_reference_section_relocatable(uint16_t section_index) const {
+            if (section_index == SectionImport || section_index == SectionHook) {
+                return true;
+            }
+            return reference_sections[section_index].relocatable;
+        }
     };
 
     bool recompile_function(const Context& context, const Function& func, const std::string& recomp_include, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs, bool write_header);
-    
-    enum class ReplacementFlags : uint32_t {
-        Force = 1 << 0,
-    };
-    inline ReplacementFlags operator&(ReplacementFlags lhs, ReplacementFlags rhs) { return ReplacementFlags(uint32_t(lhs) & uint32_t(rhs)); }
-    inline ReplacementFlags operator|(ReplacementFlags lhs, ReplacementFlags rhs) { return ReplacementFlags(uint32_t(lhs) | uint32_t(rhs)); }
-    
-    struct FunctionReplacement {
-        uint32_t func_index;
-        uint32_t original_section_vrom;
-        uint32_t original_vram;
-        ReplacementFlags flags;
-    };
 
-    struct Dependency {
-        uint8_t major_version;
-        uint8_t minor_version;
-        uint8_t patch_version;
-        std::string mod_id;
-    };
-
-    struct ModContext {
-        Context base_context;
-        std::vector<FunctionReplacement> replacements;
-        // Indices of every exported function.
-        std::vector<size_t> exported_funcs;
-        // List of dependencies of this mod.
-        std::vector<Dependency> dependencies;
-        // Index of the dependency that each imported function belongs to.
-        // Imported symbols exist at the end of `base_context.reference_symbols`.
-        std::vector<size_t> import_symbol_dependency_indices;
-    };
     enum class ModSymbolsError {
         Good,
         NotASymbolFile,
@@ -193,8 +236,8 @@ namespace N64Recomp {
         FunctionOutOfBounds,
     };
 
-    ModSymbolsError parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, const Context& reference_context, ModContext& mod_context_out);
-    std::vector<uint8_t> symbols_to_bin_v1(const ModContext& mod_context);
+    ModSymbolsError parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, const Context& reference_context, Context& context_out);
+    std::vector<uint8_t> symbols_to_bin_v1(const Context& mod_context);
 }
 
 #endif

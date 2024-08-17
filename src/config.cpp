@@ -614,7 +614,6 @@ bool N64Recomp::Context::from_symbol_file(const std::filesystem::path& symbol_fi
 void N64Recomp::Context::import_reference_context(const N64Recomp::Context& reference_context) {
     reference_sections.resize(reference_context.sections.size());
     reference_symbols.reserve(reference_context.functions.size());
-    reference_symbol_names.reserve(reference_context.functions.size());
 
     // Copy the reference context's sections into the real context's reference sections. 
     for (size_t section_index = 0; section_index < reference_context.sections.size(); section_index++) {
@@ -632,14 +631,17 @@ void N64Recomp::Context::import_reference_context(const N64Recomp::Context& refe
         const N64Recomp::Section& func_section = reference_context.sections[func_in.section_index];
 
         // TODO Check if reference_symbols_by_name already contains the name and show a conflict error if so.
-        reference_symbols_by_name.emplace(func_in.name, reference_symbols.size());
+        reference_symbols_by_name.emplace(func_in.name, N64Recomp::SymbolReference{
+            .section_index = func_in.section_index,
+            .symbol_index = reference_symbols.size()
+        });
 
         reference_symbols.emplace_back(N64Recomp::ReferenceSymbol{
+            .name = func_in.name,
             .section_index = func_in.section_index,
             .section_offset = func_in.vram - static_cast<uint32_t>(func_section.ram_addr),
             .is_function = true
         });
-        reference_symbol_names.emplace_back(func_in.name);
     }
 }
 
@@ -729,16 +731,19 @@ bool N64Recomp::Context::read_data_reference_syms(const std::filesystem::path& d
                         }
 
                         // TODO Check if reference_symbols_by_name already contains the name and show a conflict error if so.
-                        this->reference_symbols_by_name.emplace(name.value(), reference_symbols.size());
+                        this->reference_symbols_by_name.emplace(name.value(), SymbolReference {
+                            .section_index = ref_section_index,
+                            .symbol_index = reference_symbols.size()
+                        });
 
                         this->reference_symbols.emplace_back(
                             ReferenceSymbol {
+                                .name = name.value(),
                                 .section_index = ref_section_index,
                                 .section_offset = vram_addr.value() - ref_section_vram,
                                 .is_function = false
                             }
                         );
-                        this->reference_symbol_names.emplace_back(name.value());
                     }
                     else {
                         throw toml::parse_error("Invalid data symbol entry", data_sym_el.source());

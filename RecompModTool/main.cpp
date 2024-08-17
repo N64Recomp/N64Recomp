@@ -113,13 +113,19 @@ static bool read_dependency_file(const std::filesystem::path& dependency_path, N
                         throw toml::parse_error("Invalid dependency function", function_node.source());
                     }
                     const std::string& function_name = function_node.ref<std::string>();
-                    context.reference_symbol_names.emplace_back(function_name);
-                    context.reference_symbols_by_name[function_name] = context.reference_symbols.size();
-                    context.reference_symbols.emplace_back(
-                        N64Recomp::ReferenceSymbol {
-                            .section_index = N64Recomp::SectionImport,
-                            .section_offset = 0,
-                            .is_function = true
+                    context.reference_symbols_by_name[function_name] = N64Recomp::SymbolReference {
+                        .section_index = N64Recomp::SectionImport,
+                        .symbol_index = import_symbol_dependency_indices.size()
+                    };
+                    context.import_symbols.emplace_back(
+                        N64Recomp::ImportSymbol {
+                            .base = N64Recomp::ReferenceSymbol {
+                                .name = function_name,
+                                .section_index = N64Recomp::SectionImport,
+                                .section_offset = 0,
+                                .is_function = true
+                            },
+                            .dependency_index = dependency_index,
                         }
                     );
                     import_symbol_dependency_indices.emplace_back(dependency_index);
@@ -230,8 +236,8 @@ static inline uint32_t round_up_16(uint32_t value) {
     return (value + 15) & (~15);
 }
 
-N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context, std::vector<N64Recomp::Dependency>&& dependencies, std::vector<size_t>&& import_symbol_dependency_indices, bool& good) {
-    N64Recomp::ModContext ret{};
+N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, std::vector<N64Recomp::Dependency>&& dependencies, std::vector<size_t>&& import_symbol_dependency_indices, bool& good) {
+    N64Recomp::Context ret{};
     good = false;
 
     // Make a vector containing 0, 1, 2, ... section count - 1
@@ -254,16 +260,14 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
     );
 
     // TODO avoid a copy here.
-    ret.base_context.rom = input_context.rom;
+    ret.rom = input_context.rom;
     ret.dependencies = std::move(dependencies);
-    ret.import_symbol_dependency_indices = std::move(import_symbol_dependency_indices);
 
     uint32_t rom_to_ram = (uint32_t)-1;
     size_t output_section_index = (size_t)-1;
-    ret.base_context.sections.resize(1);
+    ret.sections.resize(1);
         
-    size_t num_imports = ret.import_symbol_dependency_indices.size();
-    size_t import_symbol_start_index = input_context.reference_symbols.size() - num_imports;
+    size_t num_imports = ret.import_symbols.size();
 
     // Iterate over the input sections in their sorted order.
     for (uint16_t section_index : section_order) {
@@ -275,7 +279,7 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
             // If so, check if it has a vram address directly after the current output section. If it does, then add this
             // section's size to the output section's bss size.
             if (output_section_index != -1 && cur_section.size != 0) {
-                auto& section_out = ret.base_context.sections[output_section_index];
+                auto& section_out = ret.sections[output_section_index];
                 uint32_t output_section_bss_start = section_out.ram_addr + section_out.size;
                 uint32_t output_section_bss_end = output_section_bss_start + section_out.bss_size;
                 // Check if the current section starts at the end of the output section, allowing for a range of matches to account for 16 byte section alignment.
@@ -289,18 +293,18 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
 
         // Check if this section matches up with the previous section to merge them together.
         if (rom_to_ram == cur_rom_to_ram) {
-            auto& section_out = ret.base_context.sections[output_section_index];
+            auto& section_out = ret.sections[output_section_index];
             uint32_t cur_section_end = cur_section.rom_addr + cur_section.size;
             section_out.size = cur_section_end - section_out.rom_addr;
         }
         // Otherwise, create a new output section and advance to it.
         else {
             output_section_index++;
-            ret.base_context.sections.resize(output_section_index + 1);
-            ret.base_context.section_functions.resize(output_section_index + 1);
+            ret.sections.resize(output_section_index + 1);
+            ret.section_functions.resize(output_section_index + 1);
             rom_to_ram = cur_rom_to_ram;
 
-            auto& new_section = ret.base_context.sections[output_section_index];
+            auto& new_section = ret.sections[output_section_index];
             new_section.rom_addr = cur_section.rom_addr;
             new_section.ram_addr = cur_section.ram_addr;
             new_section.size = cur_section.size;
@@ -312,13 +316,12 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
         bool export_section = cur_section.name == N64Recomp::ExportSectionName;
 
         // Add the functions from the current input section to the current output section.
-        auto& section_out = ret.base_context.sections[output_section_index];
-
-        size_t starting_function_index = ret.base_context.functions.size();
+        auto& section_out = ret.sections[output_section_index];
+        
         const auto& cur_section_funcs = input_context.section_functions[section_index];
 
         for (size_t section_function_index = 0; section_function_index < cur_section_funcs.size(); section_function_index++) {
-            size_t output_func_index = ret.base_context.functions.size();
+            size_t output_func_index = ret.functions.size();
             size_t input_func_index = cur_section_funcs[section_function_index];
             const auto& cur_func = input_context.functions[input_func_index];
 
@@ -333,7 +336,9 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
                     original_func_exists = false;
                 }
                 // Ignore reference symbols in the import section, as those are imports and not original symbols.
-                else if (input_context.reference_symbols[find_sym_it->second].section_index == N64Recomp::SectionImport) {
+                else if (
+                    find_sym_it->second.section_index == N64Recomp::SectionImport ||
+                    find_sym_it->second.section_index == N64Recomp::SectionHook) {
                     original_func_exists = false;
                 }
                 else {
@@ -347,7 +352,7 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
                 }
 
                 // Check that the reference symbol is actually a function.
-                const auto& reference_symbol = input_context.reference_symbols[find_sym_it->second];
+                const auto& reference_symbol = input_context.get_reference_symbol(find_sym_it->second.section_index, find_sym_it->second.symbol_index);
                 if (!reference_symbol.is_function) {
                     fmt::print("Function {0} is marked as a patch, but {0} was a variable in the original ROM!\n", cur_func.name);
                     return {};
@@ -374,11 +379,11 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
                 name_out = cur_func.name;
             }
 
-            ret.base_context.section_functions[output_section_index].push_back(output_func_index);
+            ret.section_functions[output_section_index].push_back(output_func_index);
 
 
             // Add this function to the output context.
-            ret.base_context.functions.emplace_back(
+            ret.functions.emplace_back(
                 cur_func.vram,
                 cur_func.rom,
                 std::vector<uint32_t>{}, // words
@@ -390,7 +395,7 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
             );
 
             // Resize the words vector so the function has the correct size. No need to copy the words, as they aren't used when making a mod symbol file.
-            ret.base_context.functions[output_func_index].words.resize(cur_func.words.size());
+            ret.functions[output_func_index].words.resize(cur_func.words.size());
         }
 
         // Copy relocs and patch HI16/LO16/26 relocs for non-relocatable reference symbols
@@ -402,10 +407,7 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
             }
             // Reloc to an imported symbol.
             if (cur_reloc.target_section == N64Recomp::SectionImport) {
-                // Copy the reloc and set the target section offset to be the import symbol index.
-                N64Recomp::Reloc reloc_out = cur_reloc;
-                reloc_out.symbol_index = reloc_out.symbol_index - import_symbol_start_index;
-                section_out.relocs.emplace_back(reloc_out);
+                section_out.relocs.emplace_back(cur_reloc);
             }
             // Reloc to a reference symbol.
             else if (cur_reloc.reference_symbol) {
@@ -415,7 +417,7 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
                     uint32_t reloc_target_address = reloc_section.ram_addr + cur_reloc.target_section_offset;
                     uint32_t reloc_rom_address = cur_reloc.address - cur_section.ram_addr + cur_section.rom_addr;
                     
-                    uint32_t* reloc_word_ptr = reinterpret_cast<uint32_t*>(ret.base_context.rom.data() + reloc_rom_address);
+                    uint32_t* reloc_word_ptr = reinterpret_cast<uint32_t*>(ret.rom.data() + reloc_rom_address);
                     uint32_t reloc_word = byteswap(*reloc_word_ptr);
                     switch (cur_reloc.type) {
                         case N64Recomp::RelocType::R_MIPS_32:
@@ -471,27 +473,11 @@ N64Recomp::ModContext build_mod_context(const N64Recomp::Context& input_context,
         }
     }
 
-    // Copy the import reference symbols from the end of the input context to this context.
-    ret.base_context.reference_symbols.resize(num_imports);
-    ret.base_context.reference_symbol_names.resize(num_imports);
-    for (size_t import_symbol_index = 0; import_symbol_index < num_imports; import_symbol_index++) {
-        size_t reference_symbol_index = import_symbol_index + import_symbol_start_index;
-        const auto& reference_symbol = input_context.reference_symbols[reference_symbol_index];
-        const std::string& reference_symbol_name = input_context.reference_symbol_names[reference_symbol_index];
-
-        if (reference_symbol.section_index != N64Recomp::SectionImport) {
-            fmt::print("Import symbol index {} (reference symbol index {}, name {}) is not in the import section!\n",
-                import_symbol_index, reference_symbol_index, reference_symbol_name);
-            return {};
-        }
-
-        ret.base_context.reference_symbols[import_symbol_index] = reference_symbol;
-        ret.base_context.reference_symbol_names[import_symbol_index] = reference_symbol_name;
-        ret.base_context.reference_symbols_by_name[reference_symbol_name] = import_symbol_index;
-    }
+    // Copy the import reference symbols from the input context as-is to this context.
+    ret.import_symbols = input_context.import_symbols;
 
     // Copy the reference sections from the input context as-is for resolving reference symbol relocations.
-    ret.base_context.reference_sections = input_context.reference_sections;
+    ret.reference_sections = input_context.reference_sections;
 
     good = true;
     return ret;
@@ -570,14 +556,14 @@ int main(int argc, const char** argv) {
     }
 
     bool mod_context_good;
-    N64Recomp::ModContext mod_context = build_mod_context(context, std::move(dependencies), std::move(import_symbol_dependency_indices), mod_context_good);
+    N64Recomp::Context mod_context = build_mod_context(context, std::move(dependencies), std::move(import_symbol_dependency_indices), mod_context_good);
     std::vector<uint8_t> symbols_bin = N64Recomp::symbols_to_bin_v1(mod_context);
 
     std::ofstream output_syms_file{ config.output_syms_path, std::ios::binary };
     output_syms_file.write(reinterpret_cast<const char*>(symbols_bin.data()), symbols_bin.size());
 
     std::ofstream output_binary_file{ config.output_binary_path, std::ios::binary };
-    output_binary_file.write(reinterpret_cast<const char*>(mod_context.base_context.rom.data()), mod_context.base_context.rom.size());
+    output_binary_file.write(reinterpret_cast<const char*>(mod_context.rom.data()), mod_context.rom.size());
 
     return EXIT_SUCCESS;
 }

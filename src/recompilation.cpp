@@ -238,13 +238,12 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
         return true;
     };
 
-    auto print_func_call = [reloc_target_section_offset, reloc_reference_symbol, reloc_type, &context, &section, &func, &static_funcs_out, &needs_link_branch, &print_unconditional_branch]
+    auto print_func_call = [reloc_target_section_offset, reloc_section, reloc_reference_symbol, reloc_type, &context, &section, &func, &static_funcs_out, &needs_link_branch, &print_unconditional_branch]
         (uint32_t target_func_vram, bool link_branch = true, bool indent = false)
     {
         std::string jal_target_name{};
         if (reloc_reference_symbol != (size_t)-1) {
-            const auto& ref_symbol = context.reference_symbols[reloc_reference_symbol];
-            const std::string& ref_symbol_name = context.reference_symbol_names[reloc_reference_symbol];
+            const auto& ref_symbol = context.get_reference_symbol(reloc_section, reloc_reference_symbol);
 
             if (reloc_type != N64Recomp::RelocType::R_MIPS_26) {
                 fmt::print(stderr, "Unsupported reloc type {} on jal instruction in {}\n", (int)reloc_type, func.name);
@@ -256,7 +255,7 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
                 return false;
             }
 
-            jal_target_name = ref_symbol_name;
+            jal_target_name = ref_symbol.name;
         }
         else {
             size_t matched_func_index = 0;
