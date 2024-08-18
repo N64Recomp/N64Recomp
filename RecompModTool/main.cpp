@@ -113,21 +113,9 @@ static bool read_dependency_file(const std::filesystem::path& dependency_path, N
                         throw toml::parse_error("Invalid dependency function", function_node.source());
                     }
                     const std::string& function_name = function_node.ref<std::string>();
-                    context.reference_symbols_by_name[function_name] = N64Recomp::SymbolReference {
-                        .section_index = N64Recomp::SectionImport,
-                        .symbol_index = import_symbol_dependency_indices.size()
-                    };
-                    context.import_symbols.emplace_back(
-                        N64Recomp::ImportSymbol {
-                            .base = N64Recomp::ReferenceSymbol {
-                                .name = function_name,
-                                .section_index = N64Recomp::SectionImport,
-                                .section_offset = 0,
-                                .is_function = true
-                            },
-                            .dependency_index = dependency_index,
-                        }
-                    );
+                    size_t symbol_index = import_symbol_dependency_indices.size();
+
+                    context.add_import_symbol(function_name, dependency_index, symbol_index);
                     import_symbol_dependency_indices.emplace_back(dependency_index);
                 }
             }
@@ -328,22 +316,8 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, st
             // If this is the patch section, create a replacement for this function.
             if (patch_section || force_patch_section) {
                 // Find the corresponding symbol in the reference symbols.
-                bool original_func_exists = false;
-                auto find_sym_it = input_context.reference_symbols_by_name.find(cur_func.name);
-
-                // Check if the function was found.
-                if (find_sym_it == input_context.reference_symbols_by_name.end()) {
-                    original_func_exists = false;
-                }
-                // Ignore reference symbols in the import section, as those are imports and not original symbols.
-                else if (
-                    find_sym_it->second.section_index == N64Recomp::SectionImport ||
-                    find_sym_it->second.section_index == N64Recomp::SectionHook) {
-                    original_func_exists = false;
-                }
-                else {
-                    original_func_exists = true;
-                }
+                N64Recomp::SymbolReference cur_reference;
+                bool original_func_exists = input_context.find_regular_reference_symbol(cur_func.name, cur_reference);
 
                 // Check that the function being patched exists in the original reference symbols.
                 if (!original_func_exists) {
@@ -352,20 +326,21 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, st
                 }
 
                 // Check that the reference symbol is actually a function.
-                const auto& reference_symbol = input_context.get_reference_symbol(find_sym_it->second.section_index, find_sym_it->second.symbol_index);
+                const auto& reference_symbol = input_context.get_reference_symbol(cur_reference);
                 if (!reference_symbol.is_function) {
                     fmt::print("Function {0} is marked as a patch, but {0} was a variable in the original ROM!\n", cur_func.name);
                     return {};
                 }
 
-                const auto& reference_section = input_context.reference_sections[reference_symbol.section_index];
+                uint32_t reference_section_vram = input_context.get_reference_section_vram(reference_symbol.section_index);
+                uint32_t reference_section_rom = input_context.get_reference_section_rom(reference_symbol.section_index);
 
                 // Add a replacement for this function to the output context.
                 ret.replacements.emplace_back(
                     N64Recomp::FunctionReplacement {
                         .func_index = (uint32_t)output_func_index,
-                        .original_section_vrom = reference_section.rom_addr,
-                        .original_vram = reference_section.ram_addr + reference_symbol.section_offset,
+                        .original_section_vrom = reference_section_rom,
+                        .original_vram = reference_section_vram + reference_symbol.section_offset,
                         .flags = force_patch_section ? N64Recomp::ReplacementFlags::Force : N64Recomp::ReplacementFlags{}
                     }
                 );
@@ -405,16 +380,17 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, st
             if (cur_reloc.type == N64Recomp::RelocType::R_MIPS_NONE) {
                 continue;
             }
-            // Reloc to an imported symbol.
-            if (cur_reloc.target_section == N64Recomp::SectionImport) {
+            // Reloc to a special section symbol.
+            if (!input_context.is_regular_reference_section(cur_reloc.target_section)) {
                 section_out.relocs.emplace_back(cur_reloc);
             }
             // Reloc to a reference symbol.
             else if (cur_reloc.reference_symbol) {
-                const auto& reloc_section = input_context.reference_sections[cur_reloc.target_section];
+                bool is_relocatable = input_context.is_reference_section_relocatable(cur_reloc.target_section);
+                uint32_t section_vram = input_context.get_reference_section_vram(cur_reloc.target_section);
                 // Patch relocations to non-relocatable reference sections.
-                if (!reloc_section.relocatable) {
-                    uint32_t reloc_target_address = reloc_section.ram_addr + cur_reloc.target_section_offset;
+                if (!is_relocatable) {
+                    uint32_t reloc_target_address = section_vram + cur_reloc.target_section_offset;
                     uint32_t reloc_rom_address = cur_reloc.address - cur_section.ram_addr + cur_section.rom_addr;
                     
                     uint32_t* reloc_word_ptr = reinterpret_cast<uint32_t*>(ret.rom.data() + reloc_rom_address);
@@ -477,7 +453,7 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, st
     ret.import_symbols = input_context.import_symbols;
 
     // Copy the reference sections from the input context as-is for resolving reference symbol relocations.
-    ret.reference_sections = input_context.reference_sections;
+    ret.copy_reference_sections_from(input_context);
 
     good = true;
     return ret;
@@ -510,7 +486,10 @@ int main(int argc, const char** argv) {
         }
 
         // Use the reference context to build a reference symbol list for the actual context.
-        context.import_reference_context(reference_context);
+        if (!context.import_reference_context(reference_context)) {
+            fmt::print(stderr, "Internal error: failed to import reference context\n");
+            return EXIT_FAILURE;
+        }
     }
 
     for (const std::filesystem::path& cur_data_sym_path : config.data_reference_syms_file_paths) {

@@ -171,18 +171,13 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
                 if (reloc_type == N64Recomp::RelocType::R_MIPS_HI16 || reloc_type == N64Recomp::RelocType::R_MIPS_LO16 || reloc_type == N64Recomp::RelocType::R_MIPS_26) {
                     if (reloc.reference_symbol) {
                         reloc_reference_symbol = reloc.symbol_index;
-                        static N64Recomp::ReferenceSection dummy_section{
-                            .rom_addr = 0,
-                            .ram_addr = 0,
-                            .size = 0,
-                            .relocatable = false
-                        };
-                        // Don't try to relocate import symbols.
-                        if (reloc.target_section != N64Recomp::SectionImport) {
-                            const auto& reloc_reference_section = reloc.target_section == N64Recomp::SectionAbsolute ? dummy_section : context.reference_sections[reloc.target_section];
+                        // Don't try to relocate special section symbols.
+                        if (context.is_regular_reference_section(reloc.target_section)) {
+                            bool ref_section_relocatable = context.is_reference_section_relocatable(reloc.target_section);
+                            uint32_t ref_section_vram = context.get_reference_section_vram(reloc.target_section);
                             // Resolve HI16 and LO16 reference symbol relocs to non-relocatable sections by patching the instruction immediate.
-                            if (!reloc_reference_section.relocatable && (reloc_type == N64Recomp::RelocType::R_MIPS_HI16 || reloc_type == N64Recomp::RelocType::R_MIPS_LO16)) {
-                                uint32_t full_immediate = reloc.target_section_offset + reloc_reference_section.ram_addr;
+                            if (!ref_section_relocatable && (reloc_type == N64Recomp::RelocType::R_MIPS_HI16 || reloc_type == N64Recomp::RelocType::R_MIPS_LO16)) {
+                                uint32_t full_immediate = reloc.target_section_offset + ref_section_vram;
 
                                 if (reloc_type == N64Recomp::RelocType::R_MIPS_HI16) {
                                     imm = (full_immediate >> 16) + ((full_immediate >> 15) & 1);

@@ -154,7 +154,16 @@ namespace N64Recomp {
         ReplacementFlags flags;
     };
 
-    struct Context {
+    class Context {
+    private:
+        //// Reference symbols (used for populating relocations for patches)
+        // A list of the sections that contain the reference symbols.
+        std::vector<ReferenceSection> reference_sections;
+        // A list of the reference symbols.
+        std::vector<ReferenceSymbol> reference_symbols;
+        // Mapping of symbol name to reference symbol index.
+        std::unordered_map<std::string, SymbolReference> reference_symbols_by_name;
+    public:
         std::vector<Section> sections;
         std::vector<Function> functions;
         // A list of the list of each function (by index in `functions`) in a given section
@@ -169,14 +178,6 @@ namespace N64Recomp {
         // A mapping of function name to index in the functions vector
         std::unordered_map<std::string, size_t> functions_by_name;
 
-        //// Reference symbols (used for populating relocations for patches)
-        // A list of the sections that contain the reference symbols.
-        std::vector<ReferenceSection> reference_sections;
-        // A list of the reference symbols.
-        std::vector<ReferenceSymbol> reference_symbols;
-        // Mapping of symbol name to reference symbol index.
-        std::unordered_map<std::string, SymbolReference> reference_symbols_by_name;
-
         //// Mod dependencies and their symbols
         std::vector<Dependency> dependencies;
         std::vector<ImportSymbol> import_symbols;
@@ -187,7 +188,7 @@ namespace N64Recomp {
         std::vector<FunctionReplacement> replacements;
 
         // Imports sections and function symbols from a provided context into this context's reference sections and reference functions.
-        void import_reference_context(const Context& reference_context);
+        bool import_reference_context(const Context& reference_context);
         // Reads a data symbol file and adds its contents into this context's reference data symbols.
         bool read_data_reference_syms(const std::filesystem::path& data_syms_file_path);
 
@@ -204,6 +205,38 @@ namespace N64Recomp {
             return section_index != SectionImport && section_index != SectionHook;
         }
 
+        bool find_reference_symbol(const std::string& symbol_name, SymbolReference& ref_out) const {
+            auto find_sym_it = reference_symbols_by_name.find(symbol_name);
+
+            // Check if the symbol was found.
+            if (find_sym_it == reference_symbols_by_name.end()) {
+                return false;
+            }
+
+            ref_out = find_sym_it->second;
+            return true;
+        }
+
+        bool reference_symbol_exists(const std::string& symbol_name) const {
+            SymbolReference dummy_ref;
+            return find_reference_symbol(symbol_name, dummy_ref);
+        }
+
+        bool find_regular_reference_symbol(const std::string& symbol_name, SymbolReference& ref_out) const {
+            SymbolReference ref_found;
+            if (!find_reference_symbol(symbol_name, ref_found)) {
+                return false;
+            }
+
+            // Ignore reference symbols in special sections.
+            if (!is_regular_reference_section(ref_found.section_index)) {
+                return false;
+            }
+
+            ref_out = ref_found;
+            return true;
+        }
+
         const ReferenceSymbol& get_reference_symbol(uint16_t section_index, size_t symbol_index) const {
             if (section_index == SectionImport) {
                 return import_symbols[symbol_index].base;
@@ -214,15 +247,101 @@ namespace N64Recomp {
             return reference_symbols[symbol_index];
         }
 
+        size_t num_regular_reference_symbols() {
+            return reference_symbols.size();
+        }
+
+        const ReferenceSymbol& get_regular_reference_symbol(size_t index) const {
+            return reference_symbols[index];
+        }
+
         const ReferenceSymbol& get_reference_symbol(const SymbolReference& ref) const {
             return get_reference_symbol(ref.section_index, ref.symbol_index);
         }
 
         bool is_reference_section_relocatable(uint16_t section_index) const {
-            if (section_index == SectionImport || section_index == SectionHook) {
+            if (section_index == SectionAbsolute) {
+                return false;
+            }
+            else if (section_index == SectionImport || section_index == SectionHook) {
                 return true;
             }
             return reference_sections[section_index].relocatable;
+        }
+
+        bool add_reference_symbol(const std::string& symbol_name, uint16_t section_index, uint32_t vram, bool is_function) {
+            uint32_t section_vram;
+
+            if (section_index == SectionAbsolute) {
+                section_vram = 0;
+            }
+            else if (section_index < reference_sections.size()) {
+                section_vram = reference_sections[section_index].ram_addr;
+            }
+            // Invalid section index.
+            else {
+                return false;
+            }
+
+            // TODO Check if reference_symbols_by_name already contains the name and show a conflict error if so.
+            reference_symbols_by_name.emplace(symbol_name, N64Recomp::SymbolReference{
+                .section_index = section_index,
+                .symbol_index = reference_symbols.size()
+            });
+
+            reference_symbols.emplace_back(N64Recomp::ReferenceSymbol{
+                .name = symbol_name,
+                .section_index = section_index,
+                .section_offset = vram - section_vram,
+                .is_function = is_function
+            });
+            return true;
+        }
+
+        void add_import_symbol(const std::string& symbol_name, size_t dependency_index, size_t symbol_index) {
+            reference_symbols_by_name[symbol_name] = N64Recomp::SymbolReference {
+                .section_index = N64Recomp::SectionImport,
+                .symbol_index = symbol_index
+            };
+            import_symbols.emplace_back(
+                N64Recomp::ImportSymbol {
+                    .base = N64Recomp::ReferenceSymbol {
+                        .name = symbol_name,
+                        .section_index = N64Recomp::SectionImport,
+                        .section_offset = 0,
+                        .is_function = true
+                    },
+                    .dependency_index = dependency_index,
+                }
+            );
+        }
+
+        uint32_t get_reference_section_vram(uint16_t section_index) const {
+            if (section_index == N64Recomp::SectionAbsolute) {
+                return 0;
+            }
+            else if (!is_regular_reference_section(section_index)) {
+                return 0;
+            }
+            else {
+                return reference_sections[section_index].ram_addr;
+            }
+        }
+
+        uint32_t get_reference_section_rom(uint16_t section_index) const {
+            if (section_index == N64Recomp::SectionAbsolute) {
+                return (uint32_t)-1;
+            }
+            else if (!is_regular_reference_section(section_index)) {
+                return (uint32_t)-1;
+            }
+            else {
+                return reference_sections[section_index].rom_addr;
+            }
+        }
+
+        void copy_reference_sections_from(const Context& rhs) {
+            reference_sections = rhs.reference_sections;
         }
     };
 

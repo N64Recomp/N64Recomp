@@ -116,11 +116,14 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
         return false;
     }
 
+    // TODO add proper add methods for these vectors and change these to reserves instead.
     mod_context.sections.resize(num_sections);
     mod_context.replacements.resize(num_replacements);
     mod_context.exported_funcs.resize(num_exports);
     mod_context.dependencies.resize(num_dependencies);
-    mod_context.import_symbols.resize(num_imports);
+
+    mod_context.import_symbols.reserve(num_imports);
+    
     for (size_t section_index = 0; section_index < num_sections; section_index++) {
         const SectionHeaderV1* section_header = reinterpret_data<SectionHeaderV1>(data, offset);
         if (section_header == nullptr) {
@@ -304,18 +307,7 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
 
         std::string_view import_name{ string_data + name_start, string_data + name_start + name_size };
 
-        mod_context.import_symbols[import_index] = N64Recomp::ImportSymbol{
-            .base = {
-                .name = std::string{import_name},
-                .section_index = N64Recomp::SectionImport,
-                .section_offset = 0,
-                .is_function = true,
-            },
-            .dependency_index = dependency_index,
-        };
-        auto& symbol_reference = mod_context.reference_symbols_by_name[std::string{import_name}];
-        symbol_reference.section_index = N64Recomp::SectionImport;
-        symbol_reference.symbol_index = import_index;
+        mod_context.add_import_symbol(std::string{import_name}, dependency_index, import_index);
     }
 
     return offset == data.size();
@@ -484,7 +476,7 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
                 target_section_offset_or_index = cur_reloc.symbol_index;
             }
             else if (cur_reloc.reference_symbol) {
-                target_section_vrom = context.reference_sections[cur_reloc.target_section].rom_addr;
+                target_section_vrom = context.get_reference_section_rom(cur_reloc.target_section);
             }
             else {
                 target_section_vrom = context.sections[cur_reloc.target_section].rom_addr;

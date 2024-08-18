@@ -81,14 +81,12 @@ int main(int argc, const char** argv) {
 
     // Populate R_MIPS_26 reloc symbol indices. Start by building a map of vram address to matching reference symbols.
     std::unordered_map<uint32_t, std::vector<size_t>> reference_symbols_by_vram{};
-    for (size_t reference_symbol_index = 0; reference_symbol_index < mod_context.reference_symbols.size(); reference_symbol_index++) {
-        const auto& sym = mod_context.reference_symbols[reference_symbol_index];
+    for (size_t reference_symbol_index = 0; reference_symbol_index < mod_context.num_regular_reference_symbols(); reference_symbol_index++) {
+        const auto& sym = mod_context.get_regular_reference_symbol(reference_symbol_index);
         uint16_t section_index = sym.section_index;
         if (section_index != N64Recomp::SectionAbsolute && section_index != N64Recomp::SectionSelf) {
-            const auto& section = mod_context.reference_sections[section_index];
-
-            uint32_t vram = section.ram_addr + sym.section_offset;
-            reference_symbols_by_vram[vram].push_back(reference_symbol_index);
+            uint32_t section_vram = mod_context.get_reference_section_vram(section_index);
+            reference_symbols_by_vram[section_vram + sym.section_offset].push_back(reference_symbol_index);
         }
     }
     
@@ -97,8 +95,8 @@ int main(int argc, const char** argv) {
         for (auto& reloc : section.relocs) {
             if (reloc.type == N64Recomp::RelocType::R_MIPS_26 && reloc.reference_symbol) {
                 if (mod_context.is_regular_reference_section(reloc.target_section)) {
-                    const auto& target_section = mod_context.reference_sections[reloc.target_section];
-                    uint32_t target_vram = target_section.ram_addr + reloc.target_section_offset;
+                    uint32_t section_vram = mod_context.get_reference_section_vram(reloc.target_section);
+                    uint32_t target_vram = section_vram + reloc.target_section_offset;
 
                     auto find_funcs_it = reference_symbols_by_vram.find(target_vram);
                     bool found = false;

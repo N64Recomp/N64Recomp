@@ -611,7 +611,7 @@ bool N64Recomp::Context::from_symbol_file(const std::filesystem::path& symbol_fi
     return true;
 }
 
-void N64Recomp::Context::import_reference_context(const N64Recomp::Context& reference_context) {
+bool N64Recomp::Context::import_reference_context(const N64Recomp::Context& reference_context) {
     reference_sections.resize(reference_context.sections.size());
     reference_symbols.reserve(reference_context.functions.size());
 
@@ -628,21 +628,12 @@ void N64Recomp::Context::import_reference_context(const N64Recomp::Context& refe
 
     // Copy the functions from the reference context into the reference context's function map.
     for (const N64Recomp::Function& func_in: reference_context.functions) {
-        const N64Recomp::Section& func_section = reference_context.sections[func_in.section_index];
-
-        // TODO Check if reference_symbols_by_name already contains the name and show a conflict error if so.
-        reference_symbols_by_name.emplace(func_in.name, N64Recomp::SymbolReference{
-            .section_index = func_in.section_index,
-            .symbol_index = reference_symbols.size()
-        });
-
-        reference_symbols.emplace_back(N64Recomp::ReferenceSymbol{
-            .name = func_in.name,
-            .section_index = func_in.section_index,
-            .section_offset = func_in.vram - static_cast<uint32_t>(func_section.ram_addr),
-            .is_function = true
-        });
+        if (!add_reference_symbol(func_in.name, func_in.section_index, func_in.vram, true)) {
+            return false;
+        }
     }
+    
+    return true;
 }
 
 // Reads a data symbol file and adds its contents into this context's reference data symbols.
@@ -730,20 +721,9 @@ bool N64Recomp::Context::read_data_reference_syms(const std::filesystem::path& d
                             throw toml::parse_error("Reference data symbol entry is missing required field(s)", data_sym_el.source());
                         }
 
-                        // TODO Check if reference_symbols_by_name already contains the name and show a conflict error if so.
-                        this->reference_symbols_by_name.emplace(name.value(), SymbolReference {
-                            .section_index = ref_section_index,
-                            .symbol_index = reference_symbols.size()
-                        });
-
-                        this->reference_symbols.emplace_back(
-                            ReferenceSymbol {
-                                .name = name.value(),
-                                .section_index = ref_section_index,
-                                .section_offset = vram_addr.value() - ref_section_vram,
-                                .is_function = false
-                            }
-                        );
+                        if (!this->add_reference_symbol(name.value(), ref_section_index, vram_addr.value(), false)) {
+                            throw toml::parse_error("Internal error: Failed to add reference symbol to context", data_sym_el.source());
+                        }
                     }
                     else {
                         throw toml::parse_error("Invalid data symbol entry", data_sym_el.source());

@@ -320,7 +320,9 @@ int main(int argc, char** argv) {
                 }
 
                 // Use the reference context to build a reference symbol list for the actual context.
-                context.import_reference_context(reference_context);
+                if (!context.import_reference_context(reference_context)) {
+                    exit_failure("Internal error: Failed to import reference context\n");
+                }
             }
 
             for (const std::filesystem::path& cur_data_sym_path : config.data_reference_syms_file_paths) {
@@ -586,7 +588,8 @@ int main(int argc, char** argv) {
                 bool in_normal_patch_section = func_section.name == N64Recomp::PatchSectionName;
                 bool in_force_patch_section = func_section.name == N64Recomp::ForcedPatchSectionName;
                 bool in_patch_section = in_normal_patch_section || in_force_patch_section;
-                bool reference_symbol_found = context.reference_symbols_by_name.contains(func.name);
+                N64Recomp::SymbolReference dummy_ref;
+                bool reference_symbol_found = context.reference_symbol_exists(func.name);
 
                 // This is a patch function, but no corresponding symbol was found in the original symbol list.
                 if (in_patch_section && !reference_symbol_found) {

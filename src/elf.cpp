@@ -213,6 +213,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
     ELFIO::section* symtab_section = nullptr;
     std::vector<SegmentEntry> segments{};
     segments.resize(elf_file.segments.size());
+    bool has_reference_symbols = context.has_reference_symbols();
 
     // Copy the data for each segment into the segment entry list
     for (size_t segment_index = 0; segment_index < elf_file.segments.size(); segment_index++) {
@@ -263,7 +264,8 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
 
             // If this reloc section is for a section that has been marked as relocatable, record it in the reloc section lookup.
             // Alternatively, if this recompilation uses reference symbols then record all reloc sections.
-            if (elf_config.all_sections_relocatable || !context.reference_sections.empty() || elf_config.relocatable_sections.contains(reloc_target_section)) {
+            bool section_is_relocatable = elf_config.all_sections_relocatable || elf_config.relocatable_sections.contains(reloc_target_section);
+            if (has_reference_symbols || section_is_relocatable) {
                 reloc_sections_by_name[reloc_target_section] = section.get();
             }
         }
@@ -396,8 +398,8 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                     // Check if the symbol is undefined and to know whether to look for it in the reference symbols.
                     if (rel_symbol_section_index == ELFIO::SHN_UNDEF) {
                         // Undefined sym, check the reference symbols.
-                        auto sym_find_it = context.reference_symbols_by_name.find(rel_symbol_name);
-                        if (sym_find_it == context.reference_symbols_by_name.end()) {
+                        N64Recomp::SymbolReference sym_ref;
+                        if (!context.find_reference_symbol(rel_symbol_name, sym_ref)) {
                             fmt::print(stderr, "Undefined symbol: {}, not found in input or reference symbols!\n",
                                 rel_symbol_name);
                             return nullptr;
@@ -406,8 +408,8 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                         reloc_out.reference_symbol = true;
                         // Replace the reloc's symbol index with the index into the reference symbol array.
                         rel_section_vram = 0;
-                        reloc_out.target_section = sym_find_it->second.section_index;
-                        reloc_out.symbol_index = sym_find_it->second.symbol_index;
+                        reloc_out.target_section = sym_ref.section_index;
+                        reloc_out.symbol_index = sym_ref.symbol_index;
                         const auto& reference_symbol = context.get_reference_symbol(reloc_out.target_section, reloc_out.symbol_index);
                         rel_symbol_offset = reference_symbol.section_offset;
 
@@ -504,10 +506,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                         // TODO set section_out.has_mips32_relocs to true if this section should emit its mips32 relocs (mainly for TLB mapping).
 
                         if (reloc_out.reference_symbol) {
-                            uint32_t reloc_target_section_addr = 0;
-                            if (reloc_out.target_section != N64Recomp::SectionAbsolute) {
-                                reloc_target_section_addr = context.reference_sections[reloc_out.target_section].ram_addr;
-                            }
+                            uint32_t reloc_target_section_addr = context.get_reference_section_vram(reloc_out.target_section);
                             // Patch the word in the ROM to incorporate the symbol's value.
                             uint32_t updated_reloc_word = reloc_rom_word + reloc_target_section_addr + reloc_out.target_section_offset;
                             *reinterpret_cast<uint32_t*>(context.rom.data() + reloc_rom_addr) = byteswap(updated_reloc_word);
