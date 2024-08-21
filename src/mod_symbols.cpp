@@ -7,10 +7,13 @@ struct FileHeader {
 
 struct FileSubHeaderV1 {
     uint32_t num_sections;
-    uint32_t num_replacements;
-    uint32_t num_exports;
     uint32_t num_dependencies;
     uint32_t num_imports;
+    uint32_t num_dependency_events;
+    uint32_t num_replacements;
+    uint32_t num_exports;
+    uint32_t num_callbacks;
+    uint32_t num_provided_events;
     uint32_t string_data_size;
 };
 
@@ -33,26 +36,13 @@ constexpr uint32_t SectionSelfVromV1 = 0xFFFFFFFF;
 
 // Special sections
 constexpr uint32_t SectionImportVromV1 = 0xFFFFFFFE;
-constexpr uint32_t SectionHookVromV1 = 0xFFFFFFFD;
+constexpr uint32_t SectionEventVromV1 = 0xFFFFFFFD;
 
 struct RelocV1 {
     uint32_t section_offset;
     uint32_t type;
     uint32_t target_section_offset_or_index; // If this reloc references a special section (see above), this indicates the section's symbol index instead
     uint32_t target_section_vrom;
-};
-
-struct ReplacementV1 {
-    uint32_t func_index;
-    uint32_t original_section_vrom;
-    uint32_t original_vram;
-    uint32_t flags; // force
-};
-
-struct ExportV1 {
-    uint32_t func_index;
-    uint32_t name_start; // offset into the string data
-    uint32_t name_size;
 };
 
 struct DependencyV1 {
@@ -68,6 +58,35 @@ struct ImportV1 {
     uint32_t name_start;
     uint32_t name_size;
     uint32_t dependency;
+};
+
+struct DependencyEventV1 {
+    uint32_t name_start;
+    uint32_t name_size;
+    uint32_t dependency;
+};
+
+struct ReplacementV1 {
+    uint32_t func_index;
+    uint32_t original_section_vrom;
+    uint32_t original_vram;
+    uint32_t flags; // force
+};
+
+struct ExportV1 {
+    uint32_t func_index;
+    uint32_t name_start; // offset into the string data
+    uint32_t name_size;
+};
+
+struct CallbackV1 {
+    uint32_t dependency_event_index;
+    uint32_t function_index;
+};
+
+struct EventV1 {
+    uint32_t name_start;
+    uint32_t name_size;
 };
 
 template <typename T>
@@ -100,10 +119,13 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
     }
 
     size_t num_sections = subheader->num_sections;
-    size_t num_replacements = subheader->num_replacements;
-    size_t num_exports = subheader->num_exports;
     size_t num_dependencies = subheader->num_dependencies;
     size_t num_imports = subheader->num_imports;
+    size_t num_dependency_events = subheader->num_dependency_events;
+    size_t num_replacements = subheader->num_replacements;
+    size_t num_exports = subheader->num_exports;
+    size_t num_callbacks = subheader->num_callbacks;
+    size_t num_provided_events = subheader->num_provided_events;
     size_t string_data_size = subheader->string_data_size;
 
     if (string_data_size & 0b11) {
@@ -116,14 +138,16 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
         return false;
     }
 
-    // TODO add proper add methods for these vectors and change these to reserves instead.
-    mod_context.sections.resize(num_sections);
-    mod_context.replacements.resize(num_replacements);
-    mod_context.exported_funcs.resize(num_exports);
-    mod_context.dependencies.resize(num_dependencies);
-
+    // TODO add proper creation methods for the remaining vectors and change these to reserves instead.
+    mod_context.sections.resize(num_sections); // Add method
+    mod_context.dependencies.resize(num_dependencies); // Add method
     mod_context.import_symbols.reserve(num_imports);
-    
+    mod_context.dependency_events.reserve(num_dependency_events);
+    mod_context.replacements.resize(num_replacements); // Add method
+    mod_context.exported_funcs.resize(num_exports); // Add method
+    mod_context.callbacks.reserve(num_callbacks);
+    mod_context.event_symbols.reserve(num_provided_events);
+
     for (size_t section_index = 0; section_index < num_sections; section_index++) {
         const SectionHeaderV1* section_header = reinterpret_data<SectionHeaderV1>(data, offset);
         if (section_header == nullptr) {
@@ -217,49 +241,6 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
         }
     }
 
-    const ReplacementV1* replacements = reinterpret_data<ReplacementV1>(data, offset, num_replacements);
-    if (replacements == nullptr) {
-        printf("Failed to read replacements (count: %zu)\n", num_replacements);
-        return false;
-    }
-
-    for (size_t replacement_index = 0; replacement_index < num_replacements; replacement_index++) {
-        N64Recomp::FunctionReplacement& cur_replacement = mod_context.replacements[replacement_index];
-
-        cur_replacement.func_index = replacements[replacement_index].func_index;
-        cur_replacement.original_section_vrom = replacements[replacement_index].original_section_vrom;
-        cur_replacement.original_vram = replacements[replacement_index].original_vram;
-        cur_replacement.flags = static_cast<N64Recomp::ReplacementFlags>(replacements[replacement_index].flags);
-    }
-
-    const ExportV1* exports = reinterpret_data<ExportV1>(data, offset, num_exports);
-    if (exports == nullptr) {
-        printf("Failed to read exports (count: %zu)\n", num_exports);
-        return false;
-    }
-
-    for (size_t export_index = 0; export_index < num_exports; export_index++) {
-        const ExportV1& export_in = exports[export_index];
-        uint32_t func_index = export_in.func_index;
-        uint32_t name_start = export_in.name_start;
-        uint32_t name_size = export_in.name_size;
-
-        if (func_index >= mod_context.functions.size()) {
-            printf("Export %zu has a function index of %u, but the symbol file only has %zu functions\n",
-                export_index, func_index, mod_context.functions.size());
-        }
-
-        if (name_start + name_size > string_data_size) {
-            printf("Export %zu has a name start of %u and size of %u, which extend beyond the string data's total size of %zu\n",
-                export_index, name_start, name_size, string_data_size);
-        }
-
-        // Add the function to the exported function list.
-        mod_context.exported_funcs[export_index] = func_index;
-        // Populate the exported function's name from the string data.
-        mod_context.functions[func_index].name = std::string_view(string_data + name_start, string_data + name_start + name_size);
-    }
-
     const DependencyV1* dependencies = reinterpret_data<DependencyV1>(data, offset, num_dependencies);
     if (dependencies == nullptr) {
         printf("Failed to read dependencies (count: %zu)\n", num_dependencies);
@@ -307,7 +288,120 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
 
         std::string_view import_name{ string_data + name_start, string_data + name_start + name_size };
 
-        mod_context.add_import_symbol(std::string{import_name}, dependency_index, import_index);
+        mod_context.add_import_symbol(std::string{import_name}, dependency_index);
+    }
+
+    const DependencyEventV1* dependency_events = reinterpret_data<DependencyEventV1>(data, offset, num_dependency_events);
+    if (dependency_events == nullptr) {
+        printf("Failed to read dependency events (count: %zu)\n", num_dependency_events);
+        return false;
+    }
+    
+    for (size_t dependency_event_index = 0; dependency_event_index < num_dependency_events; dependency_event_index++) {
+        const DependencyEventV1& dependency_event_in = dependency_events[dependency_event_index];
+        uint32_t name_start = dependency_event_in.name_start;
+        uint32_t name_size = dependency_event_in.name_size;
+        uint32_t dependency_index = dependency_event_in.dependency;
+
+        if (name_start + name_size > string_data_size) {
+            printf("Dependency event %zu has a name start of %u and size of %u, which extend beyond the string data's total size of %zu\n",
+                dependency_event_index, name_start, name_size, string_data_size);
+        }
+
+        std::string_view dependency_event_name{ string_data + name_start, string_data + name_start + name_size };
+
+        size_t dummy_dependency_event_index;
+        mod_context.add_dependency_event(dependency_index, std::string{dependency_event_name}, dummy_dependency_event_index);
+    }
+
+    const ReplacementV1* replacements = reinterpret_data<ReplacementV1>(data, offset, num_replacements);
+    if (replacements == nullptr) {
+        printf("Failed to read replacements (count: %zu)\n", num_replacements);
+        return false;
+    }
+
+    for (size_t replacement_index = 0; replacement_index < num_replacements; replacement_index++) {
+        N64Recomp::FunctionReplacement& cur_replacement = mod_context.replacements[replacement_index];
+
+        cur_replacement.func_index = replacements[replacement_index].func_index;
+        cur_replacement.original_section_vrom = replacements[replacement_index].original_section_vrom;
+        cur_replacement.original_vram = replacements[replacement_index].original_vram;
+        cur_replacement.flags = static_cast<N64Recomp::ReplacementFlags>(replacements[replacement_index].flags);
+    }
+
+    const ExportV1* exports = reinterpret_data<ExportV1>(data, offset, num_exports);
+    if (exports == nullptr) {
+        printf("Failed to read exports (count: %zu)\n", num_exports);
+        return false;
+    }
+
+    for (size_t export_index = 0; export_index < num_exports; export_index++) {
+        const ExportV1& export_in = exports[export_index];
+        uint32_t func_index = export_in.func_index;
+        uint32_t name_start = export_in.name_start;
+        uint32_t name_size = export_in.name_size;
+
+        if (func_index >= mod_context.functions.size()) {
+            printf("Export %zu has a function index of %u, but the symbol file only has %zu functions\n",
+                export_index, func_index, mod_context.functions.size());
+        }
+
+        if (name_start + name_size > string_data_size) {
+            printf("Export %zu has a name start of %u and size of %u, which extend beyond the string data's total size of %zu\n",
+                export_index, name_start, name_size, string_data_size);
+        }
+
+        // Add the function to the exported function list.
+        mod_context.exported_funcs[export_index] = func_index;
+        // Populate the exported function's name from the string data.
+        mod_context.functions[func_index].name = std::string_view(string_data + name_start, string_data + name_start + name_size);
+    }
+
+    const CallbackV1* callbacks = reinterpret_data<CallbackV1>(data, offset, num_callbacks);
+    if (callbacks == nullptr) {
+        printf("Failed to read callbacks (count: %zu)\n", num_callbacks);
+        return false;
+    }
+
+    for (size_t callback_index = 0; callback_index < num_callbacks; callback_index++) {
+        const CallbackV1& callback_in = callbacks[callback_index];
+        uint32_t dependency_event_index = callback_in.dependency_event_index;
+        uint32_t function_index = callback_in.function_index;
+
+        if (dependency_event_index >= num_dependency_events) {
+            printf("Callback %zu is connected to dependency event %u, but only %zu dependency events were specified\n",
+                callback_index, dependency_event_index, num_dependency_events);
+        }
+
+        if (function_index >= mod_context.functions.size()) {
+            printf("Callback %zu uses function %u, but only %zu functions were specified\n",
+                callback_index, function_index, mod_context.functions.size());
+        }
+
+        if (!mod_context.add_callback_by_dependency_event(dependency_event_index, function_index)) {
+            printf("Failed to add callback %zu\n", callback_index);
+        }
+    }
+
+    const EventV1* events = reinterpret_data<EventV1>(data, offset, num_provided_events);
+    if (events == nullptr) {
+        printf("Failed to read events (count: %zu)\n", num_provided_events);
+        return false;
+    }
+
+    for (size_t event_index = 0; event_index < num_provided_events; event_index++) {
+        const EventV1& event_in = events[event_index];
+        uint32_t name_start = event_in.name_start;
+        uint32_t name_size = event_in.name_size;
+
+        if (name_start + name_size > string_data_size) {
+            printf("Event %zu has a name start of %u and size of %u, which extend beyond the string data's total size of %zu\n",
+                event_index, name_start, name_size, string_data_size);
+        }
+
+        std::string_view import_name{ string_data + name_start, string_data + name_start + name_size };
+
+        mod_context.add_event_symbol(std::string{import_name});
     }
 
     return offset == data.size();
@@ -382,16 +476,24 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
 
     vec_put(ret, &header);
 
-    size_t num_exported_funcs = context.exported_funcs.size();
     size_t num_dependencies = context.dependencies.size();
     size_t num_imported_funcs = context.import_symbols.size();
+    size_t num_dependency_events = context.dependency_events.size();
+
+    size_t num_exported_funcs = context.exported_funcs.size();
+    size_t num_events = context.event_symbols.size();
+    size_t num_callbacks = context.callbacks.size();
+    size_t num_provided_events = context.event_symbols.size();
 
     FileSubHeaderV1 sub_header {
         .num_sections = static_cast<uint32_t>(context.sections.size()),
-        .num_replacements = static_cast<uint32_t>(context.replacements.size()),
-        .num_exports = static_cast<uint32_t>(num_exported_funcs),
         .num_dependencies = static_cast<uint32_t>(num_dependencies),
         .num_imports = static_cast<uint32_t>(num_imported_funcs),
+        .num_dependency_events = static_cast<uint32_t>(num_dependency_events),
+        .num_replacements = static_cast<uint32_t>(context.replacements.size()),
+        .num_exports = static_cast<uint32_t>(num_exported_funcs),
+        .num_callbacks = static_cast<uint32_t>(num_callbacks),
+        .num_provided_events = static_cast<uint32_t>(num_provided_events),
         .string_data_size = 0,
     };
 
@@ -401,17 +503,6 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
 
     // Build the string data from the exports and imports.
     size_t strings_start = ret.size();
-
-    // Track the start of every exported function's name in the string data. Size comes from the function, so no need to store it.
-    std::vector<uint32_t> exported_func_name_positions{};
-    exported_func_name_positions.resize(num_exported_funcs);
-    for (size_t export_index = 0; export_index < num_exported_funcs; export_index++) {
-        size_t function_index = context.exported_funcs[export_index];
-        const Function& exported_func = context.functions[function_index];
-
-        exported_func_name_positions[export_index] = static_cast<uint32_t>(ret.size() - strings_start);
-        vec_put(ret, exported_func.name);
-    }
 
     // Track the start of every dependency's name in the string data.
     std::vector<uint32_t> dependency_name_positions{};
@@ -426,13 +517,44 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
     // Track the start of every imported function's name in the string data.
     std::vector<uint32_t> imported_func_name_positions{};
     imported_func_name_positions.resize(num_imported_funcs);
-    std::unordered_map<std::string, uint32_t> mod_id_name_positions{};
     for (size_t import_index = 0; import_index < num_imported_funcs; import_index++) {
         const ImportSymbol& imported_func = context.import_symbols[import_index];
 
         // Write this import's name into the strings data.
         imported_func_name_positions[import_index] = static_cast<uint32_t>(ret.size() - strings_start);
         vec_put(ret, imported_func.base.name);
+    }
+
+    // Track the start of every dependency event's name in the string data.
+    std::vector<uint32_t> dependency_event_name_positions{};
+    dependency_event_name_positions.resize(num_dependency_events);
+    for (size_t dependency_event_index = 0; dependency_event_index < num_dependency_events; dependency_event_index++) {
+        const DependencyEvent& dependency_event = context.dependency_events[dependency_event_index];
+
+        dependency_event_name_positions[dependency_event_index] = static_cast<uint32_t>(ret.size() - strings_start);
+        vec_put(ret, dependency_event.event_name);
+    }
+    
+    // Track the start of every exported function's name in the string data.
+    std::vector<uint32_t> exported_func_name_positions{};
+    exported_func_name_positions.resize(num_exported_funcs);
+    for (size_t export_index = 0; export_index < num_exported_funcs; export_index++) {
+        size_t function_index = context.exported_funcs[export_index];
+        const Function& exported_func = context.functions[function_index];
+
+        exported_func_name_positions[export_index] = static_cast<uint32_t>(ret.size() - strings_start);
+        vec_put(ret, exported_func.name);
+    }
+
+    // Track the start of every provided event's name in the string data.
+    std::vector<uint32_t> event_name_positions{};
+    event_name_positions.resize(num_events);
+    for (size_t event_index = 0; event_index < num_events; event_index++) {
+        const EventSymbol& event_symbol = context.event_symbols[event_index];
+
+        // Write this event's name into the strings data.
+        event_name_positions[event_index] = static_cast<uint32_t>(ret.size() - strings_start);
+        vec_put(ret, event_symbol.base.name);
     }
 
     // Align the data after the strings to 4 bytes.
@@ -492,6 +614,48 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
         }
     }
 
+    // Write the dependencies.
+    for (size_t dependency_index = 0; dependency_index < num_dependencies; dependency_index++) {
+        const Dependency& dependency = context.dependencies[dependency_index];
+
+        DependencyV1 dependency_out {
+            .major_version = dependency.major_version,
+            .minor_version = dependency.minor_version,
+            .patch_version = dependency.patch_version,
+            .mod_id_start = dependency_name_positions[dependency_index],
+            .mod_id_size = static_cast<uint32_t>(dependency.mod_id.size())
+        };
+
+        vec_put(ret, &dependency_out);
+    }
+
+    // Write the imported functions.
+    for (size_t import_index = 0; import_index < num_imported_funcs; import_index++) {
+        // Get the index of the reference symbol for this import.
+        const ImportSymbol& imported_func = context.import_symbols[import_index];
+
+        ImportV1 import_out {
+            .name_start = imported_func_name_positions[import_index],
+            .name_size = static_cast<uint32_t>(imported_func.base.name.size()),
+            .dependency = static_cast<uint32_t>(imported_func.dependency_index)
+        };
+
+        vec_put(ret, &import_out);
+    }
+
+    // Write the dependency events.
+    for (size_t dependency_event_index = 0; dependency_event_index < num_dependency_events; dependency_event_index++) {
+        const DependencyEvent& dependency_event = context.dependency_events[dependency_event_index];
+
+        DependencyEventV1 dependency_event_out {
+            .name_start = dependency_event_name_positions[dependency_event_index],
+            .name_size = static_cast<uint32_t>(dependency_event.event_name.size()),
+            .dependency = static_cast<uint32_t>(dependency_event.dependency_index)
+        };
+
+        vec_put(ret, &dependency_event_out);
+    }
+
     // Write the function replacements.
     for (const FunctionReplacement& cur_replacement : context.replacements) {
         uint32_t flags = 0;
@@ -523,33 +687,28 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
         vec_put(ret, &export_out);
     }
 
-    // Write the dependencies.
-    for (size_t dependency_index = 0; dependency_index < num_dependencies; dependency_index++) {
-        const Dependency& dependency = context.dependencies[dependency_index];
+    // Write the callbacks.
+    for (size_t callback_index = 0; callback_index < num_callbacks; callback_index++) {
+        const Callback& callback = context.callbacks[callback_index];
 
-        DependencyV1 dependency_out {
-            .major_version = dependency.major_version,
-            .minor_version = dependency.minor_version,
-            .patch_version = dependency.patch_version,
-            .mod_id_start = dependency_name_positions[dependency_index],
-            .mod_id_size = static_cast<uint32_t>(dependency.mod_id.size())
+        CallbackV1 callback_out {
+            .dependency_event_index = static_cast<uint32_t>(callback.dependency_event_index),
+            .function_index = static_cast<uint32_t>(callback.function_index)
         };
 
-        vec_put(ret, &dependency_out);
+        vec_put(ret, &callback_out);
     }
 
-    // Write the imported functions.
-    for (size_t import_index = 0; import_index < num_imported_funcs; import_index++) {
-        // Get the index of the reference symbol for this import.
-        const ImportSymbol& imported_func = context.import_symbols[import_index];
+    // Write the provided events.
+    for (size_t event_index = 0; event_index < num_events; event_index++) {
+        const EventSymbol& event_symbol = context.event_symbols[event_index];
 
-        ImportV1 import_out {
-            .name_start = imported_func_name_positions[import_index],
-            .name_size = static_cast<uint32_t>(imported_func.base.name.size()),
-            .dependency = static_cast<uint32_t>(imported_func.dependency_index)
+        EventV1 event_out {
+            .name_start = event_name_positions[event_index],
+            .name_size = static_cast<uint32_t>(event_symbol.base.name.size())
         };
 
-        vec_put(ret, &import_out);
+        vec_put(ret, &event_out);
     }
 
     return ret;

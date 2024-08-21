@@ -188,7 +188,7 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
                                     reloc_type = N64Recomp::RelocType::R_MIPS_NONE;
                                 }
 
-                                // The reloc has been processed, so delete it to none to prevent it getting processed a second time during instruction code generation.
+                                // The reloc has been processed, so set it to none to prevent it getting processed a second time during instruction code generation.
                                 reloc_type = N64Recomp::RelocType::R_MIPS_NONE;
                                 reloc_reference_symbol = (size_t)-1;
                             }

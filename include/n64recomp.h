@@ -51,7 +51,7 @@ namespace N64Recomp {
     struct Reloc {
         uint32_t address;
         uint32_t target_section_offset;
-        uint32_t symbol_index; // Only used for reference symbols and import symbols
+        uint32_t symbol_index; // Only used for reference symbols and special section symbols
         uint16_t target_section;
         RelocType type;
         bool reference_symbol;
@@ -60,10 +60,12 @@ namespace N64Recomp {
     constexpr uint16_t SectionSelf = (uint16_t)-1;
     constexpr uint16_t SectionAbsolute = (uint16_t)-2;
     constexpr uint16_t SectionImport = (uint16_t)-3; // Imported symbols for mods
-    constexpr uint16_t SectionHook = (uint16_t)-4;
+    constexpr uint16_t SectionEvent = (uint16_t)-4;
     constexpr std::string_view PatchSectionName = ".recomp_patch";
     constexpr std::string_view ForcedPatchSectionName = ".recomp_force_patch";
     constexpr std::string_view ExportSectionName = ".recomp_export";
+    constexpr std::string_view EventSectionName = ".recomp_event";
+    constexpr std::string_view CallbackSectionPrefix = ".recomp_callback.";
     struct Section {
         uint32_t rom_addr = 0;
         uint32_t ram_addr = 0;
@@ -130,9 +132,18 @@ namespace N64Recomp {
         size_t dependency_index;
     };
 
-    struct HookSymbol {
-        ReferenceSymbol base;
+    struct DependencyEvent {
         size_t dependency_index;
+        std::string event_name;
+    };
+
+    struct EventSymbol {
+        ReferenceSymbol base;
+    };
+
+    struct Callback {
+        size_t function_index;
+        size_t dependency_event_index;
     };
 
     struct SymbolReference {
@@ -179,13 +190,25 @@ namespace N64Recomp {
         std::unordered_map<std::string, size_t> functions_by_name;
 
         //// Mod dependencies and their symbols
+        
+        //// Imported values
         std::vector<Dependency> dependencies;
+        // List of symbols imported from dependencies.
         std::vector<ImportSymbol> import_symbols;
-        std::vector<HookSymbol> hook_symbols;
+        // List of events imported from dependencies.
+        std::vector<DependencyEvent> dependency_events;
+        // Mapping of dependency event name to the index in dependency_events.
+        std::unordered_map<std::string, size_t> dependency_events_by_name;
+
+        //// Exported values
+        // List of function replacements, which contains the original function to replace and the function index to replace it with.
+        std::vector<FunctionReplacement> replacements;
         // Indices of every exported function.
         std::vector<size_t> exported_funcs;
-        
-        std::vector<FunctionReplacement> replacements;
+        // List of callbacks, which contains the function for the callback and the dependency event it attaches to.
+        std::vector<Callback> callbacks;
+        // List of symbols from events, which contains the names of events that this context provides.
+        std::vector<EventSymbol> event_symbols;
 
         // Imports sections and function symbols from a provided context into this context's reference sections and reference functions.
         bool import_reference_context(const Context& reference_context);
@@ -197,12 +220,27 @@ namespace N64Recomp {
 
         Context() = default;
 
+        size_t find_function_by_vram_section(uint32_t vram, size_t section_index) const {
+            auto find_it = functions_by_vram.find(vram);
+            if (find_it == functions_by_vram.end()) {
+                return (size_t)-1;
+            }
+
+            for (size_t function_index : find_it->second) {
+                if (functions[function_index].section_index == section_index) {
+                    return function_index;
+                }
+            }
+
+            return (size_t)-1;
+        }
+
         bool has_reference_symbols() const {
-            return !reference_symbols.empty() || !import_symbols.empty() || !hook_symbols.empty();
+            return !reference_symbols.empty() || !import_symbols.empty() || !event_symbols.empty();
         }
 
         bool is_regular_reference_section(uint16_t section_index) const {
-            return section_index != SectionImport && section_index != SectionHook;
+            return section_index != SectionImport && section_index != SectionEvent;
         }
 
         bool find_reference_symbol(const std::string& symbol_name, SymbolReference& ref_out) const {
@@ -241,8 +279,8 @@ namespace N64Recomp {
             if (section_index == SectionImport) {
                 return import_symbols[symbol_index].base;
             }
-            else if (section_index == SectionHook) {
-                return hook_symbols[symbol_index].base;
+            else if (section_index == SectionEvent) {
+                return event_symbols[symbol_index].base;
             }
             return reference_symbols[symbol_index];
         }
@@ -263,7 +301,7 @@ namespace N64Recomp {
             if (section_index == SectionAbsolute) {
                 return false;
             }
-            else if (section_index == SectionImport || section_index == SectionHook) {
+            else if (section_index == SectionImport || section_index == SectionEvent) {
                 return true;
             }
             return reference_sections[section_index].relocatable;
@@ -298,10 +336,11 @@ namespace N64Recomp {
             return true;
         }
 
-        void add_import_symbol(const std::string& symbol_name, size_t dependency_index, size_t symbol_index) {
+        void add_import_symbol(const std::string& symbol_name, size_t dependency_index) {
+            // TODO Check if reference_symbols_by_name already contains the name and show a conflict error if so.
             reference_symbols_by_name[symbol_name] = N64Recomp::SymbolReference {
                 .section_index = N64Recomp::SectionImport,
-                .symbol_index = symbol_index
+                .symbol_index = import_symbols.size()
             };
             import_symbols.emplace_back(
                 N64Recomp::ImportSymbol {
@@ -314,6 +353,91 @@ namespace N64Recomp {
                     .dependency_index = dependency_index,
                 }
             );
+        }
+
+        void add_event_symbol(const std::string& symbol_name) {
+            // TODO Check if reference_symbols_by_name already contains the name and show a conflict error if so.
+            reference_symbols_by_name[symbol_name] = N64Recomp::SymbolReference {
+                .section_index = N64Recomp::SectionEvent,
+                .symbol_index = event_symbols.size()
+            };
+            event_symbols.emplace_back(
+                N64Recomp::EventSymbol {
+                    .base = N64Recomp::ReferenceSymbol {
+                        .name = symbol_name,
+                        .section_index = N64Recomp::SectionEvent,
+                        .section_offset = 0,
+                        .is_function = true
+                    }
+                }
+            );
+        }
+
+        bool find_event_symbol(const std::string& symbol_name, SymbolReference& ref_out) const {
+            SymbolReference ref_found;
+            if (!find_reference_symbol(symbol_name, ref_found)) {
+                return false;
+            }
+
+            // Ignore reference symbols that aren't in the event section.
+            if (ref_found.section_index != SectionEvent) {
+                return false;
+            }
+
+            ref_out = ref_found;
+            return true;
+        }
+
+        bool add_dependency_event(size_t dependency_index, const std::string& event_name, size_t& dependency_event_index_out) {
+            size_t dependency_event_index = dependency_events.size();
+            dependency_events.emplace_back(DependencyEvent{
+                .dependency_index = dependency_index,
+                .event_name = event_name
+            });
+            // TODO Check if dependency_events_by_name already contains the name and show a conflict error if so.
+            dependency_events_by_name[event_name] = dependency_event_index;
+            dependency_event_index_out = dependency_event_index;
+            return true;
+        }
+
+        bool get_dependency_event(const std::string& event_name, size_t& event_index) const {
+            auto find_it = dependency_events_by_name.find(event_name);
+            if (find_it == dependency_events_by_name.end()) {
+                return false;
+            }
+            event_index = find_it->second;
+            return true;
+        }
+
+        bool add_callback(size_t dependency_index, const std::string& event_name, size_t function_index) {
+            auto find_it = dependency_events_by_name.find(event_name);
+            size_t dependency_event_index;
+            if (find_it == dependency_events_by_name.end()) {
+                // Event doesn't already exist, so add it.
+                if (!add_dependency_event(dependency_index, event_name, dependency_event_index)) {
+                    return false;
+                }
+            }
+            else {
+                dependency_event_index = find_it->second;
+                // Make sure the event that we found was for this dependency.
+                if (dependency_events[dependency_event_index].dependency_index != dependency_index) {
+                    return false;
+                }
+            }
+            callbacks.emplace_back(Callback{
+                .function_index = function_index,
+                .dependency_event_index = dependency_event_index
+            });
+            return true;
+        }
+
+        bool add_callback_by_dependency_event(size_t dependency_event_index, size_t function_index) {
+            callbacks.emplace_back(Callback{
+                .function_index = function_index,
+                .dependency_event_index = dependency_event_index
+            });
+            return true;
         }
 
         uint32_t get_reference_section_vram(uint16_t section_index) const {

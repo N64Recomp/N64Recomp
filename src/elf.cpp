@@ -395,6 +395,12 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                     uint32_t rel_section_vram = 0;
                     uint32_t rel_symbol_offset = 0;
 
+                    // Remap relocations from the current section's bss section to itself.
+                    // TODO Do this for any bss section and not just the current section's bss section?
+                    if (rel_symbol_section_index == section_out.bss_section_index) {
+                        rel_symbol_section_index = section_index;
+                    }
+
                     // Check if the symbol is undefined and to know whether to look for it in the reference symbols.
                     if (rel_symbol_section_index == ELFIO::SHN_UNDEF) {
                         // Undefined sym, check the reference symbols.
@@ -515,7 +521,14 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
 
                     if (reloc_out.type == N64Recomp::RelocType::R_MIPS_26) {
                         uint32_t rel_immediate = (reloc_rom_word & 0x3FFFFFF) << 2;
-                        reloc_out.target_section_offset = rel_immediate + rel_symbol_offset;
+                        if (reloc_out.reference_symbol) {
+                            // Reference symbol relocs have their section offset already calculated, so don't apply the R_MIPS26 rule for the upper 4 bits.
+                            // TODO Find a way to unify this with the else case.
+                            reloc_out.target_section_offset = rel_immediate + rel_symbol_offset - rel_section_vram;
+                        }
+                        else {
+                            reloc_out.target_section_offset = rel_immediate + rel_symbol_offset + (section_out.ram_addr & 0xF0000000) - rel_section_vram;
+                        }
                     }
                 }
             }
