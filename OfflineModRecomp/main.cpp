@@ -132,12 +132,31 @@ int main(int argc, const char** argv) {
     RabbitizerConfig_Cfg.pseudos.pseudoNot = false;
     RabbitizerConfig_Cfg.pseudos.pseudoBal = false;
 
-    std::string recomp_include = "#include \"librecomp/recomp.h\"";
+    output_file << "#include \"mod_recomp.h\"\n\n";
 
-    bool should_write_header = true;
+    // Write import function pointer array and defines (i.e. `#define testmod_inner_import imported_funcs[0]`)
+    size_t num_imports = mod_context.import_symbols.size();
+    output_file << "// Imported functions\nRECOMP_EXPORT recomp_func_t* imported_funcs[" << num_imports << "] = {};\n";
+    for (size_t import_index = 0; import_index < num_imports; import_index++) {
+        const auto& import = mod_context.import_symbols[import_index];
+        output_file << "#define " << import.base.name << " imported_funcs[" << import_index << "]\n";
+    }
+    output_file << "\n";
+
+    // Write provided event array (maps internal event indices to global ones).
+    output_file << "RECOMP_EXPORT uint32_t event_indices[" << mod_context.event_symbols.size() <<"] = {};\n\n";
+
+    // Write the event trigger function pointer.
+    output_file << "RECOMP_EXPORT void (*recomp_trigger_event)(uint8_t* rdram, recomp_context* ctx, uint32_t);\n\n";
+
+    // Write the get_function pointer.
+    output_file << "RECOMP_EXPORT recomp_func_t* (*get_function)(int32_t vram) = NULL;\n\n";
+
+    // Write the section_addresses pointer.
+    output_file << "RECOMP_EXPORT int32_t* section_addresses = NULL;\n";
+
     for (const auto& func : mod_context.functions) {
-        N64Recomp::recompile_function(mod_context, func, recomp_include, output_file, static_funcs_by_section, should_write_header);
-        should_write_header = false;
+        N64Recomp::recompile_function(mod_context, func, "", output_file, static_funcs_by_section, false);
     }
 
 	return EXIT_SUCCESS;

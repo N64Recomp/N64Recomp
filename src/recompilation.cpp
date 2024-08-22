@@ -236,55 +236,75 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
     auto print_func_call = [reloc_target_section_offset, reloc_section, reloc_reference_symbol, reloc_type, &context, &section, &func, &static_funcs_out, &needs_link_branch, &print_unconditional_branch]
         (uint32_t target_func_vram, bool link_branch = true, bool indent = false)
     {
-        std::string jal_target_name{};
-        if (reloc_reference_symbol != (size_t)-1) {
-            const auto& ref_symbol = context.get_reference_symbol(reloc_section, reloc_reference_symbol);
-
-            if (reloc_type != N64Recomp::RelocType::R_MIPS_26) {
-                fmt::print(stderr, "Unsupported reloc type {} on jal instruction in {}\n", (int)reloc_type, func.name);
-                return false;
+        // Event symbol, emit a call to the runtime to trigger this event.
+        if (reloc_section == N64Recomp::SectionEvent) {
+            needs_link_branch = link_branch;
+            if (indent) {
+                if (!print_unconditional_branch("    recomp_trigger_event(rdram, ctx, event_indices[{}])", reloc_reference_symbol)) {
+                    return false;
+                }
+            } else {
+                if (!print_unconditional_branch("recomp_trigger_event(rdram, ctx, event_indices[{}])", reloc_reference_symbol)) {
+                    return false;
+                }
             }
-
-            if (ref_symbol.section_offset != reloc_target_section_offset) {
-                fmt::print(stderr, "Function {} uses a MIPS_R_26 addend, which is not supported yet\n", func.name);
-                return false;
-            }
-
-            jal_target_name = ref_symbol.name;
         }
+        // Normal symbol or reference symbol, 
         else {
-            size_t matched_func_index = 0;
-            JalResolutionResult jal_result = resolve_jal(context, func.section_index, target_func_vram, matched_func_index);
+            std::string jal_target_name{};
+            if (reloc_reference_symbol != (size_t)-1) {
+                const auto& ref_symbol = context.get_reference_symbol(reloc_section, reloc_reference_symbol);
 
-            switch (jal_result) {
-                case JalResolutionResult::NoMatch:
-                    fmt::print(stderr, "No function found for jal target: 0x{:08X}\n", target_func_vram);
+                if (reloc_type != N64Recomp::RelocType::R_MIPS_26) {
+                    fmt::print(stderr, "Unsupported reloc type {} on jal instruction in {}\n", (int)reloc_type, func.name);
                     return false;
-                case JalResolutionResult::Match:
-                    jal_target_name = context.functions[matched_func_index].name;
-                    break;
-                case JalResolutionResult::CreateStatic:
-                    // Create a static function add it to the static function list for this section.
-                    jal_target_name = fmt::format("static_{}_{:08X}", func.section_index, target_func_vram);
-                    static_funcs_out[func.section_index].push_back(target_func_vram);
-                    break;
-                case JalResolutionResult::Ambiguous:
-                    fmt::print(stderr, "[Info] Ambiguous jal target 0x{:08X} in function {}, falling back to function lookup\n", target_func_vram, func.name);
-                    // Relocation isn't necessary for jumps inside a relocatable section, as this code path will never run if the target vram
-                    // is in the current function's section (see the branch for `in_current_section` above).
-                    // If a game ever needs to jump between multiple relocatable sections, relocation will be necessary here.
-                    jal_target_name = fmt::format("LOOKUP_FUNC(0x{:08X})", target_func_vram);
-                    break;
-                case JalResolutionResult::Error:
-                    fmt::print(stderr, "Internal error when resolving jal to address 0x{:08X} in function {}\n", target_func_vram, func.name);
+                }
+
+                if (ref_symbol.section_offset != reloc_target_section_offset) {
+                    fmt::print(stderr, "Function {} uses a MIPS_R_26 addend, which is not supported yet\n", func.name);
                     return false;
+                }
+
+                jal_target_name = ref_symbol.name;
             }
-        }
-        needs_link_branch = link_branch;
-        if (indent) {
-            print_unconditional_branch("    {}(rdram, ctx)", jal_target_name);
-        } else {
-            print_unconditional_branch("{}(rdram, ctx)", jal_target_name);
+            else {
+                size_t matched_func_index = 0;
+                JalResolutionResult jal_result = resolve_jal(context, func.section_index, target_func_vram, matched_func_index);
+
+                switch (jal_result) {
+                    case JalResolutionResult::NoMatch:
+                        fmt::print(stderr, "No function found for jal target: 0x{:08X}\n", target_func_vram);
+                        return false;
+                    case JalResolutionResult::Match:
+                        jal_target_name = context.functions[matched_func_index].name;
+                        break;
+                    case JalResolutionResult::CreateStatic:
+                        // Create a static function add it to the static function list for this section.
+                        jal_target_name = fmt::format("static_{}_{:08X}", func.section_index, target_func_vram);
+                        static_funcs_out[func.section_index].push_back(target_func_vram);
+                        break;
+                    case JalResolutionResult::Ambiguous:
+                        fmt::print(stderr, "[Info] Ambiguous jal target 0x{:08X} in function {}, falling back to function lookup\n", target_func_vram, func.name);
+                        // Relocation isn't necessary for jumps inside a relocatable section, as this code path will never run if the target vram
+                        // is in the current function's section (see the branch for `in_current_section` above).
+                        // If a game ever needs to jump between multiple relocatable sections, relocation will be necessary here.
+                        jal_target_name = fmt::format("LOOKUP_FUNC(0x{:08X})", target_func_vram);
+                        break;
+                    case JalResolutionResult::Error:
+                        fmt::print(stderr, "Internal error when resolving jal to address 0x{:08X} in function {}\n", target_func_vram, func.name);
+                        return false;
+                }
+            }
+            needs_link_branch = link_branch;
+            if (indent) {
+                if (!print_unconditional_branch("    {}(rdram, ctx)", jal_target_name)) {
+                    return false;
+                }
+            } else {
+                if (!print_unconditional_branch("{}(rdram, ctx)", jal_target_name)) {
+                    return false;
+                }
+            }
         }
         return true;
     };

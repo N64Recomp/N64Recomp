@@ -222,6 +222,12 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
                 reloc_symbol_index = reloc_in.target_section_offset_or_index;
                 cur_reloc.reference_symbol = true;
             }
+            else if (target_section_vrom == SectionEventVromV1) {
+                reloc_target_section = N64Recomp::SectionEvent;
+                reloc_target_section_offset = 0; // Not used for event symbols.
+                reloc_symbol_index = reloc_in.target_section_offset_or_index;
+                cur_reloc.reference_symbol = true;
+            }
             else {
                 // TODO lookup by section index by original vrom
                 auto find_section_it = sections_by_vrom.find(target_section_vrom);
@@ -595,6 +601,10 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
             }
             else if (cur_reloc.target_section == SectionImport) {
                 target_section_vrom = SectionImportVromV1;
+                target_section_offset_or_index = cur_reloc.symbol_index;
+            }
+            else if (cur_reloc.target_section == SectionEvent) {
+                target_section_vrom = SectionEventVromV1;
                 target_section_offset_or_index = cur_reloc.symbol_index;
             }
             else if (cur_reloc.reference_symbol) {
