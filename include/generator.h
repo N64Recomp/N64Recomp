@@ -19,6 +19,7 @@ namespace N64Recomp {
 
         uint16_t imm16;
 
+        bool reloc_tag_as_reference;
         RelocType reloc_type;
         uint32_t reloc_section_index;
         uint32_t reloc_target_section_offset;

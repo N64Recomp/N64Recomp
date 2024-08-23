@@ -103,9 +103,11 @@ std::string fpr_u64_to_string(int fpr_index) {
 std::string unsigned_reloc(const N64Recomp::InstructionContext& context) {
     switch (context.reloc_type) {
         case N64Recomp::RelocType::R_MIPS_HI16:
-            return fmt::format("RELOC_HI16({}, {:#X})", context.reloc_section_index, context.reloc_target_section_offset);
+            return fmt::format("{}RELOC_HI16({}, {:#X})",
+                context.reloc_tag_as_reference ? "REF_" : "", context.reloc_section_index, context.reloc_target_section_offset);
         case N64Recomp::RelocType::R_MIPS_LO16:
-            return fmt::format("RELOC_LO16({}, {:#X})", context.reloc_section_index, context.reloc_target_section_offset);
+            return fmt::format("{}RELOC_LO16({}, {:#X})",
+                context.reloc_tag_as_reference ? "REF_" : "", context.reloc_section_index, context.reloc_target_section_offset);
         default:
             throw std::runtime_error(fmt::format("Unexpected reloc type {}\n", static_cast<int>(context.reloc_type)));
     }

@@ -32,7 +32,8 @@ struct FuncV1 {
     uint32_t size;
 };
 
-constexpr uint32_t SectionSelfVromV1 = 0xFFFFFFFF;
+// Local section flag, if set then the reloc is pointing to a section within the mod and the vrom is the section index.
+constexpr uint32_t SectionSelfVromFlagV1 = 0x80000000;
 
 // Special sections
 constexpr uint32_t SectionImportVromV1 = 0xFFFFFFFE;
@@ -211,12 +212,7 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
             uint16_t reloc_target_section;
             uint32_t reloc_target_section_offset;
             uint32_t reloc_symbol_index;
-            if (target_section_vrom == SectionSelfVromV1) {
-                reloc_target_section = N64Recomp::SectionSelf;
-                reloc_target_section_offset = reloc_in.target_section_offset_or_index;
-                reloc_symbol_index = 0; // Not used for normal relocs.
-            }
-            else if (target_section_vrom == SectionImportVromV1) {
+            if (target_section_vrom == SectionImportVromV1) {
                 reloc_target_section = N64Recomp::SectionImport;
                 reloc_target_section_offset = 0; // Not used for imports or reference symbols.
                 reloc_symbol_index = reloc_in.target_section_offset_or_index;
@@ -227,6 +223,16 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
                 reloc_target_section_offset = 0; // Not used for event symbols.
                 reloc_symbol_index = reloc_in.target_section_offset_or_index;
                 cur_reloc.reference_symbol = true;
+            }
+            else if (target_section_vrom & SectionSelfVromFlagV1) {
+                reloc_target_section = static_cast<uint16_t>(target_section_vrom & ~SectionSelfVromFlagV1);
+                reloc_target_section_offset = reloc_in.target_section_offset_or_index;
+                reloc_symbol_index = 0; // Not used for normal relocs.
+                cur_reloc.reference_symbol = false;
+                if (reloc_target_section >= mod_context.sections.size()) {
+                    printf("Reloc %zu in section %zu references local section %u, but only %zu exist\n",
+                        reloc_index, section_index, reloc_target_section, mod_context.sections.size());
+                }
             }
             else {
                 // TODO lookup by section index by original vrom
@@ -593,11 +599,14 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
             vec_put(ret, &func_out);
         }
 
-        for (const Reloc& cur_reloc : cur_section.relocs) {
+        for (size_t reloc_index = 0; reloc_index < cur_section.relocs.size(); reloc_index++) {
+            const Reloc& cur_reloc = cur_section.relocs[reloc_index];
             uint32_t target_section_vrom;
             uint32_t target_section_offset_or_index = cur_reloc.target_section_offset;
-            if (cur_reloc.target_section == SectionSelf) {
-                target_section_vrom = SectionSelfVromV1;
+            if (cur_reloc.target_section == SectionAbsolute) {
+                printf("Internal error: reloc %zu in section %zu references an absolute symbol and should have been relocated already\n",
+                    reloc_index, section_index);
+                return {};
             }
             else if (cur_reloc.target_section == SectionImport) {
                 target_section_vrom = SectionImportVromV1;
@@ -611,7 +620,12 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
                 target_section_vrom = context.get_reference_section_rom(cur_reloc.target_section);
             }
             else {
-                target_section_vrom = context.sections[cur_reloc.target_section].rom_addr;
+                if (cur_reloc.target_section >= context.sections.size()) {
+                    printf("Internal error: reloc %zu in section %zu references section %u, but only %zu exist\n",
+                        reloc_index, section_index, cur_reloc.target_section, context.sections.size());
+                    return {};
+                }
+                target_section_vrom = SectionSelfVromFlagV1 | cur_reloc.target_section;
             }
             RelocV1 reloc_out {
                 .section_offset = cur_reloc.address - cur_section.ram_addr,

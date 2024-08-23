@@ -230,19 +230,21 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, st
     section_order.resize(input_context.sections.size());
     std::iota(section_order.begin(), section_order.end(), 0);
 
-    // Sort the vector based on the rom address of the corresponding section.
-    std::sort(section_order.begin(), section_order.end(),
-        [&](uint16_t a, uint16_t b) {
-            const auto& section_a = input_context.sections[a];
-            const auto& section_b = input_context.sections[b];
-            // Sort primarily by ROM address.
-            if (section_a.rom_addr != section_b.rom_addr) {
-                return section_a.rom_addr < section_b.rom_addr;
-            }
-            // Sort secondarily by RAM address.
-            return section_a.ram_addr < section_b.ram_addr;
-        }
-    );
+    // TODO this sort is currently disabled because sections seem to already be ordered
+    // by elf offset. Determine if this is always the case and remove this if so.
+    //// Sort the vector based on the rom address of the corresponding section.
+    //std::sort(section_order.begin(), section_order.end(),
+    //    [&](uint16_t a, uint16_t b) {
+    //        const auto& section_a = input_context.sections[a];
+    //        const auto& section_b = input_context.sections[b];
+    //        // Sort primarily by ROM address.
+    //        if (section_a.rom_addr != section_b.rom_addr) {
+    //            return section_a.rom_addr < section_b.rom_addr;
+    //        }
+    //        // Sort secondarily by RAM address.
+    //        return section_a.ram_addr < section_b.ram_addr;
+    //    }
+    //);
 
     // TODO avoid a copy here.
     ret.rom = input_context.rom;
@@ -253,6 +255,9 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, st
     ret.sections.resize(1);
         
     size_t num_imports = ret.import_symbols.size();
+
+    // Mapping of input section to output section for fixing up relocations.
+    std::unordered_map<uint16_t, uint16_t> input_section_to_output_section{};
 
     // Iterate over the input sections in their sorted order.
     for (uint16_t section_index : section_order) {
@@ -271,6 +276,7 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, st
                 if (cur_section.ram_addr >= output_section_bss_end && cur_section.ram_addr <= round_up_16(output_section_bss_end)) {
                     // Calculate the output section's bss size by using its non-bss end address and the current section's end address.
                     section_out.bss_size = cur_section.ram_addr + cur_section.size - output_section_bss_start;
+                    input_section_to_output_section[section_index] = output_section_index;
                 }
             }
             continue;
@@ -294,6 +300,9 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, st
             new_section.ram_addr = cur_section.ram_addr;
             new_section.size = cur_section.size;
         }
+
+        // Map this section to the current output section.
+        input_section_to_output_section[section_index] = output_section_index;
         
         // Check for special section names.
         bool patch_section = cur_section.name == N64Recomp::PatchSectionName;
@@ -508,14 +517,38 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, st
                         }
                         section_out.relocs.emplace_back(N64Recomp::Reloc{
                             .address = cur_reloc.address,
-                            .target_section_offset = output_section_offset,
+                            // Use the original target section offset, this will be recalculated based on the output section afterwards.
+                            .target_section_offset = cur_reloc.target_section_offset,
                             .symbol_index = 0,
-                            .target_section = N64Recomp::SectionSelf,
+                            // Use the input section index in the reloc, this will be converted to the output section afterwards.
+                            .target_section = cur_reloc.target_section,
                             .type = cur_reloc.type,
                             .reference_symbol = false,
                         });
                     }
                 }
+            }
+        }
+    }
+
+    // Fix up every internal reloc's target section based on the input to output section mapping.
+    for (auto& section : ret.sections) {
+        for (auto& reloc : section.relocs) {
+            if (!reloc.reference_symbol) {
+                uint16_t input_section_index = reloc.target_section;
+                auto find_it = input_section_to_output_section.find(input_section_index);
+                if (find_it == input_section_to_output_section.end()) {
+                    fmt::print("Reloc at address 0x{:08X} references section {}, which didn't get mapped to an output section\n",
+                        reloc.address, input_context.sections[input_section_index].name);
+                    return {};
+                }
+                uint16_t output_section_index = find_it->second;
+                const auto& input_section = input_context.sections[input_section_index];
+                const auto& output_section = ret.sections[output_section_index];
+                // Adjust the reloc's target section offset based on the reloc's new section.
+                reloc.target_section_offset = reloc.target_section_offset + input_section.ram_addr - output_section.ram_addr;
+                // Replace the target section with the mapped output section.
+                reloc.target_section = find_it->second;
             }
         }
     }
@@ -607,6 +640,10 @@ int main(int argc, const char** argv) {
     bool mod_context_good;
     N64Recomp::Context mod_context = build_mod_context(context, std::move(dependencies), mod_context_good);
     std::vector<uint8_t> symbols_bin = N64Recomp::symbols_to_bin_v1(mod_context);
+    if (symbols_bin.empty()) {
+        fmt::print(stderr, "Failed to create symbol file\n");
+        return EXIT_FAILURE;
+    }
 
     std::ofstream output_syms_file{ config.output_syms_path, std::ios::binary };
     output_syms_file.write(reinterpret_cast<const char*>(symbols_bin.data()), symbols_bin.size());

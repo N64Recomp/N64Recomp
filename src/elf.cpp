@@ -345,6 +345,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
         if (bss_find != bss_sections_by_name.end()) {
             section_out.bss_section_index = bss_find->second->get_index();
             section_out.bss_size = bss_find->second->get_size();
+            context.bss_section_to_section[section_out.bss_section_index] = section_index;
         }
 
         if (context.has_reference_symbols() || section_out.relocatable) {
@@ -427,24 +428,21 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                             return nullptr;
                         }
                     }
+                    else if (rel_symbol_section_index == ELFIO::SHN_ABS) {
+                        reloc_out.reference_symbol = false;
+                        reloc_out.target_section = N64Recomp::SectionAbsolute;
+                        rel_section_vram = 0;
+                    }
                     else {
                         reloc_out.reference_symbol = false;
                         reloc_out.target_section = rel_symbol_section_index;
                         // Handle special sections.
                         if (rel_symbol_section_index >= context.sections.size()) {
-                            switch (rel_symbol_section_index) {
-                            case ELFIO::SHN_ABS:
-                                rel_section_vram = 0;
-                                break;
-                            default:
-                                fmt::print(stderr, "Reloc {} references symbol {} which is in an unknown section 0x{:04X}!\n",
-                                    i, rel_symbol_name, rel_symbol_section_index);
-                                return nullptr;
-                            }
+                            fmt::print(stderr, "Reloc {} references symbol {} which is in an unknown section 0x{:04X}!\n",
+                                i, rel_symbol_name, rel_symbol_section_index);
+                            return nullptr;
                         }
-                        else {
-                            rel_section_vram = context.sections[rel_symbol_section_index].ram_addr;
-                        }
+                        rel_section_vram = context.sections[rel_symbol_section_index].ram_addr;
                     }
 
                     // Reloc pairing, see MIPS System V ABI documentation page 4-18 (https://refspecs.linuxfoundation.org/elf/mipsabi.pdf)

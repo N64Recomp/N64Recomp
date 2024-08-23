@@ -57,7 +57,6 @@ namespace N64Recomp {
         bool reference_symbol;
     };
 
-    constexpr uint16_t SectionSelf = (uint16_t)-1;
     constexpr uint16_t SectionAbsolute = (uint16_t)-2;
     constexpr uint16_t SectionImport = (uint16_t)-3; // Imported symbols for mods
     constexpr uint16_t SectionEvent = (uint16_t)-4;
@@ -181,6 +180,8 @@ namespace N64Recomp {
         std::vector<std::vector<size_t>> section_functions;
         // A mapping of vram address to every function with that address.
         std::unordered_map<uint32_t, std::vector<size_t>> functions_by_vram;
+        // A mapping of bss section index to the corresponding non-bss section index.
+        std::unordered_map<uint16_t, uint16_t> bss_section_to_section;
         // The target ROM being recompiled, TODO move this outside of the context to avoid making a copy for mod contexts.
         // Used for reading relocations and for the output binary feature.
         std::vector<uint8_t> rom;
@@ -469,7 +470,7 @@ namespace N64Recomp {
         }
     };
 
-    bool recompile_function(const Context& context, const Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs);
+    bool recompile_function(const Context& context, const Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs, bool tag_reference_relocs);
 
     enum class ModSymbolsError {
         Good,

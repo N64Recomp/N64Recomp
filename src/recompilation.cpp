@@ -110,7 +110,7 @@ std::string_view ctx_gpr_prefix(int reg) {
 }
 
 // Major TODO, this function grew very organically and needs to be cleaned up. Ideally, it'll get split up into some sort of lookup table grouped by similar instruction types.
-bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Function& func, const N64Recomp::FunctionStats& stats, const std::unordered_set<uint32_t>& skipped_insns, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ofstream& output_file, bool indent, bool emit_link_branch, int link_branch_index, size_t reloc_index, bool& needs_link_branch, bool& is_branch_likely, std::span<std::vector<uint32_t>> static_funcs_out) {
+bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Function& func, const N64Recomp::FunctionStats& stats, const std::unordered_set<uint32_t>& skipped_insns, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ofstream& output_file, bool indent, bool emit_link_branch, int link_branch_index, size_t reloc_index, bool& needs_link_branch, bool& is_branch_likely, bool tag_reference_relocs, std::span<std::vector<uint32_t>> static_funcs_out) {
     using namespace N64Recomp;
 
     const auto& section = context.sections[func.section_index];
@@ -158,48 +158,50 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
         // Get the reloc data for this instruction
         const auto& reloc = section.relocs[reloc_index];
         reloc_section = reloc.target_section;
-        // Only process this relocation if this section is relocatable or if this relocation targets a reference symbol.
-        if (section.relocatable || reloc.reference_symbol) {
-            // Ignore this reloc if it points to a different section.
-            // Also check if the reloc points to the bss section since that will also be relocated with the section.
-            // Additionally, always process reference symbol relocations.
-            if (reloc_section == func.section_index || reloc_section == section.bss_section_index || reloc_section == N64Recomp::SectionSelf || reloc.reference_symbol) {
-                // Record the reloc's data.
-                reloc_type = reloc.type;
-                reloc_target_section_offset = reloc.target_section_offset;
-                // Ignore all relocs that aren't HI16 or LO16.
-                if (reloc_type == N64Recomp::RelocType::R_MIPS_HI16 || reloc_type == N64Recomp::RelocType::R_MIPS_LO16 || reloc_type == N64Recomp::RelocType::R_MIPS_26) {
-                    if (reloc.reference_symbol) {
-                        reloc_reference_symbol = reloc.symbol_index;
-                        // Don't try to relocate special section symbols.
-                        if (context.is_regular_reference_section(reloc.target_section)) {
-                            bool ref_section_relocatable = context.is_reference_section_relocatable(reloc.target_section);
-                            uint32_t ref_section_vram = context.get_reference_section_vram(reloc.target_section);
-                            // Resolve HI16 and LO16 reference symbol relocs to non-relocatable sections by patching the instruction immediate.
-                            if (!ref_section_relocatable && (reloc_type == N64Recomp::RelocType::R_MIPS_HI16 || reloc_type == N64Recomp::RelocType::R_MIPS_LO16)) {
-                                uint32_t full_immediate = reloc.target_section_offset + ref_section_vram;
 
-                                if (reloc_type == N64Recomp::RelocType::R_MIPS_HI16) {
-                                    imm = (full_immediate >> 16) + ((full_immediate >> 15) & 1);
-                                    reloc_type = N64Recomp::RelocType::R_MIPS_NONE;
-                                }
-                                else if (reloc_type == N64Recomp::RelocType::R_MIPS_LO16) {
-                                    imm = full_immediate & 0xFFFF;
-                                    reloc_type = N64Recomp::RelocType::R_MIPS_NONE;
-                                }
+        // Check if the relocation references a relocatable section.
+        bool target_relocatable = false;
+        if (!reloc.reference_symbol && reloc_section != N64Recomp::SectionAbsolute) {
+            const auto& target_section = context.sections[reloc_section];
+            target_relocatable = target_section.relocatable;
+        }
 
-                                // The reloc has been processed, so set it to none to prevent it getting processed a second time during instruction code generation.
-                                reloc_type = N64Recomp::RelocType::R_MIPS_NONE;
-                                reloc_reference_symbol = (size_t)-1;
+        // Only process this relocation if the target section is relocatable or if this relocation targets a reference symbol.
+        if (target_relocatable || reloc.reference_symbol) {
+            // Record the reloc's data.
+            reloc_type = reloc.type;
+            reloc_target_section_offset = reloc.target_section_offset;
+            // Ignore all relocs that aren't MIPS_HI16, MIPS_LO16 or MIPS_26.
+            if (reloc_type == N64Recomp::RelocType::R_MIPS_HI16 || reloc_type == N64Recomp::RelocType::R_MIPS_LO16 || reloc_type == N64Recomp::RelocType::R_MIPS_26) {
+                if (reloc.reference_symbol) {
+                    reloc_reference_symbol = reloc.symbol_index;
+                    // Don't try to relocate special section symbols.
+                    if (context.is_regular_reference_section(reloc.target_section) || reloc_section == N64Recomp::SectionAbsolute) {
+                        bool ref_section_relocatable = context.is_reference_section_relocatable(reloc.target_section);
+                        uint32_t ref_section_vram = context.get_reference_section_vram(reloc.target_section);
+                        // Resolve HI16 and LO16 reference symbol relocs to non-relocatable sections by patching the instruction immediate.
+                        if (!ref_section_relocatable && (reloc_type == N64Recomp::RelocType::R_MIPS_HI16 || reloc_type == N64Recomp::RelocType::R_MIPS_LO16)) {
+                            uint32_t full_immediate = reloc.target_section_offset + ref_section_vram;
+
+                            if (reloc_type == N64Recomp::RelocType::R_MIPS_HI16) {
+                                imm = (full_immediate >> 16) + ((full_immediate >> 15) & 1);
                             }
+                            else if (reloc_type == N64Recomp::RelocType::R_MIPS_LO16) {
+                                imm = full_immediate & 0xFFFF;
+                            }
+
+                            // The reloc has been processed, so set it to none to prevent it getting processed a second time during instruction code generation.
+                            reloc_type = N64Recomp::RelocType::R_MIPS_NONE;
+                            reloc_reference_symbol = (size_t)-1;
                         }
                     }
                 }
+            }
 
-                // Repoint bss relocations at their non-bss counterpart section.
-                if (reloc_section != N64Recomp::SectionSelf && reloc_section == section.bss_section_index) {
-                    reloc_section = func.section_index;
-                }
+            // Repoint bss relocations at their non-bss counterpart section.
+            auto find_bss_it = context.bss_section_to_section.find(reloc_section);
+            if (find_bss_it != context.bss_section_to_section.end()) {
+                reloc_section = find_bss_it->second;
             }
         }
     }
@@ -219,7 +221,7 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
             if (reloc_index + 1 < section.relocs.size() && next_vram > section.relocs[reloc_index].address) {
                 next_reloc_index++;
             }
-            if (!process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out)) {
+            if (!process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, tag_reference_relocs, static_funcs_out)) {
                 return false;
             }
         }
@@ -333,7 +335,7 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
             if (reloc_index + 1 < section.relocs.size() && next_vram > section.relocs[reloc_index].address) {
                 next_reloc_index++;
             }
-            if (!process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, true, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out)) {
+            if (!process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, true, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, tag_reference_relocs, static_funcs_out)) {
                 return false;
             }
         }
@@ -503,7 +505,7 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
                 if (reloc_index + 1 < section.relocs.size() && next_vram > section.relocs[reloc_index].address) {
                     next_reloc_index++;
                 }
-                if (!process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, static_funcs_out)) {
+                if (!process_instruction(context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, false, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, tag_reference_relocs, static_funcs_out)) {
                     return false;
                 }
                 print_indent();
@@ -582,6 +584,7 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
     instruction_context.ft = ft;
     instruction_context.cop1_cs = cop1_cs;
     instruction_context.imm16 = imm;
+    instruction_context.reloc_tag_as_reference = (reloc_reference_symbol != (size_t)-1) && tag_reference_relocs;
     instruction_context.reloc_type = reloc_type;
     instruction_context.reloc_section_index = reloc_section;
     instruction_context.reloc_target_section_offset = reloc_target_section_offset;
@@ -730,7 +733,7 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
     return true;
 }
 
-bool N64Recomp::recompile_function(const N64Recomp::Context& context, const N64Recomp::Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs_out) {
+bool N64Recomp::recompile_function(const N64Recomp::Context& context, const N64Recomp::Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
     //fmt::print("Recompiling {}\n", func.name);
     std::vector<rabbitizer::InstructionCpu> instructions;
 
@@ -813,7 +816,7 @@ bool N64Recomp::recompile_function(const N64Recomp::Context& context, const N64R
             }
 
             // Process the current instruction and check for errors
-            if (process_instruction(context, func, stats, skipped_insns, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, reloc_index, needs_link_branch, is_branch_likely, static_funcs_out) == false) {
+            if (process_instruction(context, func, stats, skipped_insns, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, reloc_index, needs_link_branch, is_branch_likely, tag_reference_relocs, static_funcs_out) == false) {
                 fmt::print(stderr, "Error in recompiling {}, clearing output file\n", func.name);
                 output_file.clear();
                 return false;
