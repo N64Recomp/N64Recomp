@@ -84,7 +84,7 @@ int main(int argc, const char** argv) {
     for (size_t reference_symbol_index = 0; reference_symbol_index < mod_context.num_regular_reference_symbols(); reference_symbol_index++) {
         const auto& sym = mod_context.get_regular_reference_symbol(reference_symbol_index);
         uint16_t section_index = sym.section_index;
-        if (section_index != N64Recomp::SectionAbsolute && section_index != N64Recomp::SectionSelf) {
+        if (section_index != N64Recomp::SectionAbsolute) {
             uint32_t section_vram = mod_context.get_reference_section_vram(section_index);
             reference_symbols_by_vram[section_vram + sym.section_offset].push_back(reference_symbol_index);
         }
@@ -135,28 +135,47 @@ int main(int argc, const char** argv) {
     output_file << "#include \"mod_recomp.h\"\n\n";
 
     // Write import function pointer array and defines (i.e. `#define testmod_inner_import imported_funcs[0]`)
+    output_file << "// Imported functions\n";
     size_t num_imports = mod_context.import_symbols.size();
-    output_file << "// Imported functions\nRECOMP_EXPORT recomp_func_t* imported_funcs[" << num_imports << "] = {};\n";
     for (size_t import_index = 0; import_index < num_imports; import_index++) {
         const auto& import = mod_context.import_symbols[import_index];
         output_file << "#define " << import.base.name << " imported_funcs[" << import_index << "]\n";
     }
+    output_file << "RECOMP_EXPORT recomp_func_t* imported_funcs[" << num_imports << "] = {};\n";
     output_file << "\n";
+
+    // Use reloc list to write reference symbol function pointer array and defines (i.e. `#define func_80102468 reference_symbol_funcs[0]`)
+    output_file << "// Reference symbol functions\n";
+    size_t num_reference_symbols = 0;
+    for (const auto& section : mod_context.sections) {
+        for (const auto& reloc : section.relocs) {
+            if (reloc.type == N64Recomp::RelocType::R_MIPS_26 && reloc.reference_symbol && mod_context.is_regular_reference_section(reloc.target_section)) {
+                const auto& sym = mod_context.get_reference_symbol(reloc.target_section, reloc.symbol_index);
+                output_file << "#define " << sym.name << " reference_symbol_funcs[" << num_reference_symbols << "]\n";
+                num_reference_symbols++;
+            }
+        }
+    }
+    output_file << "RECOMP_EXPORT recomp_func_t* reference_symbol_funcs[" << num_reference_symbols << "] = {};\n";
 
     // Write provided event array (maps internal event indices to global ones).
     output_file << "RECOMP_EXPORT uint32_t event_indices[" << mod_context.event_symbols.size() <<"] = {};\n\n";
 
     // Write the event trigger function pointer.
     output_file << "RECOMP_EXPORT void (*recomp_trigger_event)(uint8_t* rdram, recomp_context* ctx, uint32_t);\n\n";
-
     // Write the get_function pointer.
+
     output_file << "RECOMP_EXPORT recomp_func_t* (*get_function)(int32_t vram) = NULL;\n\n";
 
     // Write the section_addresses pointer.
-    output_file << "RECOMP_EXPORT int32_t* section_addresses = NULL;\n";
+    output_file << "RECOMP_EXPORT int32_t* reference_section_addresses = NULL;\n\n";
+
+    // Write the local section addresses pointer array.
+    size_t num_sections = mod_context.sections.size();
+    output_file << "RECOMP_EXPORT int32_t section_addresses[" << num_sections << "] = {};\n\n";
 
     for (const auto& func : mod_context.functions) {
-        N64Recomp::recompile_function(mod_context, func, output_file, static_funcs_by_section);
+        N64Recomp::recompile_function(mod_context, func, output_file, static_funcs_by_section, true);
     }
 
 	return EXIT_SUCCESS;
