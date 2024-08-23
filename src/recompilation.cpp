@@ -730,17 +730,9 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
     return true;
 }
 
-bool N64Recomp::recompile_function(const N64Recomp::Context& context, const N64Recomp::Function& func, const std::string& recomp_include, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool write_header) {
+bool N64Recomp::recompile_function(const N64Recomp::Context& context, const N64Recomp::Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs_out) {
     //fmt::print("Recompiling {}\n", func.name);
     std::vector<rabbitizer::InstructionCpu> instructions;
-
-    if (write_header) {
-        // Write the file header
-        fmt::print(output_file,
-            "{}\n"
-            "\n",
-            recomp_include);
-    }
 
     fmt::print(output_file,
         "RECOMP_FUNC void {}(uint8_t* rdram, recomp_context* ctx) {{\n"

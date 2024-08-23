@@ -156,7 +156,7 @@ int main(int argc, const char** argv) {
     output_file << "RECOMP_EXPORT int32_t* section_addresses = NULL;\n";
 
     for (const auto& func : mod_context.functions) {
-        N64Recomp::recompile_function(mod_context, func, "", output_file, static_funcs_by_section, false);
+        N64Recomp::recompile_function(mod_context, func, output_file, static_funcs_by_section);
     }
 
 	return EXIT_SUCCESS;

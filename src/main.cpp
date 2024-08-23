@@ -121,7 +121,13 @@ bool recompile_single_function(const N64Recomp::Context& context, const N64Recom
         return false;
     }
 
-    if (!N64Recomp::recompile_function(context, func, recomp_include, output_file, static_funcs_out, true)) {
+    // Write the file header
+    fmt::print(output_file,
+        "{}\n"
+        "\n",
+        recomp_include);
+
+    if (!N64Recomp::recompile_function(context, func, output_file, static_funcs_out)) {
         return false;
     }
     
@@ -611,7 +617,7 @@ int main(int argc, char** argv) {
 
             // Recompile the function.
             if (config.single_file_output || config.functions_per_output_file > 1) {
-                result = N64Recomp::recompile_function(context, func, config.recomp_include, current_output_file, static_funcs_by_section, false);
+                result = N64Recomp::recompile_function(context, func, current_output_file, static_funcs_by_section);
                 if (!config.single_file_output) {
                     cur_file_function_count++;
                     if (cur_file_function_count >= config.functions_per_output_file) {
@@ -698,7 +704,7 @@ int main(int argc, char** argv) {
             bool result;
             size_t prev_num_statics = static_funcs_by_section[func.section_index].size();
             if (config.single_file_output || config.functions_per_output_file > 1) {
-                result = N64Recomp::recompile_function(context, func, config.recomp_include, current_output_file, static_funcs_by_section, false);
+                result = N64Recomp::recompile_function(context, func, current_output_file, static_funcs_by_section);
                 if (!config.single_file_output) {
                     cur_file_function_count++;
                     if (cur_file_function_count >= config.functions_per_output_file) {

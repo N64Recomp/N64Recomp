@@ -469,7 +469,7 @@ namespace N64Recomp {
         }
     };
 
-    bool recompile_function(const Context& context, const Function& func, const std::string& recomp_include, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs, bool write_header);
+    bool recompile_function(const Context& context, const Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs);
 
     enum class ModSymbolsError {
         Good,
