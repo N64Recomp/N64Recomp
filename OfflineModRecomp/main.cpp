@@ -134,8 +134,10 @@ int main(int argc, const char** argv) {
 
     output_file << "#include \"mod_recomp.h\"\n\n";
 
+    output_file << "// Values populated by the runtime:\n\n";
+
     // Write import function pointer array and defines (i.e. `#define testmod_inner_import imported_funcs[0]`)
-    output_file << "// Imported functions\n";
+    output_file << "// Array of pointers to imported functions with defines to alias their names.\n";
     size_t num_imports = mod_context.import_symbols.size();
     for (size_t import_index = 0; import_index < num_imports; import_index++) {
         const auto& import = mod_context.import_symbols[import_index];
@@ -145,7 +147,7 @@ int main(int argc, const char** argv) {
     output_file << "\n";
 
     // Use reloc list to write reference symbol function pointer array and defines (i.e. `#define func_80102468 reference_symbol_funcs[0]`)
-    output_file << "// Reference symbol functions\n";
+    output_file << "// Array of pointers to functions from the original ROM with defines to alias their names.\n";
     size_t num_reference_symbols = 0;
     for (const auto& section : mod_context.sections) {
         for (const auto& reloc : section.relocs) {
@@ -156,22 +158,27 @@ int main(int argc, const char** argv) {
             }
         }
     }
-    output_file << "RECOMP_EXPORT recomp_func_t* reference_symbol_funcs[" << num_reference_symbols << "] = {};\n";
+    output_file << "RECOMP_EXPORT recomp_func_t* reference_symbol_funcs[" << num_reference_symbols << "] = {};\n\n";
 
     // Write provided event array (maps internal event indices to global ones).
+    output_file << "// Mapping of internal event indices to global ones.\n";
     output_file << "RECOMP_EXPORT uint32_t event_indices[" << mod_context.event_symbols.size() <<"] = {};\n\n";
 
     // Write the event trigger function pointer.
-    output_file << "RECOMP_EXPORT void (*recomp_trigger_event)(uint8_t* rdram, recomp_context* ctx, uint32_t);\n\n";
+    output_file << "// Pointer to the runtime function for triggering events.\n";
+    output_file << "RECOMP_EXPORT void (*recomp_trigger_event)(uint8_t* rdram, recomp_context* ctx, uint32_t) = NULL;\n\n";
     // Write the get_function pointer.
 
+    output_file << "// Pointer to the runtime function for looking up functions from vram address.\n";
     output_file << "RECOMP_EXPORT recomp_func_t* (*get_function)(int32_t vram) = NULL;\n\n";
 
     // Write the section_addresses pointer.
+    output_file << "// Pointer to the runtime's array of loaded section addresses for the base ROM.\n";
     output_file << "RECOMP_EXPORT int32_t* reference_section_addresses = NULL;\n\n";
 
     // Write the local section addresses pointer array.
     size_t num_sections = mod_context.sections.size();
+    output_file << "// Array of this mod's loaded section addresses.\n";
     output_file << "RECOMP_EXPORT int32_t section_addresses[" << num_sections << "] = {};\n\n";
 
     for (const auto& func : mod_context.functions) {
