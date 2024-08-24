@@ -389,7 +389,7 @@ namespace N64Recomp {
             return true;
         }
 
-        bool add_dependency_event(size_t dependency_index, const std::string& event_name, size_t& dependency_event_index_out) {
+        bool add_dependency_event(const std::string& event_name, size_t dependency_index) {
             size_t dependency_event_index = dependency_events.size();
             dependency_events.emplace_back(DependencyEvent{
                 .dependency_index = dependency_index,
@@ -397,7 +397,6 @@ namespace N64Recomp {
             });
             // TODO Check if dependency_events_by_name already contains the name and show a conflict error if so.
             dependency_events_by_name[event_name] = dependency_event_index;
-            dependency_event_index_out = dependency_event_index;
             return true;
         }
 
@@ -410,30 +409,7 @@ namespace N64Recomp {
             return true;
         }
 
-        bool add_callback(size_t dependency_index, const std::string& event_name, size_t function_index) {
-            auto find_it = dependency_events_by_name.find(event_name);
-            size_t dependency_event_index;
-            if (find_it == dependency_events_by_name.end()) {
-                // Event doesn't already exist, so add it.
-                if (!add_dependency_event(dependency_index, event_name, dependency_event_index)) {
-                    return false;
-                }
-            }
-            else {
-                dependency_event_index = find_it->second;
-                // Make sure the event that we found was for this dependency.
-                if (dependency_events[dependency_event_index].dependency_index != dependency_index) {
-                    return false;
-                }
-            }
-            callbacks.emplace_back(Callback{
-                .function_index = function_index,
-                .dependency_event_index = dependency_event_index
-            });
-            return true;
-        }
-
-        bool add_callback_by_dependency_event(size_t dependency_event_index, size_t function_index) {
+        bool add_callback(size_t dependency_event_index, size_t function_index) {
             callbacks.emplace_back(Callback{
                 .function_index = function_index,
                 .dependency_event_index = dependency_event_index

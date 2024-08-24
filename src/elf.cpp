@@ -233,6 +233,34 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
     std::unordered_map<std::string, ELFIO::section*> reloc_sections_by_name;
     std::unordered_map<std::string, ELFIO::section*> bss_sections_by_name;
 
+    // First pass over the sections to find the load addresses and track the minimum load address value. This mimics the objcopy raw binary output behavior.
+    uint32_t min_load_address = (uint32_t)-1;
+    for (const auto& section : elf_file.sections) {
+        auto& section_out = context.sections[section->get_index()];
+        ELFIO::Elf_Word type = section->get_type();
+        ELFIO::Elf_Xword flags = section->get_flags();
+
+        // Check if this section will end up in the ROM. It must not be a nobits (NOLOAD) type, must have the alloc flag set and must have a nonzero size. 
+        if (type != ELFIO::SHT_NOBITS && (section->get_flags() & ELFIO::SHF_ALLOC) && section->get_size() != 0) {
+            std::optional<size_t> segment_index = get_segment(segments, section_out.size, section->get_offset());
+            if (!segment_index.has_value()) {
+                fmt::print(stderr, "Could not find segment that section {} belongs to!\n", section->get_name());
+                return nullptr;
+            }
+
+            const SegmentEntry& segment = segments[segment_index.value()];
+            // Calculate the load address of the section based on that of the segment.
+            // This will get modified afterwards in the next pass to offset by the minimum load address.
+            section_out.rom_addr = segment.physical_address + (section->get_offset() - segment.data_offset);
+            // Track the minimum load address.
+            min_load_address = std::min(min_load_address, section_out.rom_addr);
+        }
+        else {
+            // Otherwise mark this section as having an invalid rom address
+            section_out.rom_addr = (uint32_t)-1;
+        }
+    }
+
     // Iterate over every section to record rom addresses and find the symbol table
     for (const auto& section : elf_file.sections) {
         auto& section_out = context.sections[section->get_index()];
@@ -260,6 +288,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                 return nullptr;
             }
             
+            // FIXME This should be using SH_INFO to create a reloc section to target section mapping instead of using the name.
             std::string reloc_target_section = section_name.substr(strlen(".rel"));
 
             // If this reloc section is for a section that has been marked as relocatable, record it in the reloc section lookup.
@@ -280,45 +309,17 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
             }
         }
 
-        // If this section isn't bss (SHT_NOBITS) and ends up in the rom (SHF_ALLOC), 
-        // find this section's rom address and copy it into the rom
-        if (type != ELFIO::SHT_NOBITS && section->get_flags() & ELFIO::SHF_ALLOC && section->get_size() != 0) {
-            //// Find the segment this section is in to determine the physical (rom) address of the section
-            //auto segment_it = std::upper_bound(segments.begin(), segments.end(), section->get_offset(),
-            //    [](ELFIO::Elf64_Off section_offset, const SegmentEntry& segment) {
-            //        return section_offset < segment.data_offset;
-            //    }
-            //);
-            //if (segment_it == segments.begin()) {
-            //    fmt::print(stderr, "Could not find segment that section {} belongs to!\n", section_name.c_str());
-            //    return nullptr;
-            //}
-            //// Upper bound returns the iterator after the element we're looking for, so rewind by one
-            //// This is safe because we checked if segment_it was segments.begin() already, which is the minimum value it could be
-            //const SegmentEntry& segment = *(segment_it - 1);
-            //// Check to be sure that the section is actually in this segment
-            //if (section->get_offset() >= segment.data_offset + segment.memory_size) {
-            //    fmt::print(stderr, "Section {} out of range of segment at offset 0x{:08X}\n", section_name.c_str(), segment.data_offset);
-            //    return nullptr;
-            //}
-            std::optional<size_t> segment_index = get_segment(segments, section_out.size, section->get_offset());
-            if (!segment_index.has_value()) {
-                fmt::print(stderr, "Could not find segment that section {} belongs to!\n", section_name.c_str());
-                return nullptr;
-            }
-            const SegmentEntry& segment = segments[segment_index.value()];
-            // Calculate the rom address based on this section's offset into the segment and the segment's rom address
-            section_out.rom_addr = segment.physical_address + (section->get_offset() - segment.data_offset);
-            // Resize the output rom if needed to fit this section
+        // If this section was marked as being in the ROM in the previous pass, copy it into the ROM now.
+        if (section_out.rom_addr != (uint32_t)-1) {
+            // Adjust the section's final ROM address to account for the minimum load address.
+            section_out.rom_addr -= min_load_address;
+            // Resize the output rom if needed to fit this section.
             size_t required_rom_size = section_out.rom_addr + section_out.size;
             if (required_rom_size > context.rom.size()) {
                 context.rom.resize(required_rom_size);
             }
-            // Copy this section's data into the rom
+            // Copy this section's data into the rom.
             std::copy(section->get_data(), section->get_data() + section->get_size(), &context.rom[section_out.rom_addr]);
-        } else {
-            // Otherwise mark this section as having an invalid rom address
-            section_out.rom_addr = (uint32_t)-1;
         }
         // Check if this section is marked as executable, which means it has code in it
         if (section->get_flags() & ELFIO::SHF_EXECINSTR) {
@@ -348,7 +349,11 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
             context.bss_section_to_section[section_out.bss_section_index] = section_index;
         }
 
-        if (context.has_reference_symbols() || section_out.relocatable) {
+        // Check if this section is in the ROM and relocatable.
+        const ELFIO::section* elf_section = elf_file.sections[section_index];
+        bool in_rom = (elf_section->get_type() != ELFIO::SHT_NOBITS) && (elf_section->get_flags() & ELFIO::SHF_ALLOC);
+        bool is_relocatable = section_out.relocatable || context.has_reference_symbols();
+        if (in_rom && is_relocatable) {
             // Check if a reloc section was found that corresponds with this section
             auto reloc_find = reloc_sections_by_name.find(section_out.name);
             if (reloc_find != reloc_sections_by_name.end()) {

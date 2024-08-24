@@ -199,7 +199,6 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
             cur_func.vram = cur_section.ram_addr + funcs[func_index].section_offset;
             cur_func.rom = cur_section.rom_addr + funcs[func_index].section_offset;
             cur_func.words.resize(funcs[func_index].size / sizeof(uint32_t)); // Filled in later
-            cur_func.name = "mod_func_" + std::to_string(start_func_index + func_index);
             cur_func.section_index = section_index;
         }
 
@@ -322,8 +321,7 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
 
         std::string_view dependency_event_name{ string_data + name_start, string_data + name_start + name_size };
 
-        size_t dummy_dependency_event_index;
-        mod_context.add_dependency_event(dependency_index, std::string{dependency_event_name}, dummy_dependency_event_index);
+        mod_context.add_dependency_event(std::string{dependency_event_name}, dependency_index);
     }
 
     const ReplacementV1* replacements = reinterpret_data<ReplacementV1>(data, offset, num_replacements);
@@ -365,8 +363,6 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
 
         // Add the function to the exported function list.
         mod_context.exported_funcs[export_index] = func_index;
-        // Populate the exported function's name from the string data.
-        mod_context.functions[func_index].name = std::string_view(string_data + name_start, string_data + name_start + name_size);
     }
 
     const CallbackV1* callbacks = reinterpret_data<CallbackV1>(data, offset, num_callbacks);
@@ -390,7 +386,7 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
                 callback_index, function_index, mod_context.functions.size());
         }
 
-        if (!mod_context.add_callback_by_dependency_event(dependency_event_index, function_index)) {
+        if (!mod_context.add_callback(dependency_event_index, function_index)) {
             printf("Failed to add callback %zu\n", callback_index);
         }
     }

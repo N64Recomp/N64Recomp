@@ -39,7 +39,7 @@ static std::vector<std::filesystem::path> get_toml_path_array(const toml::array*
     return ret;
 }
 
-static bool read_dependency_file(const std::filesystem::path& dependency_path, N64Recomp::Context& context, std::vector<N64Recomp::Dependency>& dependencies) {
+static bool read_dependency_file(const std::filesystem::path& dependency_path, N64Recomp::Context& context) {
     toml::table toml_data{};
 
     try {
@@ -61,7 +61,7 @@ static bool read_dependency_file(const std::filesystem::path& dependency_path, N
                 throw toml::parse_error("Invalid dependency entry", dependency_node.source());
             }
             
-            size_t dependency_index = dependencies.size();
+            size_t dependency_index = context.dependencies.size();
 
             auto read_number = [](const toml::node& node, const std::string& key, const std::string& name, int64_t min_limit, int64_t max_limit) {
                 toml::node_view mod_id_node = node[toml::path{key}];
@@ -97,14 +97,14 @@ static bool read_dependency_file(const std::filesystem::path& dependency_path, N
             }
 
             const std::string& mod_id = mod_id_node.ref<std::string>();
-            dependencies.emplace_back(N64Recomp::Dependency{
+            context.dependencies.emplace_back(N64Recomp::Dependency{
                 .major_version = major_version,
                 .minor_version = minor_version,
                 .patch_version = patch_version,
                 .mod_id = mod_id
             });
 
-            // Symbol list
+            // Function list (optional)
             toml::node_view functions_data = dependency_node[toml::path{"functions"}];
             if (functions_data.is_array()) {
                 const toml::array* functions_array = functions_data.as_array();
@@ -116,13 +116,24 @@ static bool read_dependency_file(const std::filesystem::path& dependency_path, N
                     context.add_import_symbol(function_name, dependency_index);
                 }
             }
-            else {
-                if (functions_data) {
-                    throw toml::parse_error("Mod toml is missing data reference symbol file list", functions_data.node()->source());
+            else if (functions_data) {
+                throw toml::parse_error("Invalid dependency function list", functions_data.node()->source());
+            }
+
+            // Event list (optional)
+            toml::node_view events_data = dependency_node[toml::path{"events"}];
+            if (events_data.is_array()) {
+                const toml::array* events_array = events_data.as_array();
+                for (const auto& event_node : *events_array) {
+                    if (!event_node.is_string()) {
+                        throw toml::parse_error("Invalid dependency event", event_node.source());
+                    }
+                    const std::string& event_name = event_node.ref<std::string>();
+                    context.add_dependency_event(event_name, dependency_index);
                 }
-                else {
-                    throw toml::parse_error("Invalid data reference symbol file list", functions_data.node()->source());
-                }
+            }
+            else if (events_data) {
+                throw toml::parse_error("Invalid dependency event list", events_data.node()->source());
             }
         }
 
@@ -221,7 +232,7 @@ static inline uint32_t round_up_16(uint32_t value) {
     return (value + 15) & (~15);
 }
 
-N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, std::vector<N64Recomp::Dependency>&& dependencies, bool& good) {
+N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bool& good) {
     N64Recomp::Context ret{};
     good = false;
 
@@ -248,13 +259,16 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, st
 
     // TODO avoid a copy here.
     ret.rom = input_context.rom;
-    ret.dependencies = std::move(dependencies);
+
+    // Copy the dependency data from the input context.
+    ret.dependencies = input_context.dependencies;
+    ret.import_symbols = input_context.import_symbols;
+    ret.dependency_events = input_context.dependency_events;
+    ret.dependency_events_by_name = input_context.dependency_events_by_name;
 
     uint32_t rom_to_ram = (uint32_t)-1;
     size_t output_section_index = (size_t)-1;
     ret.sections.resize(1);
-        
-    size_t num_imports = ret.import_symbols.size();
 
     // Mapping of input section to output section for fixing up relocations.
     std::unordered_map<uint16_t, uint16_t> input_section_to_output_section{};
@@ -387,10 +401,7 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, st
                             event_name, cur_func.name);
                         return {};
                     }
-                    ret.callbacks.emplace_back(N64Recomp::Callback {
-                        output_func_index,
-                        event_index
-                    });
+                    ret.add_callback(event_index, output_func_index);
                 }
 
                 ret.section_functions[output_section_index].push_back(output_func_index);
@@ -553,9 +564,6 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, st
         }
     }
 
-    // Copy the import reference symbols from the input context as-is to this context.
-    ret.import_symbols = input_context.import_symbols;
-
     // Copy the reference sections from the input context as-is for resolving reference symbol relocations.
     ret.copy_reference_sections_from(input_context);
 
@@ -603,11 +611,9 @@ int main(int argc, const char** argv) {
         }
     }
 
-    // Read the imported symbols, placing them at the end of the reference symbol list.
-    std::vector<N64Recomp::Dependency> dependencies{}; 
-
+    // Read the dependency files.
     for (const std::filesystem::path& dependency_path : config.dependency_paths) {
-        if (!read_dependency_file(dependency_path, context, dependencies)) {
+        if (!read_dependency_file(dependency_path, context)) {
             fmt::print(stderr, "Failed to read dependency file: {}\n", dependency_path.string());
             return EXIT_FAILURE;
         }
@@ -638,7 +644,7 @@ int main(int argc, const char** argv) {
     }
 
     bool mod_context_good;
-    N64Recomp::Context mod_context = build_mod_context(context, std::move(dependencies), mod_context_good);
+    N64Recomp::Context mod_context = build_mod_context(context, mod_context_good);
     std::vector<uint8_t> symbols_bin = N64Recomp::symbols_to_bin_v1(mod_context);
     if (symbols_bin.empty()) {
         fmt::print(stderr, "Failed to create symbol file\n");
