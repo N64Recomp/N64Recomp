@@ -239,10 +239,11 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
         auto& section_out = context.sections[section->get_index()];
         ELFIO::Elf_Word type = section->get_type();
         ELFIO::Elf_Xword flags = section->get_flags();
+        ELFIO::Elf_Xword section_size = section->get_size();
 
         // Check if this section will end up in the ROM. It must not be a nobits (NOLOAD) type, must have the alloc flag set and must have a nonzero size. 
-        if (type != ELFIO::SHT_NOBITS && (section->get_flags() & ELFIO::SHF_ALLOC) && section->get_size() != 0) {
-            std::optional<size_t> segment_index = get_segment(segments, section_out.size, section->get_offset());
+        if (type != ELFIO::SHT_NOBITS && (flags & ELFIO::SHF_ALLOC) && section_size != 0) {
+            std::optional<size_t> segment_index = get_segment(segments, section_size, section->get_offset());
             if (!segment_index.has_value()) {
                 fmt::print(stderr, "Could not find segment that section {} belongs to!\n", section->get_name());
                 return nullptr;
