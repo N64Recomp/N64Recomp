@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "n64recomp.h"
 
 struct FileHeader {
