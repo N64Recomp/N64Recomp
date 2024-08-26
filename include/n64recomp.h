@@ -57,14 +57,23 @@ namespace N64Recomp {
         bool reference_symbol;
     };
 
+    // Special section indices.
     constexpr uint16_t SectionAbsolute = (uint16_t)-2;
     constexpr uint16_t SectionImport = (uint16_t)-3; // Imported symbols for mods
     constexpr uint16_t SectionEvent = (uint16_t)-4;
+
+    // Special section names.
     constexpr std::string_view PatchSectionName = ".recomp_patch";
     constexpr std::string_view ForcedPatchSectionName = ".recomp_force_patch";
     constexpr std::string_view ExportSectionName = ".recomp_export";
     constexpr std::string_view EventSectionName = ".recomp_event";
+    constexpr std::string_view ImportSectionPrefix = ".recomp_import.";
     constexpr std::string_view CallbackSectionPrefix = ".recomp_callback.";
+
+    // Special mod names.
+    constexpr std::string_view ModSelf = ".";
+    constexpr std::string_view ModBaseRecomp = "*";
+
     struct Section {
         uint32_t rom_addr = 0;
         uint32_t ram_addr = 0;
@@ -193,13 +202,18 @@ namespace N64Recomp {
         //// Mod dependencies and their symbols
         
         //// Imported values
+        // List of dependencies.
         std::vector<Dependency> dependencies;
+        // Mapping of dependency name to dependency index.
+        std::unordered_map<std::string, size_t> dependencies_by_name;
         // List of symbols imported from dependencies.
         std::vector<ImportSymbol> import_symbols;
         // List of events imported from dependencies.
         std::vector<DependencyEvent> dependency_events;
-        // Mapping of dependency event name to the index in dependency_events.
-        std::unordered_map<std::string, size_t> dependency_events_by_name;
+        // Mappings of dependency event name to the index in dependency_events, all indexed by dependency.
+        std::vector<std::unordered_map<std::string, size_t>> dependency_events_by_name;
+        // Mappings of dependency import name to index in import_symbols, all indexed by dependency.
+        std::vector<std::unordered_map<std::string, size_t>> dependency_imports_by_name;
 
         //// Exported values
         // List of function replacements, which contains the original function to replace and the function index to replace it with.
@@ -220,6 +234,57 @@ namespace N64Recomp {
         static bool from_elf_file(const std::filesystem::path& elf_file_path, Context& out, const ElfParsingConfig& flags, bool for_dumping_context, DataSymbolMap& data_syms_out, bool& found_entrypoint_out);
 
         Context() = default;
+
+        bool add_dependency(const std::string& id, uint8_t major_version, uint8_t minor_version, uint8_t patch_version) {
+            if (dependencies_by_name.contains(id)) {
+                return false;
+            }
+
+            size_t dependency_index = dependencies.size();
+            dependencies.emplace_back(N64Recomp::Dependency {
+                .major_version = major_version,
+                .minor_version = minor_version,
+                .patch_version = patch_version,
+                .mod_id = id
+            });
+
+            dependencies_by_name.emplace(id, dependency_index);
+            dependency_events_by_name.resize(dependencies.size());
+            dependency_imports_by_name.resize(dependencies.size());
+
+            return true;
+        }
+
+        bool add_dependencies(const std::vector<Dependency>& new_dependencies) {
+            dependencies.reserve(dependencies.size() + new_dependencies.size());
+            dependencies_by_name.reserve(dependencies_by_name.size() + new_dependencies.size());
+
+            // Check if any of the dependencies already exist and fail if so.
+            for (const Dependency& dep : new_dependencies) {
+                if (dependencies_by_name.contains(dep.mod_id)) {
+                    return false;
+                }
+            }
+
+            for (const Dependency& dep : new_dependencies) {
+                size_t dependency_index = dependencies.size();
+                dependencies.emplace_back(dep);
+                dependencies_by_name.emplace(dep.mod_id, dependency_index);
+            }
+
+            dependency_events_by_name.resize(dependencies.size());
+            dependency_imports_by_name.resize(dependencies.size());
+            return true;
+        }
+
+        bool find_dependency(const std::string& mod_id, size_t& dependency_index) {
+            auto find_it = dependencies_by_name.find(mod_id);
+            if (find_it == dependencies_by_name.end()) {
+                return false;
+            }
+            dependency_index = find_it->second;
+            return true;
+        }
 
         size_t find_function_by_vram_section(uint32_t vram, size_t section_index) const {
             auto find_it = functions_by_vram.find(vram);
@@ -338,11 +403,8 @@ namespace N64Recomp {
         }
 
         void add_import_symbol(const std::string& symbol_name, size_t dependency_index) {
-            // TODO Check if reference_symbols_by_name already contains the name and show a conflict error if so.
-            reference_symbols_by_name[symbol_name] = N64Recomp::SymbolReference {
-                .section_index = N64Recomp::SectionImport,
-                .symbol_index = import_symbols.size()
-            };
+            // TODO Check if dependency_imports_by_name[dependency_index] already contains the name and show a conflict error if so.
+            dependency_imports_by_name[dependency_index][symbol_name] = import_symbols.size();
             import_symbols.emplace_back(
                 N64Recomp::ImportSymbol {
                     .base = N64Recomp::ReferenceSymbol {
@@ -354,6 +416,21 @@ namespace N64Recomp {
                     .dependency_index = dependency_index,
                 }
             );
+        }
+
+        bool find_import_symbol(const std::string& symbol_name, size_t dependency_index, SymbolReference& ref_out) const {
+            if (dependency_index >= dependencies.size()) {
+                return false;
+            }
+
+            auto find_it = dependency_imports_by_name[dependency_index].find(symbol_name);
+            if (find_it == dependency_imports_by_name[dependency_index].end()) {
+                return false;
+            }
+
+            ref_out.section_index = SectionImport;
+            ref_out.symbol_index = find_it->second;
+            return true;
         }
 
         void add_event_symbol(const std::string& symbol_name) {
@@ -389,23 +466,25 @@ namespace N64Recomp {
             return true;
         }
 
-        bool add_dependency_event(const std::string& event_name, size_t dependency_index) {
-            size_t dependency_event_index = dependency_events.size();
+        bool add_dependency_event(const std::string& event_name, size_t dependency_index, size_t& dependency_event_index) {
+            if (dependency_index >= dependencies.size()) {
+                return false;
+            }
+
+            // Prevent adding the same event to a dependency twice. This isn't an error, since a mod could register
+            // multiple callbacks to the same event.
+            auto find_it = dependency_events_by_name[dependency_index].find(event_name);
+            if (find_it != dependency_events_by_name[dependency_index].end()) {
+                dependency_event_index = find_it->second;
+                return true;
+            }
+
+            dependency_event_index = dependency_events.size();
             dependency_events.emplace_back(DependencyEvent{
                 .dependency_index = dependency_index,
                 .event_name = event_name
             });
-            // TODO Check if dependency_events_by_name already contains the name and show a conflict error if so.
-            dependency_events_by_name[event_name] = dependency_event_index;
-            return true;
-        }
-
-        bool get_dependency_event(const std::string& event_name, size_t& event_index) const {
-            auto find_it = dependency_events_by_name.find(event_name);
-            if (find_it == dependency_events_by_name.end()) {
-                return false;
-            }
-            event_index = find_it->second;
+            dependency_events_by_name[dependency_index][event_name] = dependency_event_index;
             return true;
         }
 
@@ -458,6 +537,20 @@ namespace N64Recomp {
 
     ModSymbolsError parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, const Context& reference_context, Context& context_out);
     std::vector<uint8_t> symbols_to_bin_v1(const Context& mod_context);
+
+    inline bool validate_mod_name(std::string_view str) {
+        // Disallow mod names with a colon in them, since you can't specify that in a dependency string orin callbacks.
+        for (char c : str) {
+            if (c == ':') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    inline bool validate_mod_name(const std::string& str) {
+        return validate_mod_name(std::string_view{str});
+    }
 }
 
 #endif

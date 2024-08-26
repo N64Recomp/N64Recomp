@@ -293,7 +293,7 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
                         jal_target_name = fmt::format("LOOKUP_FUNC(0x{:08X})", target_func_vram);
                         break;
                     case JalResolutionResult::Error:
-                        fmt::print(stderr, "Internal error when resolving jal to address 0x{:08X} in function {}\n", target_func_vram, func.name);
+                        fmt::print(stderr, "Internal error when resolving jal to address 0x{:08X} in function {}. Please report this issue.\n", target_func_vram, func.name);
                         return false;
                 }
             }

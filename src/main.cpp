@@ -327,7 +327,7 @@ int main(int argc, char** argv) {
 
                 // Use the reference context to build a reference symbol list for the actual context.
                 if (!context.import_reference_context(reference_context)) {
-                    exit_failure("Internal error: Failed to import reference context\n");
+                    exit_failure("Internal error: Failed to import reference context. Please report this issue.\n");
                 }
             }
 

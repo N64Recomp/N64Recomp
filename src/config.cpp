@@ -722,7 +722,7 @@ bool N64Recomp::Context::read_data_reference_syms(const std::filesystem::path& d
                         }
 
                         if (!this->add_reference_symbol(name.value(), ref_section_index, vram_addr.value(), false)) {
-                            throw toml::parse_error("Internal error: Failed to add reference symbol to context", data_sym_el.source());
+                            throw toml::parse_error("Internal error: Failed to add reference symbol to context. Please report this issue.", data_sym_el.source());
                         }
                     }
                     else {

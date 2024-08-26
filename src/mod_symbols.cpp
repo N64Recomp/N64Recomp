@@ -143,7 +143,8 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
 
     // TODO add proper creation methods for the remaining vectors and change these to reserves instead.
     mod_context.sections.resize(num_sections); // Add method
-    mod_context.dependencies.resize(num_dependencies); // Add method
+    mod_context.dependencies.reserve(num_dependencies);
+    mod_context.dependencies_by_name.reserve(num_dependencies); 
     mod_context.import_symbols.reserve(num_imports);
     mod_context.dependency_events.reserve(num_dependency_events);
     mod_context.replacements.resize(num_replacements); // Add method
@@ -270,11 +271,8 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
                 dependency_index, mod_id_start, mod_id_size, string_data_size);
         }
 
-        auto& dependency_out = mod_context.dependencies[dependency_index];
-        dependency_out.major_version = dependency_in.major_version;
-        dependency_out.minor_version = dependency_in.minor_version;
-        dependency_out.patch_version = dependency_in.patch_version;
-        dependency_out.mod_id = std::string_view(string_data + mod_id_start, string_data + mod_id_start + mod_id_size);
+        std::string_view mod_id{ string_data + mod_id_start, string_data + mod_id_start + mod_id_size };
+        mod_context.add_dependency(std::string{mod_id}, dependency_in.major_version, dependency_in.minor_version, dependency_in.patch_version);
     }
 
     const ImportV1* imports = reinterpret_data<ImportV1>(data, offset, num_imports);
@@ -323,7 +321,8 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
 
         std::string_view dependency_event_name{ string_data + name_start, string_data + name_start + name_size };
 
-        mod_context.add_dependency_event(std::string{dependency_event_name}, dependency_index);
+        size_t dummy_dependency_event_index;
+        mod_context.add_dependency_event(std::string{dependency_event_name}, dependency_index, dummy_dependency_event_index);
     }
 
     const ReplacementV1* replacements = reinterpret_data<ReplacementV1>(data, offset, num_replacements);
@@ -602,7 +601,7 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
             uint32_t target_section_vrom;
             uint32_t target_section_offset_or_index = cur_reloc.target_section_offset;
             if (cur_reloc.target_section == SectionAbsolute) {
-                printf("Internal error: reloc %zu in section %zu references an absolute symbol and should have been relocated already\n",
+                printf("Internal error: reloc %zu in section %zu references an absolute symbol and should have been relocated already. Please report this issue.\n",
                     reloc_index, section_index);
                 return {};
             }
@@ -619,7 +618,7 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
             }
             else {
                 if (cur_reloc.target_section >= context.sections.size()) {
-                    printf("Internal error: reloc %zu in section %zu references section %u, but only %zu exist\n",
+                    printf("Internal error: reloc %zu in section %zu references section %u, but only %zu exist. Please report this issue.\n",
                         reloc_index, section_index, cur_reloc.target_section, context.sections.size());
                     return {};
                 }
