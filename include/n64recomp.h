@@ -535,7 +535,7 @@ namespace N64Recomp {
         FunctionOutOfBounds,
     };
 
-    ModSymbolsError parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, const Context& reference_context, Context& context_out);
+    ModSymbolsError parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, Context& context_out);
     std::vector<uint8_t> symbols_to_bin_v1(const Context& mod_context);
 
     inline bool validate_mod_name(std::string_view str) {

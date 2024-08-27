@@ -416,12 +416,10 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
     return offset == data.size();
 }
 
-N64Recomp::ModSymbolsError N64Recomp::parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, const Context& reference_context, Context& mod_context_out) {
+N64Recomp::ModSymbolsError N64Recomp::parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, Context& mod_context_out) {
     size_t offset = 0;
     mod_context_out = {};
     const FileHeader* header = reinterpret_data<FileHeader>(data, offset);
-
-    mod_context_out.import_reference_context(reference_context);
 
     if (header == nullptr) {
         return ModSymbolsError::NotASymbolFile;

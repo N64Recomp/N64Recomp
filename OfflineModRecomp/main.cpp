@@ -73,11 +73,13 @@ int main(int argc, const char** argv) {
 
     N64Recomp::Context mod_context;
 
-	N64Recomp::ModSymbolsError error = N64Recomp::parse_mod_symbols(symbol_data_span, rom_data, sections_by_vrom, reference_context, mod_context);
+	N64Recomp::ModSymbolsError error = N64Recomp::parse_mod_symbols(symbol_data_span, rom_data, sections_by_vrom, mod_context);
     if (error != N64Recomp::ModSymbolsError::Good) {
         fprintf(stderr, "Error parsing mod symbols: %d\n", (int)error);
         return EXIT_FAILURE;
     }
+
+    mod_context.import_reference_context(reference_context);
 
     // Populate R_MIPS_26 reloc symbol indices. Start by building a map of vram address to matching reference symbols.
     std::unordered_map<uint32_t, std::vector<size_t>> reference_symbols_by_vram{};
