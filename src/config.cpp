@@ -1,8 +1,9 @@
-#include <source_location>
+#include <iostream>
 
 #include <toml++/toml.hpp>
 #include "fmt/format.h"
-#include "recomp_port.h"
+#include "config.h"
+#include "n64recomp.h"
 
 std::filesystem::path concat_if_not_empty(const std::filesystem::path& parent, const std::filesystem::path& child) {
     if (!child.empty()) {
@@ -11,8 +12,8 @@ std::filesystem::path concat_if_not_empty(const std::filesystem::path& parent, c
     return child;
 }
 
-std::vector<RecompPort::ManualFunction> get_manual_funcs(const toml::array* manual_funcs_array) {
-    std::vector<RecompPort::ManualFunction> ret;
+std::vector<N64Recomp::ManualFunction> get_manual_funcs(const toml::array* manual_funcs_array) {
+    std::vector<N64Recomp::ManualFunction> ret;
 
     // Reserve room for all the funcs in the map.
     ret.reserve(manual_funcs_array->size());
@@ -103,70 +104,8 @@ std::vector<std::string> get_ignored_funcs(const toml::table* patches_data) {
     return ignored_funcs;
 }
 
-std::unordered_map<std::string, RecompPort::FunctionArgType> arg_type_map{
-    {"u32", RecompPort::FunctionArgType::u32},
-    {"s32", RecompPort::FunctionArgType::s32},
-};
-
-std::vector<RecompPort::FunctionArgType> parse_args(const toml::array* args_in) {
-    std::vector<RecompPort::FunctionArgType> ret(args_in->size());
-
-    args_in->for_each([&ret](auto&& el) {
-        if constexpr (toml::is_string<decltype(el)>) {
-            const std::string& arg_str = *el;
-
-            // Check if the argument type string is valid.
-            auto type_find = arg_type_map.find(arg_str);
-            if (type_find == arg_type_map.end()) {
-                // It's not, so throw an error (and make it look like a normal toml one).
-                throw toml::parse_error(("Invalid argument type: " + arg_str).c_str(), el.source());
-            }
-            ret.push_back(type_find->second);
-        }
-        else {
-            throw toml::parse_error("Invalid function argument entry", el.source());
-        }
-    });
-
-    return ret;
-}
-
-RecompPort::DeclaredFunctionMap get_declared_funcs(const toml::table* patches_data) {
-    RecompPort::DeclaredFunctionMap declared_funcs{};
-
-    // Check if the func array exists.
-    const toml::node_view funcs_data = (*patches_data)["func"];
-
-    if (funcs_data.is_array()) {
-        const toml::array* funcs_array = funcs_data.as_array();
-
-        // Reserve room for all the funcs in the map.
-        declared_funcs.reserve(funcs_array->size());
-
-        // Gather the funcs and place them into the map.
-        funcs_array->for_each([&declared_funcs](auto&& el) {
-            if constexpr (toml::is_table<decltype(el)>) {
-                std::optional<std::string> func_name = el["name"].template value<std::string>();
-                toml::node_view args_in = el["args"];
-
-                if (func_name.has_value() && args_in.is_array()) {
-                    const toml::array* args_array = args_in.as_array();
-                    declared_funcs.emplace(func_name.value(), parse_args(args_array));
-                } else {
-                    throw toml::parse_error("Missing required value in func array", el.source());
-                }
-            }
-            else {
-                throw toml::parse_error("Invalid declared function entry", el.source());
-            }
-        });
-    }
-
-    return declared_funcs;
-}
-
-std::vector<RecompPort::FunctionSize> get_func_sizes(const toml::table* patches_data) {
-    std::vector<RecompPort::FunctionSize> func_sizes{};
+std::vector<N64Recomp::FunctionSize> get_func_sizes(const toml::table* patches_data) {
+    std::vector<N64Recomp::FunctionSize> func_sizes{};
 
     // Check if the func size array exists.
     const toml::node_view funcs_data = (*patches_data)["function_sizes"];
@@ -204,8 +143,8 @@ std::vector<RecompPort::FunctionSize> get_func_sizes(const toml::table* patches_
     return func_sizes;
 }
 
-std::vector<RecompPort::InstructionPatch> get_instruction_patches(const toml::table* patches_data) {
-    std::vector<RecompPort::InstructionPatch> ret;
+std::vector<N64Recomp::InstructionPatch> get_instruction_patches(const toml::table* patches_data) {
+    std::vector<N64Recomp::InstructionPatch> ret;
 
     // Check if the instruction patch array exists.
     const toml::node_view insn_patch_data = (*patches_data)["instruction"];
@@ -233,7 +172,7 @@ std::vector<RecompPort::InstructionPatch> get_instruction_patches(const toml::ta
                     throw toml::parse_error("Instruction patch is not word-aligned", el.source());
                 }
 
-                ret.push_back(RecompPort::InstructionPatch{
+                ret.push_back(N64Recomp::InstructionPatch{
                     .func_name = func_name.value(),
                     .vram = (int32_t)vram.value(),
                     .value = value.value(),
@@ -248,8 +187,8 @@ std::vector<RecompPort::InstructionPatch> get_instruction_patches(const toml::ta
     return ret;
 }
 
-std::vector<RecompPort::FunctionHook> get_function_hooks(const toml::table* patches_data) {
-    std::vector<RecompPort::FunctionHook> ret;
+std::vector<N64Recomp::FunctionHook> get_function_hooks(const toml::table* patches_data) {
+    std::vector<N64Recomp::FunctionHook> ret;
 
     // Check if the function hook array exists.
     const toml::node_view func_hook_data = (*patches_data)["hook"];
@@ -277,7 +216,7 @@ std::vector<RecompPort::FunctionHook> get_function_hooks(const toml::table* patc
                     throw toml::parse_error("before_vram is not word-aligned", el.source());
                 }
 
-                ret.push_back(RecompPort::FunctionHook{
+                ret.push_back(N64Recomp::FunctionHook{
                     .func_name = func_name.value(),
                     .before_vram = before_vram.has_value() ? (int32_t)before_vram.value() : 0,
                     .text = text.value(),
@@ -292,7 +231,7 @@ std::vector<RecompPort::FunctionHook> get_function_hooks(const toml::table* patc
     return ret;
 }
 
-RecompPort::Config::Config(const char* path) {
+N64Recomp::Config::Config(const char* path) {
     // Start this config out as bad so that it has to finish parsing without errors to be good.
     entrypoint = 0;
     bad = true;
@@ -438,16 +377,13 @@ RecompPort::Config::Config(const char* path) {
             // Ignored funcs array (optional)
             ignored_funcs = get_ignored_funcs(table);
 
-            // Functions (optional)
-            declared_funcs = get_declared_funcs(table);
-
             // Single-instruction patches (optional)
             instruction_patches = get_instruction_patches(table);
 
             // Manual function sizes (optional)
             manual_func_sizes = get_func_sizes(table);
 
-            // Fonction hooks (optional)
+            // Function hooks (optional)
             function_hooks = get_function_hooks(table);
         }
 
@@ -472,6 +408,25 @@ RecompPort::Config::Config(const char* path) {
             const toml::array* array = data_reference_syms_file_data.as_array();
             data_reference_syms_file_paths = get_data_syms_paths(array, basedir);
         }
+
+        // Control whether the recompiler emits exported symbol data.
+        std::optional<bool> allow_exports_opt = input_data["allow_exports"].value<bool>();
+        if (allow_exports_opt.has_value()) {
+            allow_exports = allow_exports_opt.value();
+        }
+        else {
+            allow_exports = false;
+        }
+
+        // Enable patch recompilation strict mode, which ensures that patch functions are marked and that other functions are not marked as patches.
+        std::optional<bool> strict_patch_mode_opt = input_data["strict_patch_mode"].value<bool>();
+        if (strict_patch_mode_opt.has_value()) {
+            strict_patch_mode = strict_patch_mode_opt.value();
+        }
+        else {
+            // Default to strict patch mode if a function reference symbol file was provided.
+            strict_patch_mode = !func_reference_syms_file_path.empty();
+        }
     }
     catch (const toml::parse_error& err) {
         std::cerr << "Syntax error parsing toml: " << *err.source().path << " (" << err.source().begin <<  "):\n" << err.description() << std::endl;
@@ -482,27 +437,27 @@ RecompPort::Config::Config(const char* path) {
     bad = false;
 }
 
-const std::unordered_map<std::string, RecompPort::RelocType> reloc_type_name_map {
-    { "R_MIPS_NONE", RecompPort::RelocType::R_MIPS_NONE },
-    { "R_MIPS_16", RecompPort::RelocType::R_MIPS_16 },
-    { "R_MIPS_32", RecompPort::RelocType::R_MIPS_32 },
-    { "R_MIPS_REL32", RecompPort::RelocType::R_MIPS_REL32 },
-    { "R_MIPS_26", RecompPort::RelocType::R_MIPS_26 },
-    { "R_MIPS_HI16", RecompPort::RelocType::R_MIPS_HI16 },
-    { "R_MIPS_LO16", RecompPort::RelocType::R_MIPS_LO16 },
-    { "R_MIPS_GPREL16", RecompPort::RelocType::R_MIPS_GPREL16 },
+const std::unordered_map<std::string, N64Recomp::RelocType> reloc_type_name_map {
+    { "R_MIPS_NONE", N64Recomp::RelocType::R_MIPS_NONE },
+    { "R_MIPS_16", N64Recomp::RelocType::R_MIPS_16 },
+    { "R_MIPS_32", N64Recomp::RelocType::R_MIPS_32 },
+    { "R_MIPS_REL32", N64Recomp::RelocType::R_MIPS_REL32 },
+    { "R_MIPS_26", N64Recomp::RelocType::R_MIPS_26 },
+    { "R_MIPS_HI16", N64Recomp::RelocType::R_MIPS_HI16 },
+    { "R_MIPS_LO16", N64Recomp::RelocType::R_MIPS_LO16 },
+    { "R_MIPS_GPREL16", N64Recomp::RelocType::R_MIPS_GPREL16 },
 };
 
-RecompPort::RelocType reloc_type_from_name(const std::string& reloc_type_name) {
+N64Recomp::RelocType reloc_type_from_name(const std::string& reloc_type_name) {
     auto find_it = reloc_type_name_map.find(reloc_type_name);
     if (find_it != reloc_type_name_map.end()) {
         return find_it->second;
     }
-    return RecompPort::RelocType::R_MIPS_NONE;
+    return N64Recomp::RelocType::R_MIPS_NONE;
 }
 
-bool RecompPort::Context::from_symbol_file(const std::filesystem::path& symbol_file_path, std::vector<uint8_t>&& rom, RecompPort::Context& out, bool with_relocs) {
-    RecompPort::Context ret{};
+bool N64Recomp::Context::from_symbol_file(const std::filesystem::path& symbol_file_path, std::vector<uint8_t>&& rom, N64Recomp::Context& out, bool with_relocs) {
+    N64Recomp::Context ret{};
 
     try {
         const toml::table config_data = toml::parse_file(symbol_file_path.u8string());
@@ -526,7 +481,7 @@ bool RecompPort::Context::from_symbol_file(const std::filesystem::path& symbol_f
                     throw toml::parse_error("Section entry missing required field(s)", el.source());
                 }
 
-                size_t section_index = ret.sections.size();
+                uint16_t section_index = (uint16_t)ret.sections.size();
 
                 Section& section = ret.sections.emplace_back(Section{});
                 section.rom_addr = rom_addr.value();
@@ -625,7 +580,7 @@ bool RecompPort::Context::from_symbol_file(const std::filesystem::path& symbol_f
 
                                 Reloc cur_reloc{};
                                 cur_reloc.address = vram.value();
-                                cur_reloc.section_offset = target_vram.value() - section.ram_addr;
+                                cur_reloc.target_section_offset = target_vram.value() - section.ram_addr;
                                 cur_reloc.symbol_index = (uint32_t)-1;
                                 cur_reloc.target_section = section_index;
                                 cur_reloc.type = reloc_type;
@@ -656,15 +611,14 @@ bool RecompPort::Context::from_symbol_file(const std::filesystem::path& symbol_f
     return true;
 }
 
-void RecompPort::Context::import_reference_context(const RecompPort::Context& reference_context) {
+bool N64Recomp::Context::import_reference_context(const N64Recomp::Context& reference_context) {
     reference_sections.resize(reference_context.sections.size());
     reference_symbols.reserve(reference_context.functions.size());
-    reference_symbol_names.reserve(reference_context.functions.size());
 
     // Copy the reference context's sections into the real context's reference sections. 
     for (size_t section_index = 0; section_index < reference_context.sections.size(); section_index++) {
-        const RecompPort::Section& section_in = reference_context.sections[section_index];
-        RecompPort::ReferenceSection& section_out = reference_sections[section_index];
+        const N64Recomp::Section& section_in = reference_context.sections[section_index];
+        N64Recomp::ReferenceSection& section_out = reference_sections[section_index];
 
         section_out.rom_addr = section_in.rom_addr;
         section_out.ram_addr = section_in.ram_addr;
@@ -673,22 +627,17 @@ void RecompPort::Context::import_reference_context(const RecompPort::Context& re
     }
 
     // Copy the functions from the reference context into the reference context's function map.
-    for (const RecompPort::Function& func_in: reference_context.functions) {
-        const RecompPort::Section& func_section = reference_context.sections[func_in.section_index];
-
-        reference_symbols_by_name.emplace(func_in.name, reference_symbols.size());
-
-        reference_symbols.emplace_back(RecompPort::ReferenceSymbol{
-            .section_index = func_in.section_index,
-            .section_offset = func_in.vram - static_cast<uint32_t>(func_section.ram_addr),
-            .is_function = true
-        });
-        reference_symbol_names.emplace_back(func_in.name);
+    for (const N64Recomp::Function& func_in: reference_context.functions) {
+        if (!add_reference_symbol(func_in.name, func_in.section_index, func_in.vram, true)) {
+            return false;
+        }
     }
+    
+    return true;
 }
 
 // Reads a data symbol file and adds its contents into this context's reference data symbols.
-bool RecompPort::Context::read_data_reference_syms(const std::filesystem::path& data_syms_file_path) {
+bool N64Recomp::Context::read_data_reference_syms(const std::filesystem::path& data_syms_file_path) {
     try {
         const toml::table data_syms_file_data = toml::parse_file(data_syms_file_path.u8string());
         const toml::node_view data_sections_value = data_syms_file_data["section"];
@@ -719,7 +668,7 @@ bool RecompPort::Context::read_data_reference_syms(const std::filesystem::path& 
 
                 uint16_t ref_section_index;
                 if (!rom_addr.has_value()) {
-                    ref_section_index = RecompPort::SectionAbsolute; // Non-relocatable bss section or absolute symbols, mark this as an absolute symbol
+                    ref_section_index = N64Recomp::SectionAbsolute; // Non-relocatable bss section or absolute symbols, mark this as an absolute symbol
                 }
                 else if (rom_addr.value() > 0xFFFFFFFF) {
                     throw toml::parse_error("Section has invalid ROM address", el.source());
@@ -731,7 +680,7 @@ bool RecompPort::Context::read_data_reference_syms(const std::filesystem::path& 
                         ref_section_index = find_section_it->second;
                     }
                     else {
-                        ref_section_index = RecompPort::SectionAbsolute; // Not in the function symbol reference file, so this section can be treated as non-relocatable.
+                        ref_section_index = N64Recomp::SectionAbsolute; // Not in the function symbol reference file, so this section can be treated as non-relocatable.
                     }
                 }
 
@@ -741,10 +690,10 @@ bool RecompPort::Context::read_data_reference_syms(const std::filesystem::path& 
                     .size = 0,
                     .relocatable = 0
                 };
-                const ReferenceSection& ref_section = ref_section_index == RecompPort::SectionAbsolute ? dummy_absolute_section : this->reference_sections[ref_section_index];
+                const ReferenceSection& ref_section = ref_section_index == N64Recomp::SectionAbsolute ? dummy_absolute_section : this->reference_sections[ref_section_index];
 
                 // Sanity check this section against the matching one in the function reference symbol file if one exists.
-                if (ref_section_index != RecompPort::SectionAbsolute) {
+                if (ref_section_index != N64Recomp::SectionAbsolute) {
                     if (ref_section.ram_addr != vram_addr.value()) {
                         throw toml::parse_error("Section vram address differs from matching ROM address section in the function symbol reference file", el.source());
                     }
@@ -772,16 +721,9 @@ bool RecompPort::Context::read_data_reference_syms(const std::filesystem::path& 
                             throw toml::parse_error("Reference data symbol entry is missing required field(s)", data_sym_el.source());
                         }
 
-                        this->reference_symbols_by_name.emplace(name.value(), reference_symbols.size());
-
-                        this->reference_symbols.emplace_back(
-                            ReferenceSymbol {
-                                .section_index = ref_section_index,
-                                .section_offset = vram_addr.value() - ref_section_vram,
-                                .is_function = false
-                            }
-                        );
-                        this->reference_symbol_names.emplace_back(name.value());
+                        if (!this->add_reference_symbol(name.value(), ref_section_index, vram_addr.value(), false)) {
+                            throw toml::parse_error("Internal error: Failed to add reference symbol to context. Please report this issue.", data_sym_el.source());
+                        }
                     }
                     else {
                         throw toml::parse_error("Invalid data symbol entry", data_sym_el.source());
