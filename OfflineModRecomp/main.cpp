@@ -145,7 +145,8 @@ int main(int argc, const char** argv) {
         const auto& import = mod_context.import_symbols[import_index];
         output_file << "#define " << import.base.name << " imported_funcs[" << import_index << "]\n";
     }
-    output_file << "RECOMP_EXPORT recomp_func_t* imported_funcs[" << num_imports << "] = {};\n";
+
+    output_file << "RECOMP_EXPORT recomp_func_t* imported_funcs[" << std::max(size_t{1}, num_imports) << "] = {0};\n";
     output_file << "\n";
 
     // Use reloc list to write reference symbol function pointer array and defines (i.e. `#define func_80102468 reference_symbol_funcs[0]`)
@@ -160,11 +161,12 @@ int main(int argc, const char** argv) {
             }
         }
     }
-    output_file << "RECOMP_EXPORT recomp_func_t* reference_symbol_funcs[" << num_reference_symbols << "] = {};\n\n";
+    // C doesn't allow 0-sized arrays, so always add at least one member to all arrays. The actual size will be pulled from the mod symbols.
+    output_file << "RECOMP_EXPORT recomp_func_t* reference_symbol_funcs[" << std::max(size_t{1},num_reference_symbols) << "] = {0};\n\n";
 
     // Write provided event array (maps internal event indices to global ones).
     output_file << "// Mapping of internal event indices to global ones.\n";
-    output_file << "RECOMP_EXPORT uint32_t event_indices[" << mod_context.event_symbols.size() <<"] = {};\n\n";
+    output_file << "RECOMP_EXPORT uint32_t event_indices[" << std::max(size_t{1}, mod_context.event_symbols.size()) <<"] = {0};\n\n";
 
     // Write the event trigger function pointer.
     output_file << "// Pointer to the runtime function for triggering events.\n";
@@ -181,7 +183,7 @@ int main(int argc, const char** argv) {
     // Write the local section addresses pointer array.
     size_t num_sections = mod_context.sections.size();
     output_file << "// Array of this mod's loaded section addresses.\n";
-    output_file << "RECOMP_EXPORT int32_t section_addresses[" << num_sections << "] = {};\n\n";
+    output_file << "RECOMP_EXPORT int32_t section_addresses[" << std::max(size_t{1}, num_sections) << "] = {0};\n\n";
 
     for (size_t func_index = 0; func_index < mod_context.functions.size(); func_index++) {
         auto& func = mod_context.functions[func_index];

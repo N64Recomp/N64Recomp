@@ -70,9 +70,9 @@ namespace N64Recomp {
     constexpr std::string_view ImportSectionPrefix = ".recomp_import.";
     constexpr std::string_view CallbackSectionPrefix = ".recomp_callback.";
 
-    // Special mod names.
-    constexpr std::string_view ModSelf = ".";
-    constexpr std::string_view ModBaseRecomp = "*";
+    // Special dependency names.
+    constexpr std::string_view DependencySelf = ".";
+    constexpr std::string_view DependencyBaseRecomp = "*";
 
     struct Section {
         uint32_t rom_addr = 0;
@@ -279,10 +279,19 @@ namespace N64Recomp {
 
         bool find_dependency(const std::string& mod_id, size_t& dependency_index) {
             auto find_it = dependencies_by_name.find(mod_id);
-            if (find_it == dependencies_by_name.end()) {
-                return false;
+            if (find_it != dependencies_by_name.end()) {
+                dependency_index = find_it->second;
             }
-            dependency_index = find_it->second;
+            else {
+                // Handle special dependency names.
+                if (mod_id == DependencySelf || mod_id == DependencyBaseRecomp) {
+                    add_dependency(mod_id, 0, 0, 0);
+                    dependency_index = dependencies_by_name[mod_id];
+                }
+                else {
+                    return false;
+                }
+            }
             return true;
         }
 
