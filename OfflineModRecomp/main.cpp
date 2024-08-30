@@ -185,9 +185,14 @@ int main(int argc, const char** argv) {
     output_file << "// Array of this mod's loaded section addresses.\n";
     output_file << "RECOMP_EXPORT int32_t section_addresses[" << std::max(size_t{1}, num_sections) << "] = {0};\n\n";
 
+    // Create a set of the export indices to avoid renaming them.
+    std::unordered_set<size_t> export_indices{mod_context.exported_funcs.begin(), mod_context.exported_funcs.end()};
+
     for (size_t func_index = 0; func_index < mod_context.functions.size(); func_index++) {
         auto& func = mod_context.functions[func_index];
-        func.name = "mod_func_" + std::to_string(func_index);
+        if (!export_indices.contains(func_index)) {
+            func.name = "mod_func_" + std::to_string(func_index);
+        }
         N64Recomp::recompile_function(mod_context, func, output_file, static_funcs_by_section, true);
     }
 
