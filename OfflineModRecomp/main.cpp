@@ -165,8 +165,8 @@ int main(int argc, const char** argv) {
     output_file << "RECOMP_EXPORT recomp_func_t* reference_symbol_funcs[" << std::max(size_t{1},num_reference_symbols) << "] = {0};\n\n";
 
     // Write provided event array (maps internal event indices to global ones).
-    output_file << "// Mapping of internal event indices to global ones.\n";
-    output_file << "RECOMP_EXPORT uint32_t event_indices[" << std::max(size_t{1}, mod_context.event_symbols.size()) <<"] = {0};\n\n";
+    output_file << "// Base global event index for this mod's events.\n";
+    output_file << "RECOMP_EXPORT uint32_t base_event_index;\n\n";
 
     // Write the event trigger function pointer.
     output_file << "// Pointer to the runtime function for triggering events.\n";

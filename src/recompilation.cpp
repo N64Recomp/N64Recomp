@@ -242,11 +242,11 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
         if (reloc_section == N64Recomp::SectionEvent) {
             needs_link_branch = link_branch;
             if (indent) {
-                if (!print_unconditional_branch("    recomp_trigger_event(rdram, ctx, event_indices[{}])", reloc_reference_symbol)) {
+                if (!print_unconditional_branch("    recomp_trigger_event(rdram, ctx, base_event_index + {})", reloc_reference_symbol)) {
                     return false;
                 }
             } else {
-                if (!print_unconditional_branch("recomp_trigger_event(rdram, ctx, event_indices[{}])", reloc_reference_symbol)) {
+                if (!print_unconditional_branch("recomp_trigger_event(rdram, ctx, base_event_index + {})", reloc_reference_symbol)) {
                     return false;
                 }
             }
