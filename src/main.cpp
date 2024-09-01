@@ -559,6 +559,16 @@ int main(int argc, char** argv) {
             "#include \"funcs.h\"\n"
             "\n",
             config.recomp_include);
+
+        // Print the extern for the base event index and the define to rename it if exports are allowed.
+        if (config.allow_exports) {
+            fmt::print(current_output_file,
+                "extern uint32_t builtin_base_event_index;\n"
+                "#define base_event_index builtin_base_event_index\n"
+                "\n"
+            );
+        }
+
         cur_file_function_count = 0;
         output_file_count++;
     };
@@ -571,9 +581,84 @@ int main(int argc, char** argv) {
             "#include \"funcs.h\"\n"
             "\n",
             config.recomp_include);
+
+        // Print the extern for the base event index and the define to rename it if exports are allowed.
+        if (config.allow_exports) {
+            fmt::print(current_output_file,
+                "extern uint32_t builtin_base_event_index;\n"
+                "#define base_event_index builtin_base_event_index\n"
+                "\n"
+            );
+        }
     }
     else if (config.functions_per_output_file > 1) {
         open_new_output_file();
+    }
+
+    std::unordered_map<size_t, size_t> function_index_to_event_index{};
+
+    // If exports are enabled, scan all the relocs and modify ones that point to an event function.
+    if (config.allow_exports) {
+        // First, find the event section by scanning for a section with the special name.
+        bool event_section_found = false;
+        size_t event_section_index = 0;
+        uint32_t event_section_vram = 0;
+        for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
+            const auto& section = context.sections[section_index];
+            if (section.name == N64Recomp::EventSectionName) {
+                event_section_found = true;
+                event_section_index = section_index;
+                event_section_vram = section.ram_addr;
+                break;
+            }
+        }
+
+        // If an event section was found, proceed with the reloc scanning.
+        if (event_section_found) {
+            for (auto& section : context.sections) {
+                for (auto& reloc : section.relocs) {
+                    // Event symbols aren't reference symbols, since they come from the elf itself.
+                    // Therefore, skip reference symbol relocs.
+                    if (reloc.reference_symbol) {
+                        continue;
+                    }
+
+                    // Check if the reloc points to the event section.
+                    if (reloc.target_section == event_section_index) {
+                        // It does, so find the function it's pointing at.
+                        size_t func_index = context.find_function_by_vram_section(reloc.target_section_offset + event_section_vram, event_section_index);
+
+                        if (func_index == (size_t)-1) {
+                            exit_failure(fmt::format("Failed to find event function with vram {}.\n", reloc.target_section_offset + event_section_vram));
+                        }
+
+                        // Ensure the reloc is a MIPS_R_26 one before modifying it, since those are the only type allowed to reference
+                        if (reloc.type != N64Recomp::RelocType::R_MIPS_26) {
+                            const auto& function = context.functions[func_index];
+                            exit_failure(fmt::format("Function {} is an import and cannot have its address taken.\n",
+                                function.name));
+                        }
+
+                        // Check if this function has been assigned an event index already, and assign it if not.
+                        size_t event_index;
+                        auto find_event_it = function_index_to_event_index.find(func_index);
+                        if (find_event_it != function_index_to_event_index.end()) {
+                            event_index = find_event_it->second;
+                        }
+                        else {
+                            event_index = function_index_to_event_index.size();
+                            function_index_to_event_index.emplace(func_index, event_index);
+                        }
+
+                        // Modify the reloc's fields accordingly.
+                        reloc.target_section_offset = 0;
+                        reloc.symbol_index = event_index;
+                        reloc.target_section = N64Recomp::SectionEvent;
+                        reloc.reference_symbol = true;
+                    }
+                }
+            }
+        }
     }
 
     std::vector<size_t> export_function_indices{};
@@ -840,19 +925,36 @@ int main(int argc, char** argv) {
         fmt::print(overlay_file, "}};\n");
 
         if (config.allow_exports) {
+            // Emit the exported function table.
             fmt::print(overlay_file, 
                 "\n"
                 "static FunctionExport export_table[] = {{\n"
             );
-
             for (size_t func_index : export_function_indices) {
                 const auto& func = context.functions[func_index];
                 fmt::print(overlay_file, "    {{ \"{}\", 0x{:08X} }},\n", func.name, func.vram);
             }
-
             // Add a dummy element at the end to ensure the array has a valid length because C doesn't allow zero-size arrays.
             fmt::print(overlay_file, "    {{ NULL, 0 }}\n");
+            fmt::print(overlay_file, "}};\n");
 
+            // Emit the event table.
+            std::vector<size_t> functions_by_event{};
+            functions_by_event.resize(function_index_to_event_index.size());
+            for (auto [func_index, event_index] : function_index_to_event_index) {
+                functions_by_event[event_index] = func_index;
+            }
+
+            fmt::print(overlay_file,
+                "\n"
+                "static const char* event_names[] = {{\n"
+            );
+            for (size_t func_index : functions_by_event) {
+                const auto& func = context.functions[func_index];
+                fmt::print(overlay_file, "    \"{}\",\n", func.name);
+            }
+            // Add a dummy element at the end to ensure the array has a valid length because C doesn't allow zero-size arrays.
+            fmt::print(overlay_file, "    NULL\n");
             fmt::print(overlay_file, "}};\n");
         }
     }
