@@ -136,6 +136,9 @@ int main(int argc, const char** argv) {
 
     output_file << "#include \"mod_recomp.h\"\n\n";
 
+    // Write the API version.
+    output_file << "RECOMP_EXPORT uint32_t recomp_api_version = 1;\n\n";
+
     output_file << "// Values populated by the runtime:\n\n";
 
     // Write import function pointer array and defines (i.e. `#define testmod_inner_import imported_funcs[0]`)
