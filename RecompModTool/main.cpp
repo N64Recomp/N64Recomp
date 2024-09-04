@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <iostream>
 #include <numeric>
+#include <cctype>
 #include "fmt/format.h"
 #include "n64recomp.h"
 #include <toml++/toml.hpp>
@@ -13,7 +14,8 @@ struct ModConfig {
     std::filesystem::path elf_path;
     std::filesystem::path func_reference_syms_file_path;
     std::vector<std::filesystem::path> data_reference_syms_file_paths;
-    std::vector<N64Recomp::Dependency> dependencies;
+    std::vector<std::string> dependencies;
+    std::vector<std::string> full_dependency_strings;
 };
 
 static std::filesystem::path concat_if_not_empty(const std::filesystem::path& parent, const std::filesystem::path& child) {
@@ -23,10 +25,14 @@ static std::filesystem::path concat_if_not_empty(const std::filesystem::path& pa
     return child;
 }
 
-static bool parse_version_string(std::string_view str, uint8_t& major, uint8_t& minor, uint8_t& patch) {
+static bool validate_version_string(std::string_view str) {
     std::array<size_t, 2> period_indices;
     size_t num_periods = 0;
     size_t cur_pos = 0;
+    uint16_t major;
+    uint16_t minor;
+    uint16_t patch;
+    std::string suffix;
 
     // Find the 2 required periods.
     cur_pos = str.find('.', cur_pos);
@@ -47,46 +53,75 @@ static bool parse_version_string(std::string_view str, uint8_t& major, uint8_t& 
     parse_results[1] = std::from_chars(str.data() + parse_starts[1], str.data() + parse_ends[1], minor);
     parse_results[2] = std::from_chars(str.data() + parse_starts[2], str.data() + parse_ends[2], patch);
 
-    // Check that all 3 parsed correctly.
+    // Check that the first two parsed correctly.
     auto did_parse = [&](size_t i) {
         return parse_results[i].ec == std::errc{} && parse_results[i].ptr == str.data() + parse_ends[i];
     };
     
-    
-    if (!did_parse(0) || !did_parse(1) || !did_parse(2)) {
+    if (!did_parse(0) || !did_parse(1)) {
         return false;
+    }
+
+    // Check that the third had a successful parse, but not necessarily read all the characters.
+    if (parse_results[2].ec != std::errc{}) {
+        return false;
+    }
+
+    // Allow a plus or minus directly after the third number.
+    if (parse_results[2].ptr != str.data() + parse_ends[2]) {
+        if (*parse_results[2].ptr == '+' || *parse_results[2].ptr == '-') {
+            suffix = str.substr(std::distance(str.data(), parse_results[2].ptr));
+        }
+        // Failed to parse, as nothing is allowed directly after the last number besides a plus or minus.
+        else {
+            return false;
+        }
     }
 
     return true;
 }
 
-static bool parse_dependency_string(const std::string& val, N64Recomp::Dependency& dep) {
-    N64Recomp::Dependency ret;
-    size_t id_pos = 0;
-    size_t id_length = 0;
+static bool validate_dependency_string(const std::string& val, size_t& name_length) {
+    std::string ret;
+    size_t name_length_temp;
 
+    // Don't allow an empty dependency name.
+    if (val.size() == 0) {
+        return false;
+    }
+    bool validated_name;
+    bool validated_version;
+
+    // Check if there's a version number specified.
     size_t colon_pos = val.find(':');
     if (colon_pos == std::string::npos) {
-        id_length = val.size();
-        ret.major_version = 0;
-        ret.minor_version = 0;
-        ret.patch_version = 0;
+        // No version present, so just validate the dependency's id.
+
+        validated_name = N64Recomp::validate_mod_id(std::string_view{val});
+        name_length_temp = val.size();
+        validated_version = true;
     }
     else {
-        id_length = colon_pos;
-        uint8_t major, minor, patch;
-        if (!parse_version_string(std::string_view{val.begin() + colon_pos + 1, val.end()}, major, minor, patch)) {
+        // Version present, validate it.
+
+        // Don't allow an empty dependency name after accounting for the colon.
+        if (colon_pos == 0) {
             return false;
         }
-        ret.major_version = major;
-        ret.minor_version = minor;
-        ret.patch_version = patch;
+        
+        name_length_temp = colon_pos;
+        
+        // Validate the dependency's id and version.
+        validated_name = N64Recomp::validate_mod_id(std::string_view{val.begin(), val.begin() + colon_pos});
+        validated_version = validate_version_string(std::string_view{val.begin() + colon_pos + 1, val.end()});
     }
 
-    ret.mod_id = val.substr(id_pos, id_length);
+    if (validated_name && validated_version) {
+        name_length = name_length_temp;
+        return true;
+    }
 
-    dep = std::move(ret);
-    return true;
+    return false;
 }
 
 static std::vector<std::filesystem::path> get_toml_path_array(const toml::array* toml_array, const std::filesystem::path& basedir) {
@@ -177,11 +212,13 @@ ModConfig parse_mod_config(const std::filesystem::path& config_path, bool& good)
             ret.dependencies.reserve(dependency_array->size());
             dependency_array->for_each([&ret](auto&& el) {
                 if constexpr (toml::is_string<decltype(el)>) {
-                    N64Recomp::Dependency dep;
-                    if (!parse_dependency_string(el.ref<std::string>(), dep)) {
+                    size_t dependency_id_length;
+                    if (!validate_dependency_string(el.ref<std::string>(), dependency_id_length)) {
                         throw toml::parse_error("Invalid dependency entry", el.source());
                     }
-                    ret.dependencies.emplace_back(std::move(dep));
+                    std::string dependency_id = el.ref<std::string>().substr(0, dependency_id_length);
+                    ret.dependencies.emplace_back(dependency_id);
+                    ret.full_dependency_strings.emplace_back(el.ref<std::string>());
                 }
                 else {
                     throw toml::parse_error("Invalid toml type for dependency", el.source());
@@ -215,7 +252,7 @@ bool parse_callback_name(std::string_view data, std::string& dependency_name, st
     std::string_view dependency_name_view = std::string_view{data}.substr(0, period_pos);
     std::string_view event_name_view = std::string_view{data}.substr(period_pos + 1);
 
-    if (!N64Recomp::validate_mod_name(dependency_name_view)) {
+    if (!N64Recomp::validate_mod_id(dependency_name_view)) {
         return false;
     }
 
@@ -253,7 +290,6 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
     ret.rom = input_context.rom;
 
     // Copy the dependency data from the input context.
-    ret.dependencies = input_context.dependencies;
     ret.dependencies_by_name = input_context.dependencies_by_name;
     ret.import_symbols = input_context.import_symbols;
     ret.dependency_events = input_context.dependency_events;
@@ -345,17 +381,17 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
         else if (import_section) {
             for (const auto& input_func_index : cur_section_funcs) {
                 const auto& cur_func = input_context.functions[input_func_index];
-                std::string dependency_name = cur_section.name.substr(N64Recomp::ImportSectionPrefix.size());
-                if (!N64Recomp::validate_mod_name(dependency_name)) {
-                    fmt::print("Failed to import function {} as {} is an invalid mod name.\n",
-                        cur_func.name, dependency_name);
+                std::string dependency_id = cur_section.name.substr(N64Recomp::ImportSectionPrefix.size());
+                if (!N64Recomp::validate_mod_id(dependency_id)) {
+                    fmt::print("Failed to import function {} as {} is an invalid mod id.\n",
+                        cur_func.name, dependency_id);
                     return {};
                 }
 
                 size_t dependency_index;
-                if (!ret.find_dependency(dependency_name, dependency_index)) {
+                if (!ret.find_dependency(dependency_id, dependency_index)) {
                     fmt::print("Failed to import function {} from mod {} as the mod is not a registered dependency.\n",
-                        cur_func.name, dependency_name);
+                        cur_func.name, dependency_id);
                     return {};
                 }
 

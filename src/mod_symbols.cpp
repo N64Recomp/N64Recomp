@@ -49,9 +49,6 @@ struct RelocV1 {
 };
 
 struct DependencyV1 {
-    uint8_t major_version;
-    uint8_t minor_version;
-    uint8_t patch_version;
     uint8_t reserved;
     uint32_t mod_id_start;
     uint32_t mod_id_size;
@@ -143,7 +140,6 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
 
     // TODO add proper creation methods for the remaining vectors and change these to reserves instead.
     mod_context.sections.resize(num_sections); // Add method
-    mod_context.dependencies.reserve(num_dependencies);
     mod_context.dependencies_by_name.reserve(num_dependencies); 
     mod_context.import_symbols.reserve(num_imports);
     mod_context.dependency_events.reserve(num_dependency_events);
@@ -274,7 +270,7 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
         }
 
         std::string_view mod_id{ string_data + mod_id_start, string_data + mod_id_start + mod_id_size };
-        mod_context.add_dependency(std::string{mod_id}, dependency_in.major_version, dependency_in.minor_version, dependency_in.patch_version);
+        mod_context.add_dependency(std::string{mod_id});
     }
 
     const ImportV1* imports = reinterpret_data<ImportV1>(data, offset, num_imports);
@@ -506,7 +502,7 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
 
     vec_put(ret, &header);
 
-    size_t num_dependencies = context.dependencies.size();
+    size_t num_dependencies = context.dependencies_by_name.size();
     size_t num_imported_funcs = context.import_symbols.size();
     size_t num_dependency_events = context.dependency_events.size();
 
@@ -533,15 +529,24 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
 
     // Build the string data from the exports and imports.
     size_t strings_start = ret.size();
+    
+    // Order the dependencies by their index. This isn't necessary, but it makes the dependency name order
+    // in the symbol file match the indices of the dependencies makes debugging easier.
+    std::vector<std::string> dependencies_ordered{};
+    dependencies_ordered.resize(context.dependencies_by_name.size());
+
+    for (const auto& [dependency, dependency_index] : context.dependencies_by_name) {
+        dependencies_ordered[dependency_index] = dependency;
+    }
 
     // Track the start of every dependency's name in the string data.
     std::vector<uint32_t> dependency_name_positions{};
     dependency_name_positions.resize(num_dependencies);
     for (size_t dependency_index = 0; dependency_index < num_dependencies; dependency_index++) {
-        const Dependency& dependency = context.dependencies[dependency_index];
+        const std::string& dependency = dependencies_ordered[dependency_index];
 
         dependency_name_positions[dependency_index] = static_cast<uint32_t>(ret.size() - strings_start);
-        vec_put(ret, dependency.mod_id);
+        vec_put(ret, dependency);
     }
 
     // Track the start of every imported function's name in the string data.
@@ -658,14 +663,11 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
 
     // Write the dependencies.
     for (size_t dependency_index = 0; dependency_index < num_dependencies; dependency_index++) {
-        const Dependency& dependency = context.dependencies[dependency_index];
+        const std::string& dependency = dependencies_ordered[dependency_index];
 
         DependencyV1 dependency_out {
-            .major_version = dependency.major_version,
-            .minor_version = dependency.minor_version,
-            .patch_version = dependency.patch_version,
             .mod_id_start = dependency_name_positions[dependency_index],
-            .mod_id_size = static_cast<uint32_t>(dependency.mod_id.size())
+            .mod_id_size = static_cast<uint32_t>(dependency.size())
         };
 
         vec_put(ret, &dependency_out);
