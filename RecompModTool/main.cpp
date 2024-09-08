@@ -9,6 +9,13 @@
 #include "n64recomp.h"
 #include <toml++/toml.hpp>
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#else
+#    error "Not implemented yet"
+#endif
+
 constexpr std::string_view symbol_filename = "mod_syms.bin";
 constexpr std::string_view binary_filename = "mod_binary.bin";
 constexpr std::string_view manifest_filename = "manifest.json";
@@ -37,6 +44,9 @@ struct ModConfig {
 };
 
 static std::filesystem::path concat_if_not_empty(const std::filesystem::path& parent, const std::filesystem::path& child) {
+    if (child.is_absolute()) {
+        return child;
+    }
     if (!child.empty()) {
         return parent / child;
     }
@@ -185,12 +195,12 @@ static const toml::array& read_toml_array(const toml::table& data, std::string_v
     return *value_node->as_array();
 }
 
-static std::vector<std::filesystem::path> get_toml_path_array(const toml::array* toml_array, const std::filesystem::path& basedir) {
+static std::vector<std::filesystem::path> get_toml_path_array(const toml::array& toml_array, const std::filesystem::path& basedir) {
     std::vector<std::filesystem::path> ret;
 
     // Reserve room for all the funcs in the map.
-    ret.reserve(toml_array->size());
-    toml_array->for_each([&ret, &basedir](auto&& el) {
+    ret.reserve(toml_array.size());
+    toml_array.for_each([&ret, &basedir](auto&& el) {
         if constexpr (toml::is_string<decltype(el)>) {
             ret.emplace_back(concat_if_not_empty(basedir, el.ref<std::string>()));
         }
@@ -316,7 +326,7 @@ ModInputs parse_mod_config_inputs(const std::filesystem::path& basedir, const to
     // Data reference symbols files
     toml::node_view data_reference_syms_file_data = inputs_table["data_reference_syms_files"];
     if (data_reference_syms_file_data.is_array()) {
-        const toml::array* array = data_reference_syms_file_data.as_array();
+        const toml::array& array = *data_reference_syms_file_data.as_array();
         ret.data_reference_syms_file_paths = get_toml_path_array(array, basedir);
     }
     else {
@@ -326,6 +336,12 @@ ModInputs parse_mod_config_inputs(const std::filesystem::path& basedir, const to
         else {
             throw toml::parse_error("Invalid data reference symbol file list", data_reference_syms_file_data.node()->source());
         }
+    }
+
+    // Additional files (optional)
+    const toml::array& additional_files_array = read_toml_array(inputs_table, "additional_files", false);
+    if (!additional_files_array.empty()) {
+        ret.additional_files = get_toml_path_array(additional_files_array, basedir);
     }
     
     return ret;
@@ -878,6 +894,62 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
     return ret;
 }
 
+bool create_mod_zip(const std::filesystem::path& output_dir, const ModConfig& config) {
+    std::filesystem::path output_path = output_dir / (config.manifest.mod_id + "-" + config.manifest.version_string + ".nrm");
+
+#ifdef _WIN32
+    std::filesystem::path temp_zip_path = output_path;
+    temp_zip_path.replace_extension(".zip");
+    std::string command_string = fmt::format("powershell -command Compress-Archive -Force -CompressionLevel Optimal -DestinationPath \"{}\" -Path \"{}\",\"{}\",\"{}\"",
+        temp_zip_path.string(), (output_dir / symbol_filename).string(), (output_dir / binary_filename).string(), (output_dir / manifest_filename).string());
+
+    for (const auto& cur_file : config.inputs.additional_files) {
+        command_string += fmt::format(",\"{}\"", cur_file.string());
+    }
+
+    STARTUPINFOA si{};
+    PROCESS_INFORMATION pi{};
+    
+    ZeroMemory( &si, sizeof(si) );
+    si.cb = sizeof(si);
+    ZeroMemory( &pi, sizeof(pi) );
+
+    std::vector<char> command_string_buffer;
+    command_string_buffer.resize(command_string.size() + 1);
+    std::copy(command_string.begin(), command_string.end(), command_string_buffer.begin());
+    command_string_buffer[command_string.size()] = '\x00';
+
+    if (!CreateProcessA(NULL, command_string_buffer.data(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+        fmt::print(stderr, "Process creation failed {}\n", GetLastError());
+        return false;
+    }
+
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    DWORD ec;
+    GetExitCodeProcess(pi.hProcess, &ec);
+
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+    if (ec != EXIT_SUCCESS) {
+        fmt::print(stderr, "Compress-Archive failed with exit code {}\n", ec);
+        return false;
+    }
+
+    std::error_code rename_ec;
+    std::filesystem::rename(temp_zip_path, output_path, rename_ec);
+    if (rename_ec != std::error_code{}) {
+        fmt::print(stderr, "Failed to rename temporary zip to output path\n");
+        return false;
+    }
+#else
+#    error "Not implemented yet"
+#endif
+
+    return true;
+}
+
 int main(int argc, const char** argv) {
     if (argc != 3) {
         fmt::print("Usage: {} [mod toml] [output folder]\n", argv[0]);
@@ -983,6 +1055,12 @@ int main(int argc, const char** argv) {
 
     // Write the manifest.
     write_manifest(output_manifest_path, config.manifest);
+
+    // Create the zip.
+    if (!create_mod_zip(output_dir, config)) {
+        fmt::print(stderr, "Failed to create mod file.\n");
+        return EXIT_FAILURE;
+    }
 
     return EXIT_SUCCESS;
 }
