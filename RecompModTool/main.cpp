@@ -13,7 +13,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #else
-#    error "Not implemented yet"
+#include <unistd.h>
+#include <sys/wait.h>
 #endif
 
 constexpr std::string_view symbol_filename = "mod_syms.bin";
@@ -202,10 +203,10 @@ static std::vector<std::filesystem::path> get_toml_path_array(const toml::array&
     ret.reserve(toml_array.size());
     toml_array.for_each([&ret, &basedir](auto&& el) {
         if constexpr (toml::is_string<decltype(el)>) {
-            ret.emplace_back(concat_if_not_empty(basedir, el.ref<std::string>()));
+            ret.emplace_back(concat_if_not_empty(basedir, el.template ref<std::string>()));
         }
         else {
-            throw toml::parse_error("Invalid type for data reference symbol file entry", el.source());
+            throw toml::parse_error("Invalid type for file entry", el.source());
         }
     });
 
@@ -229,7 +230,7 @@ ModManifest parse_mod_config_manifest(const std::filesystem::path& basedir, cons
     const toml::array& authors_array = read_toml_array(manifest_table, "authors", true);
     authors_array.for_each([&ret](auto&& el) {
         if constexpr (toml::is_string<decltype(el)>) {
-            ret.authors.emplace_back(el.ref<std::string>());
+            ret.authors.emplace_back(el.template ref<std::string>());
         }
         else {
             throw toml::parse_error("Invalid type for author entry", el.source());
@@ -260,7 +261,7 @@ ModManifest parse_mod_config_manifest(const std::filesystem::path& basedir, cons
                 std::vector<std::string> cur_funcs{};
                 funcs_array.for_each([&ret, &cur_funcs](const auto& func_el) {
                     if constexpr (toml::is_string<decltype(func_el)>) {
-                        cur_funcs.emplace_back(func_el.ref<std::string>());
+                        cur_funcs.emplace_back(func_el.template ref<std::string>());
                     }
                     else {
                         throw toml::parse_error("Invalid type for native library function entry", func_el.source());
@@ -283,15 +284,15 @@ ModManifest parse_mod_config_manifest(const std::filesystem::path& basedir, cons
             if constexpr (toml::is_string<decltype(el)>) {
                 size_t dependency_id_length;
                 bool dependency_version_has_label;
-                if (!validate_dependency_string(el.ref<std::string>(), dependency_id_length, dependency_version_has_label)) {
+                if (!validate_dependency_string(el.template ref<std::string>(), dependency_id_length, dependency_version_has_label)) {
                     throw toml::parse_error("Invalid dependency entry", el.source());
                 }
                 if (dependency_version_has_label) {
                     throw toml::parse_error("Dependency versions may not have labels", el.source());
                 }
-                std::string dependency_id = el.ref<std::string>().substr(0, dependency_id_length);
+                std::string dependency_id = el.template ref<std::string>().substr(0, dependency_id_length);
                 ret.dependencies.emplace_back(dependency_id);
-                ret.full_dependency_strings.emplace_back(el.ref<std::string>());
+                ret.full_dependency_strings.emplace_back(el.template ref<std::string>());
             }
             else {
                 throw toml::parse_error("Invalid type for dependency entry", el.source());
@@ -360,7 +361,7 @@ ModConfig parse_mod_config(const std::filesystem::path& config_path, bool& good)
         // Find the manifest section and validate its type.
         const toml::node* manifest_data_ptr = toml_data.get("manifest");
         if (manifest_data_ptr == nullptr) {
-            throw toml::parse_error("Mod toml is missing manifest section", {});
+            throw toml::parse_error("Mod toml is missing manifest section", toml::source_region{});
         }
         if (!manifest_data_ptr->is_table()) {
             throw toml::parse_error("Incorrect type for mod toml manifest section", manifest_data_ptr->source());
@@ -370,7 +371,7 @@ ModConfig parse_mod_config(const std::filesystem::path& config_path, bool& good)
         // Find the inputs section and validate its type.
         const toml::node* inputs_data_ptr = toml_data.get("inputs");
         if (inputs_data_ptr == nullptr) {
-            throw toml::parse_error("Mod toml is missing inputs section", {});
+            throw toml::parse_error("Mod toml is missing inputs section", toml::source_region{});
         }
         if (!inputs_data_ptr->is_table()) {
             throw toml::parse_error("Incorrect type for mod toml inputs section", inputs_data_ptr->source());
@@ -383,7 +384,7 @@ ModConfig parse_mod_config(const std::filesystem::path& config_path, bool& good)
         ret.inputs = parse_mod_config_inputs(basedir, inputs_table);
     }
     catch (const toml::parse_error& err) {
-        std::cerr << "Syntax error parsing toml: " << *err.source().path << " (" << err.source().begin <<  "):\n" << err.description() << std::endl;
+        std::cerr << "Syntax error parsing toml: " << config_path << " (" << err.source().begin <<  "):\n" << err.description() << std::endl;
         return {};
     }
 
@@ -944,7 +945,66 @@ bool create_mod_zip(const std::filesystem::path& output_dir, const ModConfig& co
         return false;
     }
 #else
-#    error "Not implemented yet"
+    std::string args_string{};
+    std::vector<size_t> arg_positions{};
+
+    // Adds an argument with a null terminator to args_string, which is used as a buffer to hold null terminated arguments.
+    // Also adds the argument's offset into the string into arg_positions for creating the array of character pointers for the exec.
+    auto add_arg = [&args_string, &arg_positions](const std::string& arg){
+        arg_positions.emplace_back(args_string.size());
+        args_string += (arg + '\x00');
+    };
+
+    add_arg("zip"); // The program name (argv[0]).
+    add_arg("-q"); // Quiet mode.
+    add_arg("-9"); // Maximum compression level.
+    add_arg("-MM"); // Error if any files aren't found.
+    add_arg("-j"); // Junk the paths (store just as the provided filename).
+    add_arg("-T"); // Test zip integrity.
+    add_arg(output_path.string());
+    add_arg((output_dir / symbol_filename).string());
+    add_arg((output_dir / binary_filename).string());
+    add_arg((output_dir / manifest_filename).string());
+
+    // Add arguments for every additional file in the archive.
+    for (const auto& cur_file : config.inputs.additional_files) {
+        add_arg(cur_file.string());
+    }
+
+    // Build the argument char* array in a vector.
+    std::vector<char*> arg_pointers{};
+    for (size_t arg_index = 0; arg_index < arg_positions.size(); arg_index++) {
+        arg_pointers.emplace_back(args_string.data() + arg_positions[arg_index]);
+    }
+
+    // Termimate the argument list with a null pointer.
+    arg_pointers.emplace_back(nullptr);
+
+    // Delete the output file if it exists already.
+    std::filesystem::remove(output_path);
+
+    // Fork-exec to run zip.
+    pid_t pid = fork();
+    if (pid == -1) {
+        fmt::print(stderr, "Failed to run \"zip\"\n");
+        return false;
+    }
+    else if (pid == 0) {
+        // This is the child process, so exec zip with the arguments.
+        execvp(arg_pointers[0], arg_pointers.data());
+    }
+    else {
+        // This is the parent process, so wait for the child process to complete and check its exit code.
+        int status;
+        if (waitpid(pid, &status, 0) == (pid_t)-1) {
+            fmt::print(stderr, "Waiting for \"zip\" failed\n");
+            return false;
+        }
+        if (status != EXIT_SUCCESS) {
+            fmt::print(stderr, "\"zip\" failed with exit code {}\n", status);
+            return false;
+        }
+    }
 #endif
 
     return true;
