@@ -5,17 +5,35 @@
 #include <numeric>
 #include <cctype>
 #include "fmt/format.h"
+#include "fmt/ostream.h"
 #include "n64recomp.h"
 #include <toml++/toml.hpp>
 
-struct ModConfig {
-    std::filesystem::path output_syms_path;
-    std::filesystem::path output_binary_path;
+constexpr std::string_view symbol_filename = "mod_syms.bin";
+constexpr std::string_view binary_filename = "mod_binary.bin";
+constexpr std::string_view manifest_filename = "manifest.json";
+
+struct ModManifest {
+    std::string mod_id;
+    std::string version_string;
+    std::vector<std::string> authors;
+    std::string game_id;
+    std::string minimum_recomp_version;
+    std::unordered_map<std::string, std::vector<std::string>> native_libraries;
+    std::vector<std::string> dependencies;
+    std::vector<std::string> full_dependency_strings;
+};
+
+struct ModInputs {
     std::filesystem::path elf_path;
     std::filesystem::path func_reference_syms_file_path;
     std::vector<std::filesystem::path> data_reference_syms_file_paths;
-    std::vector<std::string> dependencies;
-    std::vector<std::string> full_dependency_strings;
+    std::vector<std::filesystem::path> additional_files;
+};
+
+struct ModConfig {
+    ModManifest manifest;
+    ModInputs inputs;
 };
 
 static std::filesystem::path concat_if_not_empty(const std::filesystem::path& parent, const std::filesystem::path& child) {
@@ -25,14 +43,13 @@ static std::filesystem::path concat_if_not_empty(const std::filesystem::path& pa
     return child;
 }
 
-static bool validate_version_string(std::string_view str) {
+static bool validate_version_string(std::string_view str, bool& has_label) {
     std::array<size_t, 2> period_indices;
     size_t num_periods = 0;
     size_t cur_pos = 0;
     uint16_t major;
     uint16_t minor;
     uint16_t patch;
-    std::string suffix;
 
     // Find the 2 required periods.
     cur_pos = str.find('.', cur_pos);
@@ -69,19 +86,20 @@ static bool validate_version_string(std::string_view str) {
 
     // Allow a plus or minus directly after the third number.
     if (parse_results[2].ptr != str.data() + parse_ends[2]) {
-        if (*parse_results[2].ptr == '+' || *parse_results[2].ptr == '-') {
-            suffix = str.substr(std::distance(str.data(), parse_results[2].ptr));
-        }
-        // Failed to parse, as nothing is allowed directly after the last number besides a plus or minus.
-        else {
+        has_label = true;
+        if (*parse_results[2].ptr != '+' && *parse_results[2].ptr != '-') {
+            // Failed to parse, as nothing is allowed directly after the last number besides a plus or minus.
             return false;
         }
+    }
+    else {
+        has_label = false;
     }
 
     return true;
 }
 
-static bool validate_dependency_string(const std::string& val, size_t& name_length) {
+static bool validate_dependency_string(const std::string& val, size_t& name_length, bool& has_label) {
     std::string ret;
     size_t name_length_temp;
 
@@ -100,6 +118,7 @@ static bool validate_dependency_string(const std::string& val, size_t& name_leng
         validated_name = N64Recomp::validate_mod_id(std::string_view{val});
         name_length_temp = val.size();
         validated_version = true;
+        has_label = false;
     }
     else {
         // Version present, validate it.
@@ -113,7 +132,7 @@ static bool validate_dependency_string(const std::string& val, size_t& name_leng
         
         // Validate the dependency's id and version.
         validated_name = N64Recomp::validate_mod_id(std::string_view{val.begin(), val.begin() + colon_pos});
-        validated_version = validate_version_string(std::string_view{val.begin() + colon_pos + 1, val.end()});
+        validated_version = validate_version_string(std::string_view{val.begin() + colon_pos + 1, val.end()}, has_label);
     }
 
     if (validated_name && validated_version) {
@@ -122,6 +141,48 @@ static bool validate_dependency_string(const std::string& val, size_t& name_leng
     }
 
     return false;
+}
+
+template <typename T>
+static T read_toml_value(const toml::table& data, std::string_view key, bool required) {
+    const toml::node* value_node  = data.get(key);
+
+    if (value_node == nullptr) {
+        if (required) {
+            throw toml::parse_error(("Missing required field " + std::string{key}).c_str(), data.source());
+        }
+        else {
+            return T{};
+        }
+    }
+
+    std::optional<T> opt = value_node->value_exact<T>();
+    if (opt.has_value()) {
+        return opt.value();
+    }
+    else {
+        throw toml::parse_error(("Incorrect type for field " + std::string{key}).c_str(), data.source());
+    }
+}
+
+static const toml::array& read_toml_array(const toml::table& data, std::string_view key, bool required) {
+    static const toml::array empty_array = toml::array{};
+    const toml::node* value_node = data.get(key);
+
+    if (value_node == nullptr) {
+        if (required) {
+            throw toml::parse_error(("Missing required field " + std::string{ key }).c_str(), data.source());
+        }
+        else {
+            return empty_array;
+        }
+    }
+
+    if (!value_node->is_array()) {
+        throw toml::parse_error(("Incorrect type for field " + std::string{ key }).c_str(), value_node->source());
+    }
+
+    return *value_node->as_array();
 }
 
 static std::vector<std::filesystem::path> get_toml_path_array(const toml::array* toml_array, const std::filesystem::path& basedir) {
@@ -141,6 +202,135 @@ static std::vector<std::filesystem::path> get_toml_path_array(const toml::array*
     return ret;
 }
 
+ModManifest parse_mod_config_manifest(const std::filesystem::path& basedir, const toml::table& manifest_table) {
+    ModManifest ret;
+
+    // Mod ID
+    ret.mod_id = read_toml_value<std::string_view>(manifest_table, "id", true);
+
+    // Mod version
+    ret.version_string = read_toml_value<std::string_view>(manifest_table, "version", true);
+    bool version_has_label;
+    if (!validate_version_string(ret.version_string, version_has_label)) {
+        throw toml::parse_error("Invalid mod version", manifest_table["version"].node()->source());
+    }
+
+    // Authors
+    const toml::array& authors_array = read_toml_array(manifest_table, "authors", true);
+    authors_array.for_each([&ret](auto&& el) {
+        if constexpr (toml::is_string<decltype(el)>) {
+            ret.authors.emplace_back(el.ref<std::string>());
+        }
+        else {
+            throw toml::parse_error("Invalid type for author entry", el.source());
+        }
+    });
+   
+    // Game ID
+    ret.game_id = read_toml_value<std::string_view>(manifest_table, "game_id", true);
+
+    // Minimum recomp version
+    ret.minimum_recomp_version = read_toml_value<std::string_view>(manifest_table, "minimum_recomp_version", true);
+    bool minimum_recomp_version_has_label;
+    if (!validate_version_string(ret.minimum_recomp_version, minimum_recomp_version_has_label)) {
+        throw toml::parse_error("Invalid minimum recomp version", manifest_table["minimum_recomp_version"].node()->source());
+    }
+    if (minimum_recomp_version_has_label) {
+        throw toml::parse_error("Minimum recomp version may not have a label", manifest_table["minimum_recomp_version"].node()->source());
+    }
+
+    // Native libraries (optional)
+    const toml::array& native_libraries = read_toml_array(manifest_table, "native_libraries", false);
+    if (!native_libraries.empty()) {
+        native_libraries.for_each([&ret](const auto& el) {
+            if constexpr (toml::is_table<decltype(el)>) {
+                const toml::table& el_table = *el.as_table();
+                std::string_view library_name = read_toml_value<std::string_view>(el_table, "name", true);
+                const toml::array funcs_array = read_toml_array(el_table, "funcs", true);
+                std::vector<std::string> cur_funcs{};
+                funcs_array.for_each([&ret, &cur_funcs](const auto& func_el) {
+                    if constexpr (toml::is_string<decltype(func_el)>) {
+                        cur_funcs.emplace_back(func_el.ref<std::string>());
+                    }
+                    else {
+                        throw toml::parse_error("Invalid type for native library function entry", func_el.source());
+                    }
+                });
+                ret.native_libraries.emplace(std::string{library_name}, std::move(cur_funcs));
+            }
+            else {
+                throw toml::parse_error("Invalid type for native library entry", el.source());
+            }
+        });
+    }
+
+    // Dependency list (optional)
+    const toml::array& dependency_array = read_toml_array(manifest_table, "dependencies", false);
+    if (!dependency_array.empty()) {
+        // Reserve room for all the dependencies.
+        ret.dependencies.reserve(dependency_array.size());
+        dependency_array.for_each([&ret](const auto& el) {
+            if constexpr (toml::is_string<decltype(el)>) {
+                size_t dependency_id_length;
+                bool dependency_version_has_label;
+                if (!validate_dependency_string(el.ref<std::string>(), dependency_id_length, dependency_version_has_label)) {
+                    throw toml::parse_error("Invalid dependency entry", el.source());
+                }
+                if (dependency_version_has_label) {
+                    throw toml::parse_error("Dependency versions may not have labels", el.source());
+                }
+                std::string dependency_id = el.ref<std::string>().substr(0, dependency_id_length);
+                ret.dependencies.emplace_back(dependency_id);
+                ret.full_dependency_strings.emplace_back(el.ref<std::string>());
+            }
+            else {
+                throw toml::parse_error("Invalid type for dependency entry", el.source());
+            }
+        });
+    }
+
+    return ret;
+}
+
+ModInputs parse_mod_config_inputs(const std::filesystem::path& basedir, const toml::table& inputs_table) {
+    ModInputs ret;
+
+    // Elf file
+    std::optional<std::string> elf_path_opt = inputs_table["elf_path"].value<std::string>();
+    if (elf_path_opt.has_value()) {
+        ret.elf_path = concat_if_not_empty(basedir, elf_path_opt.value());
+    }
+    else {
+        throw toml::parse_error("Mod toml input section is missing elf file", inputs_table.source());
+    }
+
+    // Function reference symbols file
+    std::optional<std::string> func_reference_syms_file_opt = inputs_table["func_reference_syms_file"].value<std::string>();
+    if (func_reference_syms_file_opt.has_value()) {
+        ret.func_reference_syms_file_path = concat_if_not_empty(basedir, func_reference_syms_file_opt.value());
+    }
+    else {
+        throw toml::parse_error("Mod toml input section is missing function reference symbol file", inputs_table.source());
+    }
+    
+    // Data reference symbols files
+    toml::node_view data_reference_syms_file_data = inputs_table["data_reference_syms_files"];
+    if (data_reference_syms_file_data.is_array()) {
+        const toml::array* array = data_reference_syms_file_data.as_array();
+        ret.data_reference_syms_file_paths = get_toml_path_array(array, basedir);
+    }
+    else {
+        if (data_reference_syms_file_data) {
+            throw toml::parse_error("Mod toml input section is missing data reference symbol file list", inputs_table.source());
+        }
+        else {
+            throw toml::parse_error("Invalid data reference symbol file list", data_reference_syms_file_data.node()->source());
+        }
+    }
+    
+    return ret;
+}
+
 ModConfig parse_mod_config(const std::filesystem::path& config_path, bool& good) {
     ModConfig ret{};
     good = false;
@@ -151,83 +341,30 @@ ModConfig parse_mod_config(const std::filesystem::path& config_path, bool& good)
         toml_data = toml::parse_file(config_path.native());
         std::filesystem::path basedir = config_path.parent_path();
         
-        const auto config_data = toml_data["config"];
+        // Find the manifest section and validate its type.
+        const toml::node* manifest_data_ptr = toml_data.get("manifest");
+        if (manifest_data_ptr == nullptr) {
+            throw toml::parse_error("Mod toml is missing manifest section", {});
+        }
+        if (!manifest_data_ptr->is_table()) {
+            throw toml::parse_error("Incorrect type for mod toml manifest section", manifest_data_ptr->source());
+        }
+        const toml::table& manifest_table = *manifest_data_ptr->as_table();
 
-        // Output symbol file path
-        std::optional<std::string> output_syms_path_opt = config_data["output_syms_path"].value<std::string>();
-        if (output_syms_path_opt.has_value()) {
-            ret.output_syms_path = concat_if_not_empty(basedir, output_syms_path_opt.value());
+        // Find the inputs section and validate its type.
+        const toml::node* inputs_data_ptr = toml_data.get("inputs");
+        if (inputs_data_ptr == nullptr) {
+            throw toml::parse_error("Mod toml is missing inputs section", {});
         }
-        else {
-            throw toml::parse_error("Mod toml is missing output symbol file path", config_data.node()->source());
+        if (!inputs_data_ptr->is_table()) {
+            throw toml::parse_error("Incorrect type for mod toml inputs section", inputs_data_ptr->source());
         }
+        const toml::table& inputs_table = *inputs_data_ptr->as_table();
 
-        // Output binary file path
-        std::optional<std::string> output_binary_path_opt = config_data["output_binary_path"].value<std::string>();
-        if (output_binary_path_opt.has_value()) {
-            ret.output_binary_path = concat_if_not_empty(basedir, output_binary_path_opt.value());
-        }
-        else {
-            throw toml::parse_error("Mod toml is missing output binary file path", config_data.node()->source());
-        }
-
-        // Elf file
-        std::optional<std::string> elf_path_opt = config_data["elf_path"].value<std::string>();
-        if (elf_path_opt.has_value()) {
-            ret.elf_path = concat_if_not_empty(basedir, elf_path_opt.value());
-        }
-        else {
-            throw toml::parse_error("Mod toml is missing elf file", config_data.node()->source());
-        }
-        
-        // Function reference symbols file
-        std::optional<std::string> func_reference_syms_file_opt = config_data["func_reference_syms_file"].value<std::string>();
-        if (func_reference_syms_file_opt.has_value()) {
-            ret.func_reference_syms_file_path = concat_if_not_empty(basedir, func_reference_syms_file_opt.value());
-        }
-        else {
-            throw toml::parse_error("Mod toml is missing function reference symbol file", config_data.node()->source());
-        }
-
-        // Data reference symbols files
-        toml::node_view data_reference_syms_file_data = config_data["data_reference_syms_files"];
-        if (data_reference_syms_file_data.is_array()) {
-            const toml::array* array = data_reference_syms_file_data.as_array();
-            ret.data_reference_syms_file_paths = get_toml_path_array(array, basedir);
-        }
-        else {
-            if (data_reference_syms_file_data) {
-                throw toml::parse_error("Mod toml is missing data reference symbol file list", config_data.node()->source());
-            }
-            else {
-                throw toml::parse_error("Invalid data reference symbol file list", data_reference_syms_file_data.node()->source());
-            }
-        }
-        
-        // Dependency list (optional)
-        toml::node_view dependency_data = config_data["dependencies"];
-        if (dependency_data.is_array()) {
-            const toml::array* dependency_array = dependency_data.as_array();
-            // Reserve room for all the dependencies.
-            ret.dependencies.reserve(dependency_array->size());
-            dependency_array->for_each([&ret](auto&& el) {
-                if constexpr (toml::is_string<decltype(el)>) {
-                    size_t dependency_id_length;
-                    if (!validate_dependency_string(el.ref<std::string>(), dependency_id_length)) {
-                        throw toml::parse_error("Invalid dependency entry", el.source());
-                    }
-                    std::string dependency_id = el.ref<std::string>().substr(0, dependency_id_length);
-                    ret.dependencies.emplace_back(dependency_id);
-                    ret.full_dependency_strings.emplace_back(el.ref<std::string>());
-                }
-                else {
-                    throw toml::parse_error("Invalid toml type for dependency", el.source());
-                }
-            });
-        }
-        else if (dependency_data) {
-            throw toml::parse_error("Invalid mod dependency list", dependency_data.node()->source());
-        }
+        // Parse the manifest.
+        ret.manifest = parse_mod_config_manifest(basedir, manifest_table);
+        // Parse the inputs.
+        ret.inputs = parse_mod_config_inputs(basedir, inputs_table);
     }
     catch (const toml::parse_error& err) {
         std::cerr << "Syntax error parsing toml: " << *err.source().path << " (" << err.source().begin <<  "):\n" << err.description() << std::endl;
@@ -259,6 +396,59 @@ bool parse_callback_name(std::string_view data, std::string& dependency_name, st
     dependency_name = dependency_name_view;
     event_name = event_name_view;
     return true;
+}
+
+void print_vector_elements(std::ostream& output_file, const std::vector<std::string>& vec, bool compact) {
+    char separator = compact ? ' ' : '\n';
+    for (size_t i = 0; i < vec.size(); i++) {
+        const std::string& val = vec[i];
+        fmt::print(output_file, "{}\"{}\"{}{}",
+            compact ? "" : "        ", val, i == vec.size() - 1 ? "" : ",", separator);
+    }
+}
+
+void write_manifest(const std::filesystem::path& path, const ModManifest& manifest) {
+    std::ofstream output_file(path);
+
+    fmt::print(output_file,
+        "{{\n"
+        "    \"game_id\": \"{}\",\n"
+        "    \"id\": \"{}\",\n"
+        "    \"version\": \"{}\",\n"
+        "    \"authors\": [\n",
+        manifest.game_id, manifest.mod_id, manifest.version_string);
+
+    print_vector_elements(output_file, manifest.authors, false);
+
+    fmt::print(output_file, 
+        "    ],\n"
+        "    \"minimum_recomp_version\": \"{}\"",
+        manifest.minimum_recomp_version);
+
+    if (!manifest.native_libraries.empty()) {
+        fmt::print(output_file, ",\n"
+            "    \"native_libraries\": {{\n");
+        size_t library_index = 0; 
+        for (const auto& [library, funcs] : manifest.native_libraries) {
+            fmt::print(output_file, "        \"{}\": [ ",
+                library);
+            print_vector_elements(output_file, funcs, true);
+            fmt::print(output_file, "]{}\n",
+                library_index == manifest.native_libraries.size() - 1 ? "" : ",");
+            library_index++;
+        }
+        fmt::print(output_file, "    }}");
+    }
+
+    if (!manifest.full_dependency_strings.empty()) {
+        fmt::print(output_file, ",\n"
+            "    \"dependencies\": [\n");
+        print_vector_elements(output_file, manifest.full_dependency_strings, false);
+        fmt::print(output_file, "    ]");
+    }
+
+
+    fmt::print(output_file, "\n}}\n");
 }
 
 N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bool& good) {
@@ -689,12 +879,24 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
 }
 
 int main(int argc, const char** argv) {
-    if (argc != 2) {
-        fmt::print("Usage: {} [mod toml]\n", argv[0]);
+    if (argc != 3) {
+        fmt::print("Usage: {} [mod toml] [output folder]\n", argv[0]);
         return EXIT_SUCCESS;
     }
 
     bool config_good;
+    std::filesystem::path output_dir{ argv[2] };
+
+    if (!std::filesystem::exists(output_dir)) {
+        fmt::print(stderr, "Specified output folder does not exist!\n");
+        return EXIT_FAILURE;
+    }
+
+    if (!std::filesystem::is_directory(output_dir)) {
+        fmt::print(stderr, "Specified output folder is not a folder!\n");
+        return EXIT_FAILURE;
+    }
+
     ModConfig config = parse_mod_config(argv[1], config_good);
 
     if (!config_good) {
@@ -709,7 +911,7 @@ int main(int argc, const char** argv) {
         // Create a new temporary context to read the function reference symbol file into, since it's the same format as the recompilation symbol file.
         std::vector<uint8_t> dummy_rom{};
         N64Recomp::Context reference_context{};
-        if (!N64Recomp::Context::from_symbol_file(config.func_reference_syms_file_path, std::move(dummy_rom), reference_context, false)) {
+        if (!N64Recomp::Context::from_symbol_file(config.inputs.func_reference_syms_file_path, std::move(dummy_rom), reference_context, false)) {
             fmt::print(stderr, "Failed to load provided function reference symbol file\n");
             return EXIT_FAILURE;
         }
@@ -721,7 +923,7 @@ int main(int argc, const char** argv) {
         }
     }
 
-    for (const std::filesystem::path& cur_data_sym_path : config.data_reference_syms_file_paths) {
+    for (const std::filesystem::path& cur_data_sym_path : config.inputs.data_reference_syms_file_paths) {
         if (!context.read_data_reference_syms(cur_data_sym_path)) {
             fmt::print(stderr, "Failed to load provided data reference symbol file: {}\n", cur_data_sym_path.string());
             return EXIT_FAILURE;
@@ -729,7 +931,7 @@ int main(int argc, const char** argv) {
     }
 
     // Copy the dependencies from the config into the context.
-    context.add_dependencies(config.dependencies);
+    context.add_dependencies(config.manifest.dependencies);
 
     N64Recomp::ElfParsingConfig elf_config {
         .bss_section_suffix = {},
@@ -743,7 +945,7 @@ int main(int argc, const char** argv) {
     };
     bool dummy_found_entrypoint;
     N64Recomp::DataSymbolMap dummy_syms_map;
-    bool elf_good = N64Recomp::Context::from_elf_file(config.elf_path, context, elf_config, false, dummy_syms_map, dummy_found_entrypoint);
+    bool elf_good = N64Recomp::Context::from_elf_file(config.inputs.elf_path, context, elf_config, false, dummy_syms_map, dummy_found_entrypoint);
 
     if (!elf_good) {
         fmt::print(stderr, "Failed to parse mod elf\n");
@@ -763,11 +965,24 @@ int main(int argc, const char** argv) {
         return EXIT_FAILURE;
     }
 
-    std::ofstream output_syms_file{ config.output_syms_path, std::ios::binary };
-    output_syms_file.write(reinterpret_cast<const char*>(symbols_bin.data()), symbols_bin.size());
+    std::filesystem::path output_syms_path = output_dir / symbol_filename;
+    std::filesystem::path output_binary_path = output_dir / binary_filename;
+    std::filesystem::path output_manifest_path = output_dir / manifest_filename;
 
-    std::ofstream output_binary_file{ config.output_binary_path, std::ios::binary };
-    output_binary_file.write(reinterpret_cast<const char*>(mod_context.rom.data()), mod_context.rom.size());
+    // Write the symbol file.
+    {
+       std::ofstream output_syms_file{ output_syms_path, std::ios::binary };
+       output_syms_file.write(reinterpret_cast<const char*>(symbols_bin.data()), symbols_bin.size());
+    }
+
+    // Write the binary file.
+    {
+       std::ofstream output_binary_file{ output_binary_path, std::ios::binary };
+       output_binary_file.write(reinterpret_cast<const char*>(mod_context.rom.data()), mod_context.rom.size());
+    }
+
+    // Write the manifest.
+    write_manifest(output_manifest_path, config.manifest);
 
     return EXIT_SUCCESS;
 }
