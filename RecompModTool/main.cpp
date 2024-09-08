@@ -589,14 +589,14 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
                 const auto& cur_func = input_context.functions[input_func_index];
                 std::string dependency_id = cur_section.name.substr(N64Recomp::ImportSectionPrefix.size());
                 if (!N64Recomp::validate_mod_id(dependency_id)) {
-                    fmt::print("Failed to import function {} as {} is an invalid mod id.\n",
+                    fmt::print(stderr, "Failed to import function {} as {} is an invalid mod id.\n",
                         cur_func.name, dependency_id);
                     return {};
                 }
 
                 size_t dependency_index;
                 if (!ret.find_dependency(dependency_id, dependency_index)) {
-                    fmt::print("Failed to import function {} from mod {} as the mod is not a registered dependency.\n",
+                    fmt::print(stderr, "Failed to import function {} from mod {} as the mod is not a registered dependency.\n",
                         cur_func.name, dependency_id);
                     return {};
                 }
@@ -619,14 +619,14 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
 
                     // Check that the function being patched exists in the original reference symbols.
                     if (!original_func_exists) {
-                        fmt::print("Function {} is marked as a patch but doesn't exist in the original ROM.\n", cur_func.name);
+                        fmt::print(stderr, "Function {} is marked as a patch but doesn't exist in the original ROM.\n", cur_func.name);
                         return {};
                     }
 
                     // Check that the reference symbol is actually a function.
                     const auto& reference_symbol = input_context.get_reference_symbol(cur_reference);
                     if (!reference_symbol.is_function) {
-                        fmt::print("Function {0} is marked as a patch, but {0} was a variable in the original ROM.\n", cur_func.name);
+                        fmt::print(stderr, "Function {0} is marked as a patch, but {0} was a variable in the original ROM.\n", cur_func.name);
                         return {};
                     }
 
@@ -655,27 +655,27 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
                 if (callback_section) {
                     std::string dependency_name, event_name;
                     if (!parse_callback_name(std::string_view{ cur_section.name }.substr(N64Recomp::CallbackSectionPrefix.size()), dependency_name, event_name)) {
-                        fmt::print("Invalid mod name or event name for callback function {}.\n",
+                        fmt::print(stderr, "Invalid mod name or event name for callback function {}.\n",
                             cur_func.name);
                         return {};
                     }
 
                     size_t dependency_index;
                     if (!ret.find_dependency(dependency_name, dependency_index)) {
-                        fmt::print("Failed to register callback {} to event {} from mod {} as the mod is not a registered dependency.\n",
+                        fmt::print(stderr, "Failed to register callback {} to event {} from mod {} as the mod is not a registered dependency.\n",
                             cur_func.name, event_name, dependency_name);
                         return {};
                     }
 
                     size_t event_index;
                     if (!ret.add_dependency_event(event_name, dependency_index, event_index)) {
-                        fmt::print("Internal error: Failed to register event {} for dependency {}. Please report this issue.\n",
+                        fmt::print(stderr, "Internal error: Failed to register event {} for dependency {}. Please report this issue.\n",
                             event_name, dependency_name);
                         return {};
                     }
 
                     if (!ret.add_callback(event_index, output_func_index)) {
-                        fmt::print("Internal error: Failed to add callback {} to event {} in dependency {}. Please report this issue.\n",
+                        fmt::print(stderr, "Internal error: Failed to add callback {} to event {} in dependency {}. Please report this issue.\n",
                             cur_func.name, event_name, dependency_name);
                         return {};
                     }
@@ -741,7 +741,7 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
                                 reloc_word |= reloc_target_address & 0xFFFF;
                                 break;
                             default:
-                                fmt::print("Unsupported or unknown relocation type {} in reloc at address 0x{:08X} in section {}.\n",
+                                fmt::print(stderr, "Unsupported or unknown relocation type {} in reloc at address 0x{:08X} in section {}.\n",
                                     (int)cur_reloc.type, cur_reloc.address, cur_section.name);
                                 return {};
                         }
@@ -761,7 +761,7 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
                     // to the event symbol, creating the event symbol if necessary.
                     if (target_section.name == N64Recomp::EventSectionName) {
                         if (cur_reloc.type != N64Recomp::RelocType::R_MIPS_26) {
-                            fmt::print("Symbol {} is an event and cannot have its address taken.\n",
+                            fmt::print(stderr, "Symbol {} is an event and cannot have its address taken.\n",
                                 cur_section.name);
                             return {};
                         }
@@ -769,7 +769,7 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
                         uint32_t target_function_vram = cur_reloc.target_section_offset + target_section.ram_addr;
                         size_t target_function_index = input_context.find_function_by_vram_section(target_function_vram, cur_reloc.target_section);
                         if (target_function_index == (size_t)-1) {
-                            fmt::print("Internal error: Failed to find event symbol in section {} with offset 0x{:08X} (vram 0x{:08X}). Please report this issue.\n",
+                            fmt::print(stderr, "Internal error: Failed to find event symbol in section {} with offset 0x{:08X} (vram 0x{:08X}). Please report this issue.\n",
                                 target_section.name, cur_reloc.target_section_offset, target_function_vram);
                             return {};
                         }
@@ -798,7 +798,7 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
                     // to the import symbol, creating the import symbol if necessary.
                     else if (target_section.name.starts_with(N64Recomp::ImportSectionPrefix)) {
                         if (cur_reloc.type != N64Recomp::RelocType::R_MIPS_26) {
-                            fmt::print("Symbol {} is an import and cannot have its address taken.\n",
+                            fmt::print(stderr, "Symbol {} is an import and cannot have its address taken.\n",
                                 cur_section.name);
                             return {};
                         }
@@ -806,7 +806,7 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
                         uint32_t target_function_vram = cur_reloc.target_section_offset + target_section.ram_addr;
                         size_t target_function_index = input_context.find_function_by_vram_section(target_function_vram, cur_reloc.target_section);
                         if (target_function_index == (size_t)-1) {
-                            fmt::print("Internal error: Failed to find import symbol in section {} with offset 0x{:08X} (vram 0x{:08X}). Please report this issue.\n",
+                            fmt::print(stderr, "Internal error: Failed to find import symbol in section {} with offset 0x{:08X} (vram 0x{:08X}). Please report this issue.\n",
                                 target_section.name, cur_reloc.target_section_offset, target_function_vram);
                             return {};
                         }
@@ -817,7 +817,7 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
                         std::string dependency_name = target_section.name.substr(N64Recomp::ImportSectionPrefix.size());
                         size_t dependency_index;
                         if (!ret.find_dependency(dependency_name, dependency_index)) {
-                            fmt::print("Failed to import function {} from mod {} as the mod is not a registered dependency.\n",
+                            fmt::print(stderr, "Failed to import function {} from mod {} as the mod is not a registered dependency.\n",
                                 target_function.name, dependency_name);
                             return {};
                         }
@@ -845,7 +845,7 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
                         uint32_t target_rom_to_ram = target_section.ram_addr - target_section.rom_addr;
                         bool is_noload = target_section.rom_addr == (uint32_t)-1;
                         if (!is_noload && target_rom_to_ram != cur_rom_to_ram) {
-                            fmt::print("Reloc at address 0x{:08X} in section {} points to a different section.\n",
+                            fmt::print(stderr, "Reloc at address 0x{:08X} in section {} points to a different section.\n",
                                 cur_reloc.address, cur_section.name);
                             return {};
                         }
@@ -872,7 +872,7 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
                 uint16_t input_section_index = reloc.target_section;
                 auto find_it = input_section_to_output_section.find(input_section_index);
                 if (find_it == input_section_to_output_section.end()) {
-                    fmt::print("Reloc at address 0x{:08X} references section {}, which didn't get mapped to an output section\n",
+                    fmt::print(stderr, "Reloc at address 0x{:08X} references section {}, which didn't get mapped to an output section\n",
                         reloc.address, input_context.sections[input_section_index].name);
                     return {};
                 }
