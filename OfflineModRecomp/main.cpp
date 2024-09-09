@@ -24,17 +24,9 @@ static std::vector<uint8_t> read_file(const std::filesystem::path& path, bool& f
     return ret;
 }
 
-const std::filesystem::path func_reference_syms_file_path {
-    "C:/n64/MMRecompTestMod/Zelda64RecompSyms/mm.us.rev1.syms.toml"
-};
-const std::vector<std::filesystem::path> data_reference_syms_file_paths {
-    "C:/n64/MMRecompTestMod/Zelda64RecompSyms/mm.us.rev1.datasyms.toml",
-    "C:/n64/MMRecompTestMod/Zelda64RecompSyms/mm.us.rev1.datasyms_static.toml"
-};
-
 int main(int argc, const char** argv) {
-    if (argc != 4) {
-        printf("Usage: %s [mod symbol file] [ROM] [output C file]\n", argv[0]);
+    if (argc != 5) {
+        printf("Usage: %s [mod symbol file] [mod binary file] [recomp symbols file] [output C file]\n", argv[0]);
         return EXIT_SUCCESS;
     }
     bool found;
@@ -54,7 +46,7 @@ int main(int argc, const char** argv) {
 
     std::vector<uint8_t> dummy_rom{};
     N64Recomp::Context reference_context{};
-    if (!N64Recomp::Context::from_symbol_file(func_reference_syms_file_path, std::move(dummy_rom), reference_context, false)) {
+    if (!N64Recomp::Context::from_symbol_file(argv[3], std::move(dummy_rom), reference_context, false)) {
         printf("Failed to load provided function reference symbol file\n");
         return EXIT_FAILURE;
     }
@@ -126,7 +118,7 @@ int main(int argc, const char** argv) {
     std::vector<std::vector<uint32_t>> static_funcs_by_section{};
     static_funcs_by_section.resize(mod_context.sections.size());
 
-    std::ofstream output_file { argv[3] };
+    std::ofstream output_file { argv[4] };
 
     RabbitizerConfig_Cfg.pseudos.pseudoMove = false;
     RabbitizerConfig_Cfg.pseudos.pseudoBeqz = false;
