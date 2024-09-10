@@ -568,8 +568,11 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
         
         const auto& cur_section_funcs = input_context.section_functions[section_index];
 
-        // Skip the functions and relocs in this section if it's the event section, instead opting to create
-        // event functions from the section's functions.
+
+        // Skip the functions and relocs in this section if it's the event section, instead opting to create event functions from the section's functions.
+        // This has to be done to find events that are never called, which may pop up as a valid use case for maintaining backwards compatibility
+        // if a mod removes a call to an event but doesn't want to break mods that reference it. If this code wasn't present, then only events that are actually
+        // triggered would show up in the mod's symbol file.
         if (event_section) {
             // Create event reference symbols for any functions in the event section. Ignore functions that already
             // have a symbol, since relocs from previous sections may have triggered creation of the event's reference symbol already.
@@ -583,30 +586,9 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
                 }
             }
         }
-        // Skip the functions and relocs in this section if it's an import section, instead opting to create
-        // import symbols from the section's functions.
-        else if (import_section) {
-            for (const auto& input_func_index : cur_section_funcs) {
-                const auto& cur_func = input_context.functions[input_func_index];
-                std::string dependency_id = cur_section.name.substr(N64Recomp::ImportSectionPrefix.size());
-                if (!N64Recomp::validate_mod_id(dependency_id)) {
-                    fmt::print(stderr, "Failed to import function {} as {} is an invalid mod id.\n",
-                        cur_func.name, dependency_id);
-                    return {};
-                }
-
-                size_t dependency_index;
-                if (!ret.find_dependency(dependency_id, dependency_index)) {
-                    fmt::print(stderr, "Failed to import function {} from mod {} as the mod is not a registered dependency.\n",
-                        cur_func.name, dependency_id);
-                    return {};
-                }
-
-                ret.add_import_symbol(cur_func.name, dependency_index);
-            }
-        }
-        // Normal section, copy the functions and relocs over.
-        else {
+        // Otherwise, copy the functions and relocs over from this section into the output context.
+        // Import sections can be skipped, as those only contain dummy functions. Imports will be found while scanning relocs.
+        else if (!import_section) {
             for (size_t section_function_index = 0; section_function_index < cur_section_funcs.size(); section_function_index++) {
                 size_t output_func_index = ret.functions.size();
                 size_t input_func_index = cur_section_funcs[section_function_index];
