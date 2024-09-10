@@ -70,9 +70,9 @@ namespace N64Recomp {
     constexpr std::string_view ImportSectionPrefix = ".recomp_import.";
     constexpr std::string_view CallbackSectionPrefix = ".recomp_callback.";
 
-    // Special mod names.
-    constexpr std::string_view ModSelf = ".";
-    constexpr std::string_view ModBaseRecomp = "*";
+    // Special dependency names.
+    constexpr std::string_view DependencySelf = ".";
+    constexpr std::string_view DependencyBaseRecomp = "*";
 
     struct Section {
         uint32_t rom_addr = 0;
@@ -127,13 +127,6 @@ namespace N64Recomp {
     extern const std::unordered_set<std::string> reimplemented_funcs;
     extern const std::unordered_set<std::string> ignored_funcs;
     extern const std::unordered_set<std::string> renamed_funcs;
-
-    struct Dependency {
-        uint8_t major_version;
-        uint8_t minor_version;
-        uint8_t patch_version;
-        std::string mod_id;
-    };
 
     struct ImportSymbol {
         ReferenceSymbol base;
@@ -202,8 +195,6 @@ namespace N64Recomp {
         //// Mod dependencies and their symbols
         
         //// Imported values
-        // List of dependencies.
-        std::vector<Dependency> dependencies;
         // Mapping of dependency name to dependency index.
         std::unordered_map<std::string, size_t> dependencies_by_name;
         // List of symbols imported from dependencies.
@@ -235,54 +226,55 @@ namespace N64Recomp {
 
         Context() = default;
 
-        bool add_dependency(const std::string& id, uint8_t major_version, uint8_t minor_version, uint8_t patch_version) {
+        bool add_dependency(const std::string& id) {
             if (dependencies_by_name.contains(id)) {
                 return false;
             }
 
-            size_t dependency_index = dependencies.size();
-            dependencies.emplace_back(N64Recomp::Dependency {
-                .major_version = major_version,
-                .minor_version = minor_version,
-                .patch_version = patch_version,
-                .mod_id = id
-            });
+            size_t dependency_index = dependencies_by_name.size();
 
             dependencies_by_name.emplace(id, dependency_index);
-            dependency_events_by_name.resize(dependencies.size());
-            dependency_imports_by_name.resize(dependencies.size());
+            dependency_events_by_name.resize(dependencies_by_name.size());
+            dependency_imports_by_name.resize(dependencies_by_name.size());
 
             return true;
         }
 
-        bool add_dependencies(const std::vector<Dependency>& new_dependencies) {
-            dependencies.reserve(dependencies.size() + new_dependencies.size());
+        bool add_dependencies(const std::vector<std::string>& new_dependencies) {
             dependencies_by_name.reserve(dependencies_by_name.size() + new_dependencies.size());
 
             // Check if any of the dependencies already exist and fail if so.
-            for (const Dependency& dep : new_dependencies) {
-                if (dependencies_by_name.contains(dep.mod_id)) {
+            for (const std::string& dep : new_dependencies) {
+                if (dependencies_by_name.contains(dep)) {
                     return false;
                 }
             }
 
-            for (const Dependency& dep : new_dependencies) {
-                size_t dependency_index = dependencies.size();
-                dependencies.emplace_back(dep);
-                dependencies_by_name.emplace(dep.mod_id, dependency_index);
+            for (const std::string& dep : new_dependencies) {
+                size_t dependency_index = dependencies_by_name.size();
+                dependencies_by_name.emplace(dep, dependency_index);
             }
 
-            dependency_events_by_name.resize(dependencies.size());
-            dependency_imports_by_name.resize(dependencies.size());
+            dependency_events_by_name.resize(dependencies_by_name.size());
+            dependency_imports_by_name.resize(dependencies_by_name.size());
             return true;
         }
 
         bool find_dependency(const std::string& mod_id, size_t& dependency_index) {
             auto find_it = dependencies_by_name.find(mod_id);
-            if (find_it == dependencies_by_name.end()) {
-                return false;
+            if (find_it != dependencies_by_name.end()) {
+                dependency_index = find_it->second;
             }
-            dependency_index = find_it->second;
+            else {
+                // Handle special dependency names.
+                if (mod_id == DependencySelf || mod_id == DependencyBaseRecomp) {
+                    add_dependency(mod_id);
+                    dependency_index = dependencies_by_name[mod_id];
+                }
+                else {
+                    return false;
+                }
+            }
             return true;
         }
 
@@ -419,7 +411,7 @@ namespace N64Recomp {
         }
 
         bool find_import_symbol(const std::string& symbol_name, size_t dependency_index, SymbolReference& ref_out) const {
-            if (dependency_index >= dependencies.size()) {
+            if (dependency_index >= dependencies_by_name.size()) {
                 return false;
             }
 
@@ -467,7 +459,7 @@ namespace N64Recomp {
         }
 
         bool add_dependency_event(const std::string& event_name, size_t dependency_index, size_t& dependency_event_index) {
-            if (dependency_index >= dependencies.size()) {
+            if (dependency_index >= dependencies_by_name.size()) {
                 return false;
             }
 
@@ -535,21 +527,40 @@ namespace N64Recomp {
         FunctionOutOfBounds,
     };
 
-    ModSymbolsError parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, const Context& reference_context, Context& context_out);
+    ModSymbolsError parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, Context& context_out);
     std::vector<uint8_t> symbols_to_bin_v1(const Context& mod_context);
 
-    inline bool validate_mod_name(std::string_view str) {
-        // Disallow mod names with a colon in them, since you can't specify that in a dependency string orin callbacks.
-        for (char c : str) {
-            if (c == ':') {
+    inline bool validate_mod_id(std::string_view str) {
+        // Disallow empty ids.
+        if (str.size() == 0) {
+            return false;
+        }
+
+        // Allow special dependency ids.
+        if (str == N64Recomp::DependencySelf || str == N64Recomp::DependencyBaseRecomp) {
+            return true;
+        }
+
+        // These following rules basically describe C identifiers. There's no specific reason to enforce them besides colon (currently),
+        // so this is just to prevent "weird" mod ids.
+
+        // Check the first character, which must be alphabetical or an underscore.
+        if (!isalpha(str[0]) && str[0] != '_') {
+            return false;
+        }
+
+        // Check the remaining characters, which can be alphanumeric or underscore.
+        for (char c : str.substr(1)) {
+            if (!isalnum(c) && c != '_') {
                 return false;
             }
         }
+
         return true;
     }
 
-    inline bool validate_mod_name(const std::string& str) {
-        return validate_mod_name(std::string_view{str});
+    inline bool validate_mod_id(const std::string& str) {
+        return validate_mod_id(std::string_view{str});
     }
 }
 

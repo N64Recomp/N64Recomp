@@ -24,17 +24,9 @@ static std::vector<uint8_t> read_file(const std::filesystem::path& path, bool& f
     return ret;
 }
 
-const std::filesystem::path func_reference_syms_file_path {
-    "C:/n64/MMRecompTestMod/Zelda64RecompSyms/mm.us.rev1.syms.toml"
-};
-const std::vector<std::filesystem::path> data_reference_syms_file_paths {
-    "C:/n64/MMRecompTestMod/Zelda64RecompSyms/mm.us.rev1.datasyms.toml",
-    "C:/n64/MMRecompTestMod/Zelda64RecompSyms/mm.us.rev1.datasyms_static.toml"
-};
-
 int main(int argc, const char** argv) {
-    if (argc != 4) {
-        printf("Usage: %s [mod symbol file] [ROM] [output C file]\n", argv[0]);
+    if (argc != 5) {
+        printf("Usage: %s [mod symbol file] [mod binary file] [recomp symbols file] [output C file]\n", argv[0]);
         return EXIT_SUCCESS;
     }
     bool found;
@@ -54,7 +46,7 @@ int main(int argc, const char** argv) {
 
     std::vector<uint8_t> dummy_rom{};
     N64Recomp::Context reference_context{};
-    if (!N64Recomp::Context::from_symbol_file(func_reference_syms_file_path, std::move(dummy_rom), reference_context, false)) {
+    if (!N64Recomp::Context::from_symbol_file(argv[3], std::move(dummy_rom), reference_context, false)) {
         printf("Failed to load provided function reference symbol file\n");
         return EXIT_FAILURE;
     }
@@ -73,11 +65,13 @@ int main(int argc, const char** argv) {
 
     N64Recomp::Context mod_context;
 
-	N64Recomp::ModSymbolsError error = N64Recomp::parse_mod_symbols(symbol_data_span, rom_data, sections_by_vrom, reference_context, mod_context);
+	N64Recomp::ModSymbolsError error = N64Recomp::parse_mod_symbols(symbol_data_span, rom_data, sections_by_vrom, mod_context);
     if (error != N64Recomp::ModSymbolsError::Good) {
         fprintf(stderr, "Error parsing mod symbols: %d\n", (int)error);
         return EXIT_FAILURE;
     }
+
+    mod_context.import_reference_context(reference_context);
 
     // Populate R_MIPS_26 reloc symbol indices. Start by building a map of vram address to matching reference symbols.
     std::unordered_map<uint32_t, std::vector<size_t>> reference_symbols_by_vram{};
@@ -124,7 +118,7 @@ int main(int argc, const char** argv) {
     std::vector<std::vector<uint32_t>> static_funcs_by_section{};
     static_funcs_by_section.resize(mod_context.sections.size());
 
-    std::ofstream output_file { argv[3] };
+    std::ofstream output_file { argv[4] };
 
     RabbitizerConfig_Cfg.pseudos.pseudoMove = false;
     RabbitizerConfig_Cfg.pseudos.pseudoBeqz = false;
@@ -133,6 +127,9 @@ int main(int argc, const char** argv) {
     RabbitizerConfig_Cfg.pseudos.pseudoBal = false;
 
     output_file << "#include \"mod_recomp.h\"\n\n";
+
+    // Write the API version.
+    output_file << "RECOMP_EXPORT uint32_t recomp_api_version = 1;\n\n";
 
     output_file << "// Values populated by the runtime:\n\n";
 
@@ -143,7 +140,8 @@ int main(int argc, const char** argv) {
         const auto& import = mod_context.import_symbols[import_index];
         output_file << "#define " << import.base.name << " imported_funcs[" << import_index << "]\n";
     }
-    output_file << "RECOMP_EXPORT recomp_func_t* imported_funcs[" << num_imports << "] = {};\n";
+
+    output_file << "RECOMP_EXPORT recomp_func_t* imported_funcs[" << std::max(size_t{1}, num_imports) << "] = {0};\n";
     output_file << "\n";
 
     // Use reloc list to write reference symbol function pointer array and defines (i.e. `#define func_80102468 reference_symbol_funcs[0]`)
@@ -158,11 +156,12 @@ int main(int argc, const char** argv) {
             }
         }
     }
-    output_file << "RECOMP_EXPORT recomp_func_t* reference_symbol_funcs[" << num_reference_symbols << "] = {};\n\n";
+    // C doesn't allow 0-sized arrays, so always add at least one member to all arrays. The actual size will be pulled from the mod symbols.
+    output_file << "RECOMP_EXPORT recomp_func_t* reference_symbol_funcs[" << std::max(size_t{1},num_reference_symbols) << "] = {0};\n\n";
 
     // Write provided event array (maps internal event indices to global ones).
-    output_file << "// Mapping of internal event indices to global ones.\n";
-    output_file << "RECOMP_EXPORT uint32_t event_indices[" << mod_context.event_symbols.size() <<"] = {};\n\n";
+    output_file << "// Base global event index for this mod's events.\n";
+    output_file << "RECOMP_EXPORT uint32_t base_event_index;\n\n";
 
     // Write the event trigger function pointer.
     output_file << "// Pointer to the runtime function for triggering events.\n";
@@ -179,11 +178,16 @@ int main(int argc, const char** argv) {
     // Write the local section addresses pointer array.
     size_t num_sections = mod_context.sections.size();
     output_file << "// Array of this mod's loaded section addresses.\n";
-    output_file << "RECOMP_EXPORT int32_t section_addresses[" << num_sections << "] = {};\n\n";
+    output_file << "RECOMP_EXPORT int32_t section_addresses[" << std::max(size_t{1}, num_sections) << "] = {0};\n\n";
+
+    // Create a set of the export indices to avoid renaming them.
+    std::unordered_set<size_t> export_indices{mod_context.exported_funcs.begin(), mod_context.exported_funcs.end()};
 
     for (size_t func_index = 0; func_index < mod_context.functions.size(); func_index++) {
         auto& func = mod_context.functions[func_index];
-        func.name = "mod_func_" + std::to_string(func_index);
+        if (!export_indices.contains(func_index)) {
+            func.name = "mod_func_" + std::to_string(func_index);
+        }
         N64Recomp::recompile_function(mod_context, func, output_file, static_funcs_by_section, true);
     }
 

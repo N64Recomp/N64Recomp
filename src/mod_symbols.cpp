@@ -49,9 +49,6 @@ struct RelocV1 {
 };
 
 struct DependencyV1 {
-    uint8_t major_version;
-    uint8_t minor_version;
-    uint8_t patch_version;
     uint8_t reserved;
     uint32_t mod_id_start;
     uint32_t mod_id_size;
@@ -143,7 +140,6 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
 
     // TODO add proper creation methods for the remaining vectors and change these to reserves instead.
     mod_context.sections.resize(num_sections); // Add method
-    mod_context.dependencies.reserve(num_dependencies);
     mod_context.dependencies_by_name.reserve(num_dependencies); 
     mod_context.import_symbols.reserve(num_imports);
     mod_context.dependency_events.reserve(num_dependency_events);
@@ -234,6 +230,7 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
                 if (reloc_target_section >= mod_context.sections.size()) {
                     printf("Reloc %zu in section %zu references local section %u, but only %zu exist\n",
                         reloc_index, section_index, reloc_target_section, mod_context.sections.size());
+                    return false;
                 }
             }
             else {
@@ -269,10 +266,11 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
         if (mod_id_start + mod_id_size > string_data_size) {
             printf("Dependency %zu has a name start of %u and size of %u, which extend beyond the string data's total size of %zu\n",
                 dependency_index, mod_id_start, mod_id_size, string_data_size);
+            return false;
         }
 
         std::string_view mod_id{ string_data + mod_id_start, string_data + mod_id_start + mod_id_size };
-        mod_context.add_dependency(std::string{mod_id}, dependency_in.major_version, dependency_in.minor_version, dependency_in.patch_version);
+        mod_context.add_dependency(std::string{mod_id});
     }
 
     const ImportV1* imports = reinterpret_data<ImportV1>(data, offset, num_imports);
@@ -290,11 +288,13 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
         if (name_start + name_size > string_data_size) {
             printf("Import %zu has a name start of %u and size of %u, which extend beyond the string data's total size of %zu\n",
                 import_index, name_start, name_size, string_data_size);
+            return false;
         }
 
         if (dependency_index >= num_dependencies) {
             printf("Import %zu belongs to dependency %u, but only %zu dependencies were specified\n",
                 import_index, dependency_index, num_dependencies);
+            return false;
         }
 
         std::string_view import_name{ string_data + name_start, string_data + name_start + name_size };
@@ -317,6 +317,7 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
         if (name_start + name_size > string_data_size) {
             printf("Dependency event %zu has a name start of %u and size of %u, which extend beyond the string data's total size of %zu\n",
                 dependency_event_index, name_start, name_size, string_data_size);
+            return false;
         }
 
         std::string_view dependency_event_name{ string_data + name_start, string_data + name_start + name_size };
@@ -355,15 +356,29 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
         if (func_index >= mod_context.functions.size()) {
             printf("Export %zu has a function index of %u, but the symbol file only has %zu functions\n",
                 export_index, func_index, mod_context.functions.size());
+            return false;
         }
 
         if (name_start + name_size > string_data_size) {
             printf("Export %zu has a name start of %u and size of %u, which extend beyond the string data's total size of %zu\n",
                 export_index, name_start, name_size, string_data_size);
+            return false;
+        }
+
+        std::string_view export_name_view{ string_data + name_start, string_data + name_start + name_size };
+        std::string export_name{export_name_view};
+
+        if (!mod_context.functions[func_index].name.empty()) {
+            printf("Function %u is exported twice (%s and %s)\n",
+                func_index, mod_context.functions[func_index].name.c_str(), export_name.c_str());
+            return false;
         }
 
         // Add the function to the exported function list.
         mod_context.exported_funcs[export_index] = func_index;
+
+        // Set the function's name to the export name.
+        mod_context.functions[func_index].name = std::move(export_name);
     }
 
     const CallbackV1* callbacks = reinterpret_data<CallbackV1>(data, offset, num_callbacks);
@@ -380,15 +395,18 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
         if (dependency_event_index >= num_dependency_events) {
             printf("Callback %zu is connected to dependency event %u, but only %zu dependency events were specified\n",
                 callback_index, dependency_event_index, num_dependency_events);
+            return false;
         }
 
         if (function_index >= mod_context.functions.size()) {
             printf("Callback %zu uses function %u, but only %zu functions were specified\n",
                 callback_index, function_index, mod_context.functions.size());
+            return false;
         }
 
         if (!mod_context.add_callback(dependency_event_index, function_index)) {
             printf("Failed to add callback %zu\n", callback_index);
+            return false;
         }
     }
 
@@ -406,6 +424,7 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
         if (name_start + name_size > string_data_size) {
             printf("Event %zu has a name start of %u and size of %u, which extend beyond the string data's total size of %zu\n",
                 event_index, name_start, name_size, string_data_size);
+            return false;
         }
 
         std::string_view import_name{ string_data + name_start, string_data + name_start + name_size };
@@ -416,12 +435,10 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
     return offset == data.size();
 }
 
-N64Recomp::ModSymbolsError N64Recomp::parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, const Context& reference_context, Context& mod_context_out) {
+N64Recomp::ModSymbolsError N64Recomp::parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, Context& mod_context_out) {
     size_t offset = 0;
     mod_context_out = {};
     const FileHeader* header = reinterpret_data<FileHeader>(data, offset);
-
-    mod_context_out.import_reference_context(reference_context);
 
     if (header == nullptr) {
         return ModSymbolsError::NotASymbolFile;
@@ -485,7 +502,7 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
 
     vec_put(ret, &header);
 
-    size_t num_dependencies = context.dependencies.size();
+    size_t num_dependencies = context.dependencies_by_name.size();
     size_t num_imported_funcs = context.import_symbols.size();
     size_t num_dependency_events = context.dependency_events.size();
 
@@ -512,15 +529,24 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
 
     // Build the string data from the exports and imports.
     size_t strings_start = ret.size();
+    
+    // Order the dependencies by their index. This isn't necessary, but it makes the dependency name order
+    // in the symbol file match the indices of the dependencies makes debugging easier.
+    std::vector<std::string> dependencies_ordered{};
+    dependencies_ordered.resize(context.dependencies_by_name.size());
+
+    for (const auto& [dependency, dependency_index] : context.dependencies_by_name) {
+        dependencies_ordered[dependency_index] = dependency;
+    }
 
     // Track the start of every dependency's name in the string data.
     std::vector<uint32_t> dependency_name_positions{};
     dependency_name_positions.resize(num_dependencies);
     for (size_t dependency_index = 0; dependency_index < num_dependencies; dependency_index++) {
-        const Dependency& dependency = context.dependencies[dependency_index];
+        const std::string& dependency = dependencies_ordered[dependency_index];
 
         dependency_name_positions[dependency_index] = static_cast<uint32_t>(ret.size() - strings_start);
-        vec_put(ret, dependency.mod_id);
+        vec_put(ret, dependency);
     }
 
     // Track the start of every imported function's name in the string data.
@@ -637,14 +663,11 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
 
     // Write the dependencies.
     for (size_t dependency_index = 0; dependency_index < num_dependencies; dependency_index++) {
-        const Dependency& dependency = context.dependencies[dependency_index];
+        const std::string& dependency = dependencies_ordered[dependency_index];
 
         DependencyV1 dependency_out {
-            .major_version = dependency.major_version,
-            .minor_version = dependency.minor_version,
-            .patch_version = dependency.patch_version,
             .mod_id_start = dependency_name_positions[dependency_index],
-            .mod_id_size = static_cast<uint32_t>(dependency.mod_id.size())
+            .mod_id_size = static_cast<uint32_t>(dependency.size())
         };
 
         vec_put(ret, &dependency_out);
