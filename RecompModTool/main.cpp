@@ -973,7 +973,9 @@ bool create_mod_zip(const std::filesystem::path& output_dir, const ModConfig& co
     }
     else if (pid == 0) {
         // This is the child process, so exec zip with the arguments.
-        execvp(arg_pointers[0], arg_pointers.data());
+        if (execvp(arg_pointers[0], arg_pointers.data()) == -1) {
+            fmt::print(stderr, "Failed to run \"zip\" ({})\n", errno);
+        }
     }
     else {
         // This is the parent process, so wait for the child process to complete and check its exit code.
