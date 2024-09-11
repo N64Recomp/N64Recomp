@@ -4,6 +4,7 @@
 #include <iostream>
 #include <numeric>
 #include <cctype>
+#include <cstdlib>
 #include "fmt/format.h"
 #include "fmt/ostream.h"
 #include "n64recomp.h"
@@ -975,6 +976,7 @@ bool create_mod_zip(const std::filesystem::path& output_dir, const ModConfig& co
         // This is the child process, so exec zip with the arguments.
         if (execvp(arg_pointers[0], arg_pointers.data()) == -1) {
             fmt::print(stderr, "Failed to run \"zip\" ({})\n", errno);
+            exit(-1);
         }
     }
     else {
