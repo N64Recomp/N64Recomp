@@ -147,12 +147,19 @@ int main(int argc, const char** argv) {
 
     // Use reloc list to write reference symbol function pointer array and defines (i.e. `#define func_80102468 reference_symbol_funcs[0]`)
     output_file << "// Array of pointers to functions from the original ROM with defines to alias their names.\n";
+    std::unordered_set<std::string> written_reference_symbols{};
     size_t num_reference_symbols = 0;
     for (const auto& section : mod_context.sections) {
         for (const auto& reloc : section.relocs) {
             if (reloc.type == N64Recomp::RelocType::R_MIPS_26 && reloc.reference_symbol && mod_context.is_regular_reference_section(reloc.target_section)) {
                 const auto& sym = mod_context.get_reference_symbol(reloc.target_section, reloc.symbol_index);
-                output_file << "#define " << sym.name << " reference_symbol_funcs[" << num_reference_symbols << "]\n";
+
+                // Prevent writing multiple of the same define. This means there are duplicate symbols in the array if a function is called more than once,
+                // but only the first of each set of duplicates is referenced. This is acceptable, since offline mod recompilation is mainly meant for debug purposes.
+                if (!written_reference_symbols.contains(sym.name)) {
+                    output_file << "#define " << sym.name << " reference_symbol_funcs[" << num_reference_symbols << "]\n";
+                    written_reference_symbols.emplace(sym.name);
+                }
                 num_reference_symbols++;
             }
         }
