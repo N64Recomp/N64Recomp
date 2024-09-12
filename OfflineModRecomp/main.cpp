@@ -118,7 +118,8 @@ int main(int argc, const char** argv) {
     std::vector<std::vector<uint32_t>> static_funcs_by_section{};
     static_funcs_by_section.resize(mod_context.sections.size());
 
-    std::ofstream output_file { argv[4] };
+    const char* output_file_path = argv[4];
+    std::ofstream output_file { output_file_path };
 
     RabbitizerConfig_Cfg.pseudos.pseudoMove = false;
     RabbitizerConfig_Cfg.pseudos.pseudoBeqz = false;
@@ -188,7 +189,12 @@ int main(int argc, const char** argv) {
         if (!export_indices.contains(func_index)) {
             func.name = "mod_func_" + std::to_string(func_index);
         }
-        N64Recomp::recompile_function(mod_context, func, output_file, static_funcs_by_section, true);
+        if (!N64Recomp::recompile_function(mod_context, func, output_file, static_funcs_by_section, true)) {
+            output_file.close();
+            std::error_code ec;
+            std::filesystem::remove(output_file_path, ec);
+            return EXIT_FAILURE;
+        }
     }
 
 	return EXIT_SUCCESS;
