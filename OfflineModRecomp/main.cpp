@@ -174,10 +174,26 @@ int main(int argc, const char** argv) {
     // Write the event trigger function pointer.
     output_file << "// Pointer to the runtime function for triggering events.\n";
     output_file << "RECOMP_EXPORT void (*recomp_trigger_event)(uint8_t* rdram, recomp_context* ctx, uint32_t) = NULL;\n\n";
-    // Write the get_function pointer.
 
+    // Write the get_function pointer.
     output_file << "// Pointer to the runtime function for looking up functions from vram address.\n";
     output_file << "RECOMP_EXPORT recomp_func_t* (*get_function)(int32_t vram) = NULL;\n\n";
+
+    // Write the cop0_status_write pointer.
+    output_file << "// Pointer to the runtime function for performing a cop0 status register write.\n";
+    output_file << "RECOMP_EXPORT void (*cop0_status_write)(recomp_context* ctx, gpr value) = NULL;\n\n";
+
+    // Write the cop0_status_read pointer.
+    output_file << "// Pointer to the runtime function for performing a cop0 status register read.\n";
+    output_file << "RECOMP_EXPORT gpr (*cop0_status_read)(recomp_context* ctx) = NULL;\n\n";
+
+    // Write the switch_error pointer.
+    output_file << "// Pointer to the runtime function for reporting switch case errors.\n";
+    output_file << "RECOMP_EXPORT void (*switch_error)(const char* func, uint32_t vram, uint32_t jtbl) = NULL;\n\n";
+
+    // Write the do_break pointer.
+    output_file << "// Pointer to the runtime function for handling the break instruction.\n";
+    output_file << "RECOMP_EXPORT void (*do_break)(uint32_t vram) = NULL;\n\n";
 
     // Write the section_addresses pointer.
     output_file << "// Pointer to the runtime's array of loaded section addresses for the base ROM.\n";
@@ -191,11 +207,21 @@ int main(int argc, const char** argv) {
     // Create a set of the export indices to avoid renaming them.
     std::unordered_set<size_t> export_indices{mod_context.exported_funcs.begin(), mod_context.exported_funcs.end()};
 
+    // Name all the functions in a first pass so function calls emitted in the second are correct. Also emit function prototypes.
+    output_file << "// Function prototypes.\n";
     for (size_t func_index = 0; func_index < mod_context.functions.size(); func_index++) {
         auto& func = mod_context.functions[func_index];
+        // Don't rename exports since they already have a name from the mod symbol file.
         if (!export_indices.contains(func_index)) {
             func.name = "mod_func_" + std::to_string(func_index);
         }
+        output_file << "RECOMP_FUNC void " << func.name << "(uint8_t* rdram, recomp_context* ctx);\n";
+    }
+    output_file << "\n";
+
+    // Perform a second pass for recompiling all the functions.
+    for (size_t func_index = 0; func_index < mod_context.functions.size(); func_index++) {
+        auto& func = mod_context.functions[func_index];
         if (!N64Recomp::recompile_function(mod_context, func, output_file, static_funcs_by_section, true)) {
             output_file.close();
             std::error_code ec;
