@@ -158,9 +158,11 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const N64Recom
         }
         // If the base register has a valid lui state and a valid addend before this, then this may be a load from a jump table
         else if (reg_states[base].valid_lui && reg_states[base].valid_addend) {
-            // Exactly one of the lw and the base reg should have a valid lo16 value
+            // Exactly one of the lw and the base reg should have a valid lo16 value. However, the lo16 may end up just being zero by pure luck,
+            // so allow the case where the lo16 immediate is zero and the register state doesn't have a valid addiu immediate.
+            // This means the only invalid case is where they're both true.
             bool nonzero_immediate = imm != 0;
-            if (nonzero_immediate != reg_states[base].valid_addiu) {
+            if (!(nonzero_immediate && reg_states[base].valid_addiu)) {
                 uint32_t lo16;
                 if (nonzero_immediate) {
                     lo16 = (int16_t)imm;

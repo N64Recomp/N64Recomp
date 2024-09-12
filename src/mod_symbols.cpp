@@ -199,6 +199,8 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
             cur_func.rom = cur_section.rom_addr + funcs[func_index].section_offset;
             cur_func.words.resize(funcs[func_index].size / sizeof(uint32_t)); // Filled in later
             cur_func.section_index = section_index;
+
+            mod_context.functions_by_vram[cur_func.vram].emplace_back(start_func_index + func_index);
         }
 
         for (size_t reloc_index = 0; reloc_index < num_relocs; reloc_index++) {
