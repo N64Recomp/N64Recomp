@@ -29,7 +29,6 @@ namespace N64Recomp {
 
     struct FunctionStats {
         std::vector<JumpTable> jump_tables;
-        std::vector<AbsoluteJump> absolute_jumps;
     };
 
     bool analyze_function(const Context& context, const Function& function, const std::vector<rabbitizer::InstructionCpu>& instructions, FunctionStats& stats);
