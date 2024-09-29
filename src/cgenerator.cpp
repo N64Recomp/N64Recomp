@@ -333,10 +333,10 @@ void N64Recomp::CGenerator::get_binary_expr_string(BinaryOpType type, const Bina
         expr_string = fmt::format("{} {} {} ? 1 : 0", input_a, infix_string, input_b);
     }
     else if (type == BinaryOpType::Equal && operands.operands[1] == Operand::Zero && operands.operand_operations[1] == UnaryOpType::None) {
-        expr_string = input_a;
+        expr_string = "!" + input_a;
     }
     else if (type == BinaryOpType::NotEqual && operands.operands[1] == Operand::Zero && operands.operand_operations[1] == UnaryOpType::None) {
-        expr_string = "!" + input_a;
+        expr_string = input_a;
     }
     // End unnecessary cases.
 
