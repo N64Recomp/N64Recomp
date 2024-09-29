@@ -134,11 +134,11 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
     // Output a comment with the original instruction
     print_indent();
     if (instr.isBranch() || instr.getUniqueId() == InstrId::cpu_j) {
-        generator.emit_comment(output_file, fmt::format("0x{:08X}: {}", instr_vram, instr.disassemble(0, fmt::format("L_{:08X}", (uint32_t)instr.getBranchVramGeneric()))));
+        generator.emit_comment(fmt::format("0x{:08X}: {}", instr_vram, instr.disassemble(0, fmt::format("L_{:08X}", (uint32_t)instr.getBranchVramGeneric()))));
     } else if (instr.getUniqueId() == InstrId::cpu_jal) {
-        generator.emit_comment(output_file, fmt::format("0x{:08X}: {}", instr_vram, instr.disassemble(0, fmt::format("0x{:08X}", (uint32_t)instr.getBranchVramGeneric()))));
+        generator.emit_comment(fmt::format("0x{:08X}: {}", instr_vram, instr.disassemble(0, fmt::format("0x{:08X}", (uint32_t)instr.getBranchVramGeneric()))));
     } else {
-        generator.emit_comment(output_file, fmt::format("0x{:08X}: {}", instr_vram, instr.disassemble(0)));
+        generator.emit_comment(fmt::format("0x{:08X}: {}", instr_vram, instr.disassemble(0)));
     }
 
     if (skipped_insns.contains(instr_vram)) {
@@ -226,7 +226,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
     auto print_link_branch = [&]() {
         if (needs_link_branch) {
             print_indent();
-            generator.emit_goto(output_file, fmt::format("after_{}", link_branch_index));
+            generator.emit_goto(fmt::format("after_{}", link_branch_index));
         }
     };
 
@@ -235,7 +235,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             return false;
         }
         print_indent();
-        generator.emit_return(output_file);
+        generator.emit_return();
         print_link_branch();
         return true;
     };
@@ -245,7 +245,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             return false;
         }
         print_indent();
-        generator.emit_goto(output_file, target);
+        generator.emit_goto(target);
         print_link_branch();
         return true;
     };
@@ -255,7 +255,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             return false;
         }
         print_indent();
-        generator.emit_function_call_by_register(output_file, reg);
+        generator.emit_function_call_by_register(reg);
         print_link_branch();
         return true;
     };
@@ -265,7 +265,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             return false;
         }
         print_indent();
-        generator.emit_function_call_lookup(output_file, target_vram);
+        generator.emit_function_call_lookup(target_vram);
         print_link_branch();
         return true;
     };
@@ -284,7 +284,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                 return false;
             }
             print_indent();
-            generator.emit_trigger_event(output_file, reloc_reference_symbol);
+            generator.emit_trigger_event(reloc_reference_symbol);
             print_link_branch();
         }
         // Normal symbol or reference symbol, 
@@ -342,10 +342,10 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             }
             print_indent();
             if (call_by_lookup) {
-                generator.emit_function_call_lookup(output_file, target_func_vram);
+                generator.emit_function_call_lookup(target_func_vram);
             }
             else {
-                generator.emit_function_call_by_name(output_file, jal_target_name);
+                generator.emit_function_call_by_name(jal_target_name);
             }
             print_link_branch();
         }
@@ -363,9 +363,9 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                     return false;
                 }
                 print_indent();
-                generator.emit_return(output_file);
+                generator.emit_return();
                 print_indent();
-                generator.emit_branch_close(output_file);
+                generator.emit_branch_close();
                 return true;
             }
 
@@ -378,11 +378,11 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
 
         print_indent();
         print_indent();
-        generator.emit_goto(output_file, fmt::format("L_{:08X}", branch_target));
+        generator.emit_goto(fmt::format("L_{:08X}", branch_target));
         if (needs_link_branch) {
             print_indent();
             print_indent();
-            generator.emit_goto(output_file, fmt::format("after_{}", link_branch_index));
+            generator.emit_goto(fmt::format("after_{}", link_branch_index));
         }
         return true;
     };
@@ -416,7 +416,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             switch (reg) {
             case Cop0Reg::COP0_Status:
                 print_indent();
-                generator.emit_cop0_status_read(output_file, rt);
+                generator.emit_cop0_status_read(rt);
                 break;
             default:
                 fmt::print(stderr, "Unhandled cop0 register in mfc0: {}\n", (int)reg);
@@ -430,7 +430,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             switch (reg) {
             case Cop0Reg::COP0_Status:
                 print_indent();
-                generator.emit_cop0_status_write(output_file, rt);
+                generator.emit_cop0_status_write(rt);
                 break;
             default:
                 fmt::print(stderr, "Unhandled cop0 register in mtc0: {}\n", (int)reg);
@@ -451,7 +451,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             if (find_result != stats.jump_tables.end()) {
                 const N64Recomp::JumpTable& cur_jtbl = *find_result;
                 print_indent();
-                generator.emit_variable_declaration(output_file, fmt::format("jr_addend_{:08X}", cur_jtbl.jr_vram), cur_jtbl.addend_reg);
+                generator.emit_variable_declaration(fmt::format("jr_addend_{:08X}", cur_jtbl.jr_vram), cur_jtbl.addend_reg);
             }
         }
         break;
@@ -464,7 +464,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
     case InstrId::cpu_divu:
     case InstrId::cpu_ddivu:
         print_indent();
-        generator.emit_muldiv(output_file, instr.getUniqueId(), rs, rt);
+        generator.emit_muldiv(instr.getUniqueId(), rs, rt);
         break;
     // Branches
     case InstrId::cpu_jal:
@@ -487,7 +487,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             uint32_t branch_target = instr.getBranchVramGeneric();
             if (branch_target == instr_vram) {
                 print_indent();
-                generator.emit_pause_self(output_file);
+                generator.emit_pause_self();
             }
             // Check if the branch is within this function
             else if (branch_target >= func.vram && branch_target < func_vram_end) {
@@ -511,7 +511,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                     return false;
                 }
                 print_indent();
-                generator.emit_return(output_file);
+                generator.emit_return();
             }
             else {
                 fmt::print(stderr, "Unhandled branch in {} at 0x{:08X} to 0x{:08X}\n", func.name, instr_vram, branch_target);
@@ -534,37 +534,37 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                     return false;
                 }
                 print_indent();
-                generator.emit_switch(output_file, fmt::format("jr_addend_{:08X}", cur_jtbl.jr_vram), 2);
+                generator.emit_switch(fmt::format("jr_addend_{:08X}", cur_jtbl.jr_vram), 2);
                 for (size_t entry_index = 0; entry_index < cur_jtbl.entries.size(); entry_index++) {
                     print_indent();
                     print_indent();
-                    generator.emit_case(output_file, entry_index, fmt::format("L_{:08X}", cur_jtbl.entries[entry_index]));
+                    generator.emit_case(entry_index, fmt::format("L_{:08X}", cur_jtbl.entries[entry_index]));
                 }
                 print_indent();
                 print_indent();
-                generator.emit_switch_error(output_file, instr_vram, cur_jtbl.vram);
+                generator.emit_switch_error(instr_vram, cur_jtbl.vram);
                 print_indent();
-                generator.emit_switch_close(output_file);
+                generator.emit_switch_close();
                 break;
             }
 
             fmt::print("[Info] Indirect tail call in {}\n", func.name);
             print_func_call_by_register(rs);
             print_indent();
-            generator.emit_return(output_file);
+            generator.emit_return();
             break;
         }
         break;
     case InstrId::cpu_syscall:
         print_indent();
-        generator.emit_syscall(output_file, instr_vram);
+        generator.emit_syscall(instr_vram);
         // syscalls don't link, so treat it like a tail call
         print_indent();
-        generator.emit_return(output_file);
+        generator.emit_return();
         break;
     case InstrId::cpu_break:
         print_indent();
-        generator.emit_do_break(output_file, instr_vram);
+        generator.emit_do_break(instr_vram);
         break;
 
     // Cop1 rounding mode
@@ -574,7 +574,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             return false;
         }
         print_indent();
-        generator.emit_cop1_cs_write(output_file, rt);
+        generator.emit_cop1_cs_write(rt);
         break;
     case InstrId::cpu_cfc1:
         if (cop1_cs != 31) {
@@ -582,7 +582,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             return false;
         }
         print_indent();
-        generator.emit_cop1_cs_read(output_file, rt);
+        generator.emit_cop1_cs_read(rt);
         break;
     default:
         handled = false;
@@ -604,28 +604,28 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
     instruction_context.reloc_section_index = reloc_section;
     instruction_context.reloc_target_section_offset = reloc_target_section_offset;
     
-    auto do_check_fr = [](std::ostream& output_file, const GeneratorType& generator, const InstructionContext& ctx, Operand operand) {
+    auto do_check_fr = [](const GeneratorType& generator, const InstructionContext& ctx, Operand operand) {
         switch (operand) {
             case Operand::Fd:
             case Operand::FdDouble:
             case Operand::FdU32L:
             case Operand::FdU32H:
             case Operand::FdU64:
-                generator.emit_check_fr(output_file, ctx.fd);
+                generator.emit_check_fr(ctx.fd);
                 break;
             case Operand::Fs:
             case Operand::FsDouble:
             case Operand::FsU32L:
             case Operand::FsU32H:
             case Operand::FsU64:
-                generator.emit_check_fr(output_file, ctx.fs);
+                generator.emit_check_fr(ctx.fs);
                 break;
             case Operand::Ft:
             case Operand::FtDouble:
             case Operand::FtU32L:
             case Operand::FtU32H:
             case Operand::FtU64:
-                generator.emit_check_fr(output_file, ctx.ft);
+                generator.emit_check_fr(ctx.ft);
                 break;
             default:
                 // No MIPS3 float check needed for non-float operands.
@@ -633,25 +633,25 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         }
     };
     
-    auto do_check_nan = [](std::ostream& output_file, const GeneratorType& generator, const InstructionContext& ctx, Operand operand) {
+    auto do_check_nan = [](const GeneratorType& generator, const InstructionContext& ctx, Operand operand) {
         switch (operand) {
             case Operand::Fd:
-                generator.emit_check_nan(output_file, ctx.fd, false);
+                generator.emit_check_nan(ctx.fd, false);
                 break;
             case Operand::Fs:
-                generator.emit_check_nan(output_file, ctx.fs, false);
+                generator.emit_check_nan(ctx.fs, false);
                 break;
             case Operand::Ft:
-                generator.emit_check_nan(output_file, ctx.ft, false);
+                generator.emit_check_nan(ctx.ft, false);
                 break;
             case Operand::FdDouble:
-                generator.emit_check_nan(output_file, ctx.fd, true);
+                generator.emit_check_nan(ctx.fd, true);
                 break;
             case Operand::FsDouble:
-                generator.emit_check_nan(output_file, ctx.fs, true);
+                generator.emit_check_nan(ctx.fs, true);
                 break;
             case Operand::FtDouble:
-                generator.emit_check_nan(output_file, ctx.ft, true);
+                generator.emit_check_nan(ctx.ft, true);
                 break;
             default:
                 // No NaN checks needed for non-float operands.
@@ -665,19 +665,19 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         const BinaryOp& op = find_binary_it->second;
         
         if (op.check_fr) {
-            do_check_fr(output_file, generator, instruction_context, op.output);
-            do_check_fr(output_file, generator, instruction_context, op.operands.operands[0]);
-            do_check_fr(output_file, generator, instruction_context, op.operands.operands[1]);
+            do_check_fr(generator, instruction_context, op.output);
+            do_check_fr(generator, instruction_context, op.operands.operands[0]);
+            do_check_fr(generator, instruction_context, op.operands.operands[1]);
         }
 
         if (op.check_nan) {
-            do_check_nan(output_file, generator, instruction_context, op.operands.operands[0]);
-            do_check_nan(output_file, generator, instruction_context, op.operands.operands[1]);
+            do_check_nan(generator, instruction_context, op.operands.operands[0]);
+            do_check_nan(generator, instruction_context, op.operands.operands[1]);
             fmt::print(output_file, "\n");
             print_indent();
         }
 
-        generator.process_binary_op(output_file, op, instruction_context);
+        generator.process_binary_op(op, instruction_context);
         handled = true;
     }
 
@@ -687,24 +687,24 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         const UnaryOp& op = find_unary_it->second;
         
         if (op.check_fr) {
-            do_check_fr(output_file, generator, instruction_context, op.output);
-            do_check_fr(output_file, generator, instruction_context, op.input);
+            do_check_fr(generator, instruction_context, op.output);
+            do_check_fr(generator, instruction_context, op.input);
         }
 
         if (op.check_nan) {
-            do_check_nan(output_file, generator, instruction_context, op.input);
+            do_check_nan(generator, instruction_context, op.input);
             fmt::print(output_file, "\n");
             print_indent();
         }
 
-        generator.process_unary_op(output_file, op, instruction_context);
+        generator.process_unary_op(op, instruction_context);
         handled = true;
     }
 
     auto find_conditional_branch_it = conditional_branch_ops.find(instr.getUniqueId());
     if (find_conditional_branch_it != conditional_branch_ops.end()) {
         print_indent();
-        generator.emit_branch_condition(output_file, find_conditional_branch_it->second, instruction_context);
+        generator.emit_branch_condition(find_conditional_branch_it->second, instruction_context);
 
         print_indent();
         if (find_conditional_branch_it->second.link) {
@@ -719,7 +719,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         }
 
         print_indent();
-        generator.emit_branch_close(output_file);
+        generator.emit_branch_close();
         
         is_branch_likely = find_conditional_branch_it->second.likely;
         handled = true;
@@ -731,10 +731,10 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         const StoreOp& op = find_store_it->second;
 
         if (op.type == StoreOpType::SDC1) {
-            do_check_fr(output_file, generator, instruction_context, op.value_input);
+            do_check_fr(generator, instruction_context, op.value_input);
         }
 
-        generator.process_store_op(output_file, op, instruction_context);
+        generator.process_store_op(op, instruction_context);
         handled = true;
     }
 
@@ -746,7 +746,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
     // TODO is this used?
     if (emit_link_branch) {
         print_indent();
-        generator.emit_label(output_file, fmt::format("after_{}", link_branch_index));
+        generator.emit_label(fmt::format("after_{}", link_branch_index));
     }
 
     return true;
@@ -757,7 +757,7 @@ bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context&
     //fmt::print("Recompiling {}\n", func.name);
     std::vector<rabbitizer::InstructionCpu> instructions;
 
-    generator.emit_function_start(output_file, func.name);
+    generator.emit_function_start(func.name);
 
     // Skip analysis and recompilation of this function is stubbed.
     if (!func.stubbed) {
@@ -816,11 +816,11 @@ bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context&
             bool is_branch_likely = false;
             // If we're in the delay slot of a likely instruction, emit a goto to skip the instruction before any labels
             if (in_likely_delay_slot) {
-                generator.emit_goto(output_file, fmt::format("skip_{}", num_likely_branches));
+                generator.emit_goto(fmt::format("skip_{}", num_likely_branches));
             }
             // If there are any other branch labels to insert and we're at the next one, insert it
             if (cur_label != branch_labels.end() && vram >= *cur_label) {
-                generator.emit_label(output_file, fmt::format("L_{:08X}", *cur_label));
+                generator.emit_label(fmt::format("L_{:08X}", *cur_label));
                 ++cur_label;
             }
 
@@ -842,7 +842,7 @@ bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context&
             // Now that the instruction has been processed, emit a skip label for the likely branch if needed
             if (in_likely_delay_slot) {
                 fmt::print(output_file, "    ");
-                generator.emit_label(output_file, fmt::format("skip_{}", num_likely_branches));
+                generator.emit_label(fmt::format("skip_{}", num_likely_branches));
                 num_likely_branches++;
             }
             // Mark the next instruction as being in a likely delay slot if the 
@@ -853,18 +853,18 @@ bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context&
     }
 
     // Terminate the function
-    generator.emit_function_end(output_file);
+    generator.emit_function_end();
     
     return true;
 }
 
 // Wrap the templated function with CGenerator as the template parameter.
 bool N64Recomp::recompile_function(const N64Recomp::Context& context, const N64Recomp::Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
-    CGenerator generator{};
+    CGenerator generator{output_file};
     return recompile_function_impl(generator, context, func, output_file, static_funcs_out, tag_reference_relocs);
 }
 
 bool N64Recomp::recompile_function_luajit(const N64Recomp::Context& context, const N64Recomp::Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
-    LuajitGenerator generator{};
+    LuajitGenerator generator{output_file};
     return recompile_function_impl(generator, context, func, output_file, static_funcs_out, tag_reference_relocs);
 }
