@@ -604,7 +604,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
     instruction_context.reloc_section_index = reloc_section;
     instruction_context.reloc_target_section_offset = reloc_target_section_offset;
     
-    auto do_check_fr = [](std::ostream& output_file, const CGenerator& generator, const InstructionContext& ctx, Operand operand) {
+    auto do_check_fr = [](std::ostream& output_file, const GeneratorType& generator, const InstructionContext& ctx, Operand operand) {
         switch (operand) {
             case Operand::Fd:
             case Operand::FdDouble:
@@ -633,7 +633,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         }
     };
     
-    auto do_check_nan = [](std::ostream& output_file, const CGenerator& generator, const InstructionContext& ctx, Operand operand) {
+    auto do_check_nan = [](std::ostream& output_file, const GeneratorType& generator, const InstructionContext& ctx, Operand operand) {
         switch (operand) {
             case Operand::Fd:
                 generator.emit_check_nan(output_file, ctx.fd, false);
@@ -861,5 +861,10 @@ bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context&
 // Wrap the templated function with CGenerator as the template parameter.
 bool N64Recomp::recompile_function(const N64Recomp::Context& context, const N64Recomp::Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
     CGenerator generator{};
+    return recompile_function_impl(generator, context, func, output_file, static_funcs_out, tag_reference_relocs);
+}
+
+bool N64Recomp::recompile_function_luajit(const N64Recomp::Context& context, const N64Recomp::Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
+    LuajitGenerator generator{};
     return recompile_function_impl(generator, context, func, output_file, static_funcs_out, tag_reference_relocs);
 }
