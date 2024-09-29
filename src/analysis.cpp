@@ -196,19 +196,8 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const N64Recom
                 instr.getVram(),
                 std::vector<uint32_t>{}
             );
-        } else if (reg_states[rs].valid_lui && reg_states[rs].valid_addiu && !reg_states[rs].valid_addend && !reg_states[rs].valid_loaded) {
-            uint32_t address = reg_states[rs].prev_addiu_vram + reg_states[rs].prev_lui;
-            stats.absolute_jumps.emplace_back(
-                address,
-                instr.getVram()
-            );
         }
-        // Allow tail calls (TODO account for trailing nops due to bad function splits)
-        else if (instr.getVram() != func.vram + (func.words.size() - 2) * sizeof(func.words[0])) {
-            // Inconclusive analysis
-            fmt::print(stderr, "Failed to to find jump table for `jr {}` at 0x{:08X} in {}\n", RabbitizerRegister_getNameGpr(rs), instr.getVram(), func.name);
-            return false;
-        }
+        // TODO stricter validation on tail calls, since not all indirect jumps can be treated as one.
         break;
     default:
         if (instr.modifiesRd()) {
