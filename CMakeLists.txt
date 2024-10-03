@@ -82,7 +82,6 @@ target_sources(N64Recomp PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/analysis.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/operations.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/cgenerator.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/luajitgenerator.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/recompilation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/mod_symbols.cpp
 )
@@ -160,8 +159,14 @@ project(OfflineModRecomp)
 add_executable(OfflineModRecomp)
 
 target_sources(OfflineModRecomp PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../sljit/sljit_src/sljitLir.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/config.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/OfflineModRecomp/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/OfflineModRecomp/sljit_generator.cpp
+)
+
+target_include_directories(OfflineModRecomp PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../sljit/sljit_src
 )
 
 target_link_libraries(OfflineModRecomp fmt rabbitizer tomlplusplus::tomlplusplus N64Recomp)

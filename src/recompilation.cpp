@@ -864,11 +864,6 @@ bool N64Recomp::recompile_function(const N64Recomp::Context& context, const N64R
     return recompile_function_impl(generator, context, func, output_file, static_funcs_out, tag_reference_relocs);
 }
 
-bool N64Recomp::recompile_function_luajit(const N64Recomp::Context& context, const N64Recomp::Function& func, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
-    LuajitGenerator generator{output_file};
-    return recompile_function_impl(generator, context, func, output_file, static_funcs_out, tag_reference_relocs);
-}
-
 bool N64Recomp::recompile_function_custom(Generator& generator, const Context& context, const Function& func, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
     return recompile_function_impl(generator, context, func, output_file, static_funcs_out, tag_reference_relocs);
 }
