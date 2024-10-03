@@ -28,13 +28,12 @@ namespace N64Recomp {
         ToU32,
         ToS64,
         ToU64,
-        NegateS32,
-        NegateS64,
         Lui,
         Mask5, // Mask to 5 bits
         Mask6, // Mask to 5 bits
         ToInt32, // Functionally equivalent to ToS32, only exists for parity with old codegen
-        Negate,
+        NegateFloat,
+        NegateDouble,
         AbsFloat,
         AbsDouble,
         SqrtFloat,

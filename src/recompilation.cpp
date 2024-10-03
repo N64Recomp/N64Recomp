@@ -110,7 +110,7 @@ std::string_view ctx_gpr_prefix(int reg) {
 }
 
 template <typename GeneratorType>
-bool process_instruction(GeneratorType& generator, const N64Recomp::Context& context, const N64Recomp::Function& func, const N64Recomp::FunctionStats& stats, const std::unordered_set<uint32_t>& skipped_insns, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ofstream& output_file, bool indent, bool emit_link_branch, int link_branch_index, size_t reloc_index, bool& needs_link_branch, bool& is_branch_likely, bool tag_reference_relocs, std::span<std::vector<uint32_t>> static_funcs_out) {
+bool process_instruction(GeneratorType& generator, const N64Recomp::Context& context, const N64Recomp::Function& func, const N64Recomp::FunctionStats& stats, const std::unordered_set<uint32_t>& skipped_insns, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ostream& output_file, bool indent, bool emit_link_branch, int link_branch_index, size_t reloc_index, bool& needs_link_branch, bool& is_branch_likely, bool tag_reference_relocs, std::span<std::vector<uint32_t>> static_funcs_out) {
     using namespace N64Recomp;
 
     const auto& section = context.sections[func.section_index];
@@ -260,16 +260,6 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         return true;
     };
 
-    auto print_func_call_lookup = [&](uint32_t target_vram) {
-        if (!process_delay_slot(false)) {
-            return false;
-        }
-        print_indent();
-        generator.emit_function_call_lookup(target_vram);
-        print_link_branch();
-        return true;
-    };
-
     auto print_func_call_by_address = [&generator, reloc_target_section_offset, reloc_section, reloc_reference_symbol, reloc_type, &context, &section, &func, &static_funcs_out, &needs_link_branch, &print_indent, &process_delay_slot, &output_file, &print_link_branch]
         (uint32_t target_func_vram, bool tail_call = false, bool indent = false)
     {
@@ -364,6 +354,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                 }
                 print_indent();
                 generator.emit_return();
+                // TODO check if this branch close should exist.
                 print_indent();
                 generator.emit_branch_close();
                 return true;
@@ -379,6 +370,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         print_indent();
         print_indent();
         generator.emit_goto(fmt::format("L_{:08X}", branch_target));
+        // TODO check if this link branch ever exists.
         if (needs_link_branch) {
             print_indent();
             print_indent();
@@ -704,6 +696,8 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
     auto find_conditional_branch_it = conditional_branch_ops.find(instr.getUniqueId());
     if (find_conditional_branch_it != conditional_branch_ops.end()) {
         print_indent();
+        // TODO combining the branch condition and branch target into one generator call would allow better optimization in the runtime's JIT generator.
+        // This would require splitting into a conditional jump method and conditional function call method.
         generator.emit_branch_condition(find_conditional_branch_it->second, instruction_context);
 
         print_indent();
@@ -753,7 +747,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
 }
 
 template <typename GeneratorType>
-bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context& context, const N64Recomp::Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
+bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context& context, const N64Recomp::Function& func, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
     //fmt::print("Recompiling {}\n", func.name);
     std::vector<rabbitizer::InstructionCpu> instructions;
 
@@ -865,12 +859,16 @@ bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context&
 }
 
 // Wrap the templated function with CGenerator as the template parameter.
-bool N64Recomp::recompile_function(const N64Recomp::Context& context, const N64Recomp::Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
+bool N64Recomp::recompile_function(const N64Recomp::Context& context, const N64Recomp::Function& func, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
     CGenerator generator{output_file};
     return recompile_function_impl(generator, context, func, output_file, static_funcs_out, tag_reference_relocs);
 }
 
-bool N64Recomp::recompile_function_luajit(const N64Recomp::Context& context, const N64Recomp::Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
+bool N64Recomp::recompile_function_luajit(const N64Recomp::Context& context, const N64Recomp::Function& func, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
     LuajitGenerator generator{output_file};
+    return recompile_function_impl(generator, context, func, output_file, static_funcs_out, tag_reference_relocs);
+}
+
+bool N64Recomp::recompile_function_custom(Generator& generator, const Context& context, const Function& func, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
     return recompile_function_impl(generator, context, func, output_file, static_funcs_out, tag_reference_relocs);
 }
