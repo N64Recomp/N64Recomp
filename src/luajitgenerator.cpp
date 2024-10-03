@@ -224,12 +224,6 @@ void N64Recomp::LuajitGenerator::get_operand_string(Operand operand, UnaryOpType
         case UnaryOpType::ToU64:
             // Nothing to do here, they're already U64
             break;
-        case UnaryOpType::NegateS32:
-            assert(false);
-            break;
-        case UnaryOpType::NegateS64:
-            assert(false);
-            break;
         case UnaryOpType::Lui:
             operand_string = "S32(bit.lshift(" + operand_string + "), 16ULL)"; 
             break;
@@ -239,7 +233,10 @@ void N64Recomp::LuajitGenerator::get_operand_string(Operand operand, UnaryOpType
         case UnaryOpType::Mask6:
             operand_string = "(bit.band(" + operand_string + "), 63ULL)";
             break;
-        case UnaryOpType::Negate:
+        case UnaryOpType::NegateFloat:
+            operand_string = "-" + operand_string;
+            break;
+        case UnaryOpType::NegateDouble:
             operand_string = "-" + operand_string;
             break;
         case UnaryOpType::AbsFloat:

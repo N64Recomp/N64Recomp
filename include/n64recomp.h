@@ -517,8 +517,10 @@ namespace N64Recomp {
         }
     };
 
-    bool recompile_function(const Context& context, const Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs, bool tag_reference_relocs);
-    bool recompile_function_luajit(const Context& context, const Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs, bool tag_reference_relocs);
+    class Generator;
+    bool recompile_function(const Context& context, const Function& func, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs, bool tag_reference_relocs);
+    bool recompile_function_luajit(const Context& context, const Function& func, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs, bool tag_reference_relocs);
+    bool recompile_function_custom(Generator& generator, const Context& context, const Function& func, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs);
 
     enum class ModSymbolsError {
         Good,

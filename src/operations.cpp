@@ -12,8 +12,8 @@ namespace N64Recomp {
         // Float operations
         { InstrId::cpu_mov_s,     { UnaryOpType::None,           Operand::Fd,       Operand::Fs,       true } },
         { InstrId::cpu_mov_d,     { UnaryOpType::None,           Operand::FdDouble, Operand::FsDouble, true } },
-        { InstrId::cpu_neg_s,     { UnaryOpType::Negate,         Operand::Fd,       Operand::Fs,       true, true } },
-        { InstrId::cpu_neg_d,     { UnaryOpType::Negate,         Operand::FdDouble, Operand::FsDouble, true, true } },
+        { InstrId::cpu_neg_s,     { UnaryOpType::NegateFloat,    Operand::Fd,       Operand::Fs,       true, true } },
+        { InstrId::cpu_neg_d,     { UnaryOpType::NegateDouble,   Operand::FdDouble, Operand::FsDouble, true, true } },
         { InstrId::cpu_abs_s,     { UnaryOpType::AbsFloat,       Operand::Fd,       Operand::Fs,       true, true } },
         { InstrId::cpu_abs_d,     { UnaryOpType::AbsDouble,      Operand::FdDouble, Operand::FsDouble, true, true } },
         { InstrId::cpu_sqrt_s,    { UnaryOpType::SqrtFloat,      Operand::Fd,       Operand::Fs,       true, true } },
