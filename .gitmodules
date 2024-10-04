@@ -10,3 +10,6 @@
 [submodule "lib/tomlplusplus"]
 	path = lib/tomlplusplus
 	url = https://github.com/marzer/tomlplusplus
+[submodule "lib/sljit"]
+	path = lib/sljit
+	url = https://github.com/zherczeg/sljit
