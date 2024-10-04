@@ -3,7 +3,7 @@
 #include "fmt/format.h"
 // #include "fmt/ostream.h"
 
-#include "n64recomp.h"
+#include "recompiler/context.h"
 #include "elfio/elfio.hpp"
 
 bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, const N64Recomp::ElfParsingConfig& elf_config, bool dumping_context, std::unordered_map<uint16_t, std::vector<N64Recomp::DataSymbol>>& data_syms) {

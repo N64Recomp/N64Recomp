@@ -1,7 +1,7 @@
 #ifndef __GENERATOR_H__
 #define __GENERATOR_H__
 
-#include "n64recomp.h"
+#include "recompiler/context.h"
 #include "operations.h"
 
 namespace N64Recomp {

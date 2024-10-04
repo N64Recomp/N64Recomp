@@ -3,7 +3,7 @@
 #include <vector>
 #include <span>
 
-#include "n64recomp.h"
+#include "recompiler/context.h"
 #include "rabbitizer.hpp"
 
 static std::vector<uint8_t> read_file(const std::filesystem::path& path, bool& found) {

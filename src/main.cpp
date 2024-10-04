@@ -9,7 +9,7 @@
 #include "fmt/format.h"
 #include "fmt/ostream.h"
 
-#include "n64recomp.h"
+#include "recompiler/context.h"
 #include "config.h"
 #include <set>
 

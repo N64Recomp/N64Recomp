@@ -3,7 +3,7 @@
 #include <toml++/toml.hpp>
 #include "fmt/format.h"
 #include "config.h"
-#include "n64recomp.h"
+#include "recompiler/context.h"
 
 std::filesystem::path concat_if_not_empty(const std::filesystem::path& parent, const std::filesystem::path& child) {
     if (!child.empty()) {
