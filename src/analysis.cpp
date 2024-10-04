@@ -4,7 +4,7 @@
 #include "rabbitizer.hpp"
 #include "fmt/format.h"
 
-#include "n64recomp.h"
+#include "recompiler/context.h"
 #include "analysis.h"
 
 extern "C" const char* RabbitizerRegister_getNameGpr(uint8_t regValue);

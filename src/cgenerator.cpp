@@ -4,7 +4,7 @@
 #include "fmt/format.h"
 #include "fmt/ostream.h"
 
-#include "generator.h"
+#include "recompiler/generator.h"
 
 struct BinaryOpFields { std::string func_string; std::string infix_string; };
 

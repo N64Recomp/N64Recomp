@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "n64recomp.h"
+#include "recompiler/context.h"
 
 namespace N64Recomp {
     struct JumpTable {

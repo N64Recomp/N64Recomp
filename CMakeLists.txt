@@ -159,14 +159,8 @@ project(OfflineModRecomp)
 add_executable(OfflineModRecomp)
 
 target_sources(OfflineModRecomp PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../sljit/sljit_src/sljitLir.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/config.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/OfflineModRecomp/main.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/OfflineModRecomp/sljit_generator.cpp
-)
-
-target_include_directories(OfflineModRecomp PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../sljit/sljit_src
 )
 
 target_link_libraries(OfflineModRecomp fmt rabbitizer tomlplusplus::tomlplusplus N64Recomp)

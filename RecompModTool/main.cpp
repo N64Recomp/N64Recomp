@@ -7,7 +7,7 @@
 #include <cstdlib>
 #include "fmt/format.h"
 #include "fmt/ostream.h"
-#include "n64recomp.h"
+#include "recompiler/context.h"
 #include <toml++/toml.hpp>
 
 #ifdef _WIN32

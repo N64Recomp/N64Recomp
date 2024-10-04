@@ -1,4 +1,4 @@
-#include "operations.h"
+#include "recompiler/operations.h"
 
 namespace N64Recomp {
     const std::unordered_map<InstrId, UnaryOp> unary_ops {

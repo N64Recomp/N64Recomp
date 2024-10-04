@@ -8,10 +8,10 @@
 #include "fmt/format.h"
 #include "fmt/ostream.h"
 
-#include "n64recomp.h"
+#include "recompiler/context.h"
 #include "analysis.h"
-#include "operations.h"
-#include "generator.h"
+#include "recompiler/operations.h"
+#include "recompiler/generator.h"
 
 enum class JalResolutionResult {
     NoMatch,
