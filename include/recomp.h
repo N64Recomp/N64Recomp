@@ -75,7 +75,7 @@ static inline gpr do_lwl(uint8_t* rdram, gpr initial_value, gpr offset, gpr reg)
 
     // Mask the existing value and shift the loaded value appropriately
     gpr misalignment = address & 0x3;
-    gpr masked_value = initial_value & ~(0xFFFFFFFFu << (misalignment * 8));
+    gpr masked_value = initial_value & (gpr)(uint32_t)~(0xFFFFFFFFu << (misalignment * 8));
     loaded_value <<= (misalignment * 8);
 
     // Cast to int32_t to sign extend first
@@ -92,7 +92,7 @@ static inline gpr do_lwr(uint8_t* rdram, gpr initial_value, gpr offset, gpr reg)
 
     // Mask the existing value and shift the loaded value appropriately
     gpr misalignment = address & 0x3;
-    gpr masked_value = initial_value & ~(0xFFFFFFFFu >> (24 - misalignment * 8));
+    gpr masked_value = initial_value & (gpr)(uint32_t)~(0xFFFFFFFFu >> (24 - misalignment * 8));
     loaded_value >>= (24 - misalignment * 8);
 
     // Cast to int32_t to sign extend first
