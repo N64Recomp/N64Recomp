@@ -194,6 +194,8 @@ int main(int argc, const char** argv) {
     int count = argc - 1 - 1;
     int passed_count = 0;
 
+    std::vector<size_t> failed_tests{};
+
     for (size_t test_index = 0; test_index < count; test_index++) {
         const char* cur_test_name = argv[2 + test_index];
         printf("Running test: %s\n", cur_test_name);
@@ -216,9 +218,26 @@ int main(int argc, const char** argv) {
             printf("  Output data did not match, dumped to file\n");
             break;
         }
+
+        if (stats.error != TestError::Success) {
+            failed_tests.emplace_back(test_index);
+        }
+
         printf("\n");
     }
 
     printf("Passed %d/%d tests\n", passed_count, count);
+    if (!failed_tests.empty()) {
+        printf("  Failed: ");
+        for (size_t i = 0; i < failed_tests.size(); i++) {
+            size_t test_index = failed_tests[i];
+
+            printf("%s", argv[2 + test_index]);
+            if (i != failed_tests.size() - 1) {
+                printf(", ");
+            }
+        }
+        printf("\n");
+    }
     return 0;
 }
