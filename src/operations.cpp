@@ -65,24 +65,22 @@ namespace N64Recomp {
         { InstrId::cpu_ori,    { BinaryOpType::Or64,  Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::ImmU16 }}} },
         { InstrId::cpu_xori,   { BinaryOpType::Xor64, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::ImmU16 }}} },
         // Shifts
-        /* BUG Should mask after (change op to Sll32 and input op to ToU32) */
-        { InstrId::cpu_sllv,   { BinaryOpType::Sll64, Operand::Rd, {{ UnaryOpType::ToS32, UnaryOpType::Mask5 }, { Operand::Rt, Operand::Rs }}} },
+        { InstrId::cpu_sllv,   { BinaryOpType::Sll32, Operand::Rd, {{ UnaryOpType::None,  UnaryOpType::Mask5 }, { Operand::Rt, Operand::Rs }}} },
         { InstrId::cpu_dsllv,  { BinaryOpType::Sll64, Operand::Rd, {{ UnaryOpType::None,  UnaryOpType::Mask6 }, { Operand::Rt, Operand::Rs }}} },
         { InstrId::cpu_srlv,   { BinaryOpType::Srl32, Operand::Rd, {{ UnaryOpType::ToU32, UnaryOpType::Mask5 }, { Operand::Rt, Operand::Rs }}} },
         { InstrId::cpu_dsrlv,  { BinaryOpType::Srl64, Operand::Rd, {{ UnaryOpType::ToU64, UnaryOpType::Mask6 }, { Operand::Rt, Operand::Rs }}} },
-        /* BUG Should mask after (change op to Sra32 and input op to ToS64) */
-        { InstrId::cpu_srav,   { BinaryOpType::Sra64, Operand::Rd, {{ UnaryOpType::ToS32, UnaryOpType::Mask5 }, { Operand::Rt, Operand::Rs }}} },
+        // Hardware bug: The input is not masked to 32 bits before right shifting, so bits from the upper half of the register will bleed into the lower half.
+        { InstrId::cpu_srav,   { BinaryOpType::Sra32, Operand::Rd, {{ UnaryOpType::ToS64, UnaryOpType::Mask5 }, { Operand::Rt, Operand::Rs }}} },
         { InstrId::cpu_dsrav,  { BinaryOpType::Sra64, Operand::Rd, {{ UnaryOpType::ToS64, UnaryOpType::Mask6 }, { Operand::Rt, Operand::Rs }}} },
         // Shifts (immediate)
-        /* BUG Should mask after (change op to Sll32 and input op to ToU32) */
-        { InstrId::cpu_sll,    { BinaryOpType::Sll64, Operand::Rd, {{ UnaryOpType::ToS32, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
+        { InstrId::cpu_sll,    { BinaryOpType::Sll32, Operand::Rd, {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
         { InstrId::cpu_dsll,   { BinaryOpType::Sll64, Operand::Rd, {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
         { InstrId::cpu_dsll32, { BinaryOpType::Sll64, Operand::Rd, {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Rt, Operand::Sa32 }}} },
         { InstrId::cpu_srl,    { BinaryOpType::Srl32, Operand::Rd, {{ UnaryOpType::ToU32, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
         { InstrId::cpu_dsrl,   { BinaryOpType::Srl64, Operand::Rd, {{ UnaryOpType::ToU64, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
         { InstrId::cpu_dsrl32, { BinaryOpType::Srl64, Operand::Rd, {{ UnaryOpType::ToU64, UnaryOpType::None }, { Operand::Rt, Operand::Sa32 }}} },
-        /* BUG should cast after (change op to Sra32 and input op to ToS64) */
-        { InstrId::cpu_sra,    { BinaryOpType::Sra64, Operand::Rd, {{ UnaryOpType::ToS32, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
+        // Hardware bug: The input is not masked to 32 bits before right shifting, so bits from the upper half of the register will bleed into the lower half.
+        { InstrId::cpu_sra,    { BinaryOpType::Sra32, Operand::Rd, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
         { InstrId::cpu_dsra,   { BinaryOpType::Sra64, Operand::Rd, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
         { InstrId::cpu_dsra32, { BinaryOpType::Sra64, Operand::Rd, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rt, Operand::Sa32 }}} },
         // Comparisons

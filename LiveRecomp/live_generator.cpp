@@ -27,6 +27,7 @@ namespace Registers {
     constexpr int arithmetic_temp1 = SLJIT_R0;
     constexpr int arithmetic_temp2 = SLJIT_R1;
     constexpr int arithmetic_temp3 = SLJIT_R2;
+    constexpr int arithmetic_temp4 = SLJIT_R3;
     constexpr int float_temp = SLJIT_FR0;
 }
 
@@ -224,10 +225,17 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
     get_operand_values(op.operands.operands[0], ctx, src1, src1w);
     get_operand_values(op.operands.operands[1], ctx, src2, src2w);
 
-    // TODO
-    assert(op.operands.operand_operations[0] == UnaryOpType::None || op.operands.operand_operations[0] == UnaryOpType::ToU64);
-    assert(op.operands.operand_operations[1] == UnaryOpType::None);
-    bool cmp_unsigned = op.operands.operand_operations[0] == UnaryOpType::ToU64;
+    // TODO validate that the unary ops are valid for the current binary op.
+    assert(op.operands.operand_operations[0] == UnaryOpType::None ||
+           op.operands.operand_operations[0] == UnaryOpType::ToU64 ||
+           op.operands.operand_operations[0] == UnaryOpType::ToS64 ||
+           op.operands.operand_operations[0] == UnaryOpType::ToU32);
+    
+    assert(op.operands.operand_operations[1] == UnaryOpType::None ||
+           op.operands.operand_operations[1] == UnaryOpType::Mask5 || // Only for 32-bit shifts
+           op.operands.operand_operations[1] == UnaryOpType::Mask6); // Only for 64-bit shifts
+
+    bool cmp_unsigned = op.operands.operand_operations[0] != UnaryOpType::ToS64;
 
     auto sign_extend_and_store = [dst, dstw, this]() {
         // Sign extend the result.
@@ -425,22 +433,32 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
             do_op64(SLJIT_XOR);
             break;
         case BinaryOpType::Sll32:
-            do_op32(SLJIT_SHL32);
+            // TODO only mask if the second input's op is Mask5.
+            do_op32(SLJIT_MSHL32);
             break;
         case BinaryOpType::Sll64:
-            do_op64(SLJIT_SHL);
+            // TODO only mask if the second input's op is Mask6.
+            do_op64(SLJIT_MSHL);
             break;
         case BinaryOpType::Srl32:
-            do_op32(SLJIT_LSHR32);
+            // TODO only mask if the second input's op is Mask5.
+            do_op32(SLJIT_MLSHR32);
             break;
         case BinaryOpType::Srl64:
-            do_op64(SLJIT_LSHR);
+            // TODO only mask if the second input's op is Mask6.
+            do_op64(SLJIT_MLSHR);
             break;
         case BinaryOpType::Sra32:
-            do_op32(SLJIT_ASHR32);
+            // Hardware bug: The input is not masked to 32 bits before right shifting, so bits from the upper half of the register will bleed into the lower half.
+            // This means we have to use a 64-bit shift and manually mask the input before shifting.
+            // TODO only mask if the second input's op is Mask5.
+            sljit_emit_op2(this->compiler, SLJIT_AND32, Registers::arithmetic_temp1, 0, src2, src2w, SLJIT_IMM, 0b11111);
+            sljit_emit_op2(this->compiler, SLJIT_MASHR, Registers::arithmetic_temp1, 0, src1, src1w, Registers::arithmetic_temp1, 0);
+            sign_extend_and_store();
             break;
         case BinaryOpType::Sra64:
-            do_op64(SLJIT_ASHR);
+            // TODO only mask if the second input's op is Mask6.
+            do_op64(SLJIT_MASHR);
             break;
 
         // Comparisons
@@ -621,7 +639,7 @@ void N64Recomp::LiveGenerator::process_store_op(const StoreOp& op, const Instruc
 }
 
 void N64Recomp::LiveGenerator::emit_function_start(const std::string& function_name) const {
-    sljit_emit_enter(compiler, 0, SLJIT_ARGS2V(P, P), 3, 2, 0);
+    sljit_emit_enter(compiler, 0, SLJIT_ARGS2V(P, P), 4, 5, 0);
     sljit_emit_op2(compiler, SLJIT_SUB, Registers::rdram, 0, Registers::rdram, 0, SLJIT_IMM, 0xFFFFFFFF80000000);
 }
 
@@ -795,7 +813,167 @@ void N64Recomp::LiveGenerator::emit_cop1_cs_write(int reg) const {
 }
 
 void N64Recomp::LiveGenerator::emit_muldiv(InstrId instr_id, int reg1, int reg2) const {
-    assert(false);
+    sljit_sw src1;
+    sljit_sw src1w;
+    sljit_sw src2;
+    sljit_sw src2w;
+    get_gpr_values(reg1, src1, src1w);
+    get_gpr_values(reg2, src2, src2w);
+    
+    auto do_mul32_op = [src1, src1w, src2, src2w, this](bool is_signed) {
+        // Load the two inputs into the multiplication input registers (R0/R1).
+        if (is_signed) {
+            // 32-bit signed multiplication is really 64 bits * 35 bits, so load accordingly.
+            sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, src1, src1w); 
+
+            // Sign extend to 35 bits by shifting left by 64 - 35 and then shifting right by the same amount.
+            sljit_emit_op2(compiler, SLJIT_SHL, SLJIT_R1, 0, src2, src2w, SLJIT_IMM, 64 - 35);
+            sljit_emit_op2(compiler, SLJIT_ASHR, SLJIT_R1, 0, SLJIT_R1, 0, SLJIT_IMM, 64 - 35);
+        }
+        else {
+            sljit_emit_op1(compiler, SLJIT_MOV_U32, SLJIT_R0, 0, src1, src1w);
+            sljit_emit_op1(compiler, SLJIT_MOV_U32, SLJIT_R1, 0, src2, src2w);
+        }
+
+        // Perform the multiplication.
+        sljit_emit_op0(compiler, is_signed ? SLJIT_LMUL_SW : SLJIT_LMUL_UW);
+
+        // Move the results into hi and lo with sign extension.
+        sljit_emit_op2(compiler, SLJIT_ASHR, Registers::hi, 0, SLJIT_R0, 0, SLJIT_IMM, 32);
+        sljit_emit_op1(compiler, SLJIT_MOV_S32, Registers::lo, 0, SLJIT_R0, 0);
+    };
+    
+    auto do_mul64_op = [src1, src1w, src2, src2w, this](bool is_signed) {
+        // Load the two inputs into the multiplication input registers (R0/R1).
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, src1, src1w); 
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, src2, src2w);
+
+        // Perform the multiplication.
+        sljit_emit_op0(compiler, is_signed ? SLJIT_LMUL_SW : SLJIT_LMUL_UW);
+
+        // Move the results into hi and lo.
+        sljit_emit_op1(compiler, SLJIT_MOV, Registers::hi, 0, SLJIT_R1, 0);
+        sljit_emit_op1(compiler, SLJIT_MOV, Registers::lo, 0, SLJIT_R0, 0);
+    };
+    
+    auto do_div_op = [src1, src1w, src2, src2w, this](bool doubleword, bool is_signed) {
+        // Pick the division opcode based on the bit width and signedness.
+        // Note that the 64-bit division opcode is used for 32-bit signed division to match hardware behavior and prevent overflow.
+        sljit_sw div_opcode = doubleword ?
+            (is_signed ? SLJIT_DIVMOD_SW : SLJIT_DIVMOD_UW) :
+            (is_signed ? SLJIT_DIVMOD_SW : SLJIT_DIVMOD_U32);
+
+        // Pick the move opcode to use for loading the operands.
+        sljit_sw load_opcode = doubleword ? SLJIT_MOV :
+            (is_signed ? SLJIT_MOV_S32 : SLJIT_MOV_U32);
+
+        // Pick the move opcode to use for saving the results.
+        sljit_sw save_opcode = doubleword ? SLJIT_MOV : SLJIT_MOV_S32;
+
+        // Load the two inputs into R0 and R1 (the numerator and denominator).
+        sljit_emit_op1(compiler, load_opcode, SLJIT_R0, 0, src1, src1w); 
+
+        // TODO figure out 32-bit signed division behavior when inputs aren't properly sign extended.
+        // if (!doubleword && is_signed) {
+        //     // Sign extend to 35 bits by shifting left by 64 - 35 and then shifting right by the same amount.
+        //     sljit_emit_op2(compiler, SLJIT_SHL, SLJIT_R1, 0, src2, src2w, SLJIT_IMM, 64 - 35);
+        //     sljit_emit_op2(compiler, SLJIT_ASHR, SLJIT_R1, 0, SLJIT_R1, 0, SLJIT_IMM, 64 - 35);
+        // }
+        // else {
+            sljit_emit_op1(compiler, load_opcode, SLJIT_R1, 0, src2, src2w);
+        // }
+
+        // Prevent overflow on 64-bit signed division.
+        if (doubleword && is_signed) {
+            // If the numerator is INT64_MIN and the denominator is -1, an overflow will occur. To prevent an exception and
+            // behave as the original hardware would, check if either of those conditions are false.
+            // If neither condition is false (i.e. both are true), set the denominator to 1.
+
+            // Xor the numerator with INT64_MIN. This will be zero if they're equal.
+            sljit_emit_op2(compiler, SLJIT_XOR, Registers::arithmetic_temp3, 0, Registers::arithmetic_temp1, 0, SLJIT_IMM, sljit_sw(INT64_MIN));
+
+            // Invert the denominator. This will be zero if it's -1.
+            sljit_emit_op2(compiler, SLJIT_XOR, Registers::arithmetic_temp4, 0, Registers::arithmetic_temp2, 0, SLJIT_IMM, sljit_sw(-1)); 
+
+            // Or the results of the previous two calculations and set the zero flag. This will be zero if both conditions were met.
+            sljit_emit_op2(compiler, SLJIT_OR | SLJIT_SET_Z, Registers::arithmetic_temp3, 0, Registers::arithmetic_temp3, 0, Registers::arithmetic_temp4, 0);
+
+            // If the zero flag is 0, meaning both conditions were true, replace the denominator with 1.
+            // i.e. conditionally move an immediate of 1 into arithmetic temp 2 if the zero flag is 0.
+            sljit_emit_select(compiler, SLJIT_ZERO, SLJIT_R1, SLJIT_IMM, 1, SLJIT_R1);
+        }
+
+        // If the denominator is 0, skip the division and jump the special handling for that case.
+        // Set the zero flag if the denominator is zero by AND'ing it with itself.
+        sljit_emit_op2u(compiler, SLJIT_AND | SLJIT_SET_Z, SLJIT_R1, 0, SLJIT_R1, 0);
+
+        // Branch past the division if the zero flag is 0.
+        sljit_jump* jump_skip_division = sljit_emit_jump(compiler, SLJIT_ZERO);
+
+        // Perform the division.
+        sljit_emit_op0(compiler, div_opcode);
+
+        // Extract the remainder and quotient into the high and low registers respectively.
+        sljit_emit_op1(compiler, save_opcode, Registers::hi, 0, SLJIT_R1, 0);
+        sljit_emit_op1(compiler, save_opcode, Registers::lo, 0, SLJIT_R0, 0);
+
+        // Jump to the end of this routine.
+        sljit_jump* jump_to_end = sljit_emit_jump(compiler, SLJIT_JUMP);
+
+        // Emit a label and set it as the target of the jump if the denominator was zero.
+        sljit_label* after_division = sljit_emit_label(compiler);
+        sljit_set_label(jump_skip_division, after_division);
+
+        // Move the numerator into hi.
+        sljit_emit_op1(compiler, SLJIT_MOV, Registers::hi, 0, SLJIT_R0, 0);
+
+        if (is_signed) {
+            // Calculate the negative signum of the numerator and place it in lo.
+            // neg_signum = ((int64_t)(~x) >> (bit width - 1)) | 1
+            sljit_emit_op2(compiler, SLJIT_XOR, Registers::lo, 0, SLJIT_R0, 0, SLJIT_IMM, sljit_sw(-1));
+            sljit_emit_op2(compiler, SLJIT_ASHR, Registers::lo, 0, Registers::lo, 0, SLJIT_IMM, 64 - 1);
+            sljit_emit_op2(compiler, SLJIT_OR, Registers::lo, 0, Registers::lo, 0, SLJIT_IMM, 1);
+        }
+        else {
+            // Move -1 into lo.
+            sljit_emit_op1(compiler, SLJIT_MOV, Registers::lo, 0, SLJIT_IMM, -1);
+        }
+
+        // Emit a label and set it as the target of the jump after the divison.
+        sljit_label* end_label = sljit_emit_label(compiler);
+        sljit_set_label(jump_to_end, end_label);
+    };
+    
+
+    switch (instr_id) {
+        case InstrId::cpu_mult:
+            do_mul32_op(true);
+            break;
+        case InstrId::cpu_multu:
+            do_mul32_op(false);
+            break;
+        case InstrId::cpu_dmult:
+            do_mul64_op(true);
+            break;
+        case InstrId::cpu_dmultu:
+            do_mul64_op(false);
+            break;
+        case InstrId::cpu_div:
+            do_div_op(false, true);
+            break;
+        case InstrId::cpu_divu:
+            do_div_op(false, false);
+            break;
+        case InstrId::cpu_ddiv:
+            do_div_op(true, true);
+            break;
+        case InstrId::cpu_ddivu:
+            do_div_op(true, false);
+            break;
+        default:
+            assert(false);
+            break;
+    }
 }
 
 void N64Recomp::LiveGenerator::emit_syscall(uint32_t instr_vram) const {
