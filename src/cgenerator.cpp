@@ -362,7 +362,7 @@ void N64Recomp::CGenerator::get_binary_expr_string(BinaryOpType type, const Bina
     }
 }
 
-void N64Recomp::CGenerator::emit_function_start(const std::string& function_name) const {
+void N64Recomp::CGenerator::emit_function_start(const std::string& function_name, size_t func_index) const {
     fmt::print(output_file,
         "RECOMP_FUNC void {}(uint8_t* rdram, recomp_context* ctx) {{\n"
         // these variables shouldn't need to be preserved across function boundaries, so make them local for more efficient output
@@ -384,8 +384,13 @@ void N64Recomp::CGenerator::emit_function_call_by_register(int reg) const {
     fmt::print(output_file, "LOOKUP_FUNC({})(rdram, ctx);\n", gpr_to_string(reg));
 }
 
-void N64Recomp::CGenerator::emit_function_call_by_name(const std::string& func_name) const {
-    fmt::print(output_file, "{}(rdram, ctx);\n", func_name);
+void N64Recomp::CGenerator::emit_function_call_reference_symbol(const Context& context, uint16_t section_index, size_t symbol_index) const {
+    const N64Recomp::ReferenceSymbol& sym = context.get_reference_symbol(section_index, symbol_index);
+    fmt::print(output_file, "{}(rdram, ctx);\n", sym.name);
+}
+
+void N64Recomp::CGenerator::emit_function_call(const Context& context, size_t function_index) const {
+    fmt::print(output_file, "{}(rdram, ctx);\n", context.functions[function_index].name);
 }
 
 void N64Recomp::CGenerator::emit_goto(const std::string& target) const {

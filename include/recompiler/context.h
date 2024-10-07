@@ -521,8 +521,8 @@ namespace N64Recomp {
     };
 
     class Generator;
-    bool recompile_function(const Context& context, const Function& func, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs, bool tag_reference_relocs);
-    bool recompile_function_custom(Generator& generator, const Context& context, const Function& func, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs);
+    bool recompile_function(const Context& context, size_t function_index, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs, bool tag_reference_relocs);
+    bool recompile_function_custom(Generator& generator, const Context& context, size_t function_index, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs);
 
     enum class ModSymbolsError {
         Good,

@@ -54,6 +54,7 @@ enum class TestError {
     Success,
     FailedToOpenInput,
     FailedToRecompile,
+    UnknownStructType,
     DataDifference
 };
 
@@ -84,6 +85,7 @@ TestStats run_test(const std::filesystem::path& tests_dir, const std::string& te
     uint32_t data_length = read_u32_swap(file_data, 0x10);
     uint32_t text_address = read_u32_swap(file_data, 0x14);
     uint32_t data_address = read_u32_swap(file_data, 0x18);
+    uint32_t next_struct_address = read_u32_swap(file_data, 0x1C);
 
     recomp_context ctx{};
 
@@ -105,55 +107,107 @@ TestStats run_test(const std::filesystem::path& tests_dir, const std::string& te
     context.sections[0].executable = true;
     context.section_functions.resize(context.sections.size());
 
-    // Get the function's instruction words.
-    std::vector<uint32_t> text_words{};
-    text_words.resize(text_length / sizeof(uint32_t));
-    for (size_t i = 0; i < text_words.size(); i++) {
-        text_words[i] = read_u32(context.rom, text_offset + i * sizeof(uint32_t));
+    size_t start_func_index;
+    uint32_t function_desc_address = 0;
+
+    // Read any extra structs.
+    while (next_struct_address != 0) {
+        uint32_t cur_struct_address = next_struct_address;
+        uint32_t struct_type = read_u32_swap(context.rom, next_struct_address + 0x00);
+        next_struct_address = read_u32_swap(context.rom, next_struct_address + 0x04);
+
+        switch (struct_type) {
+            case 1: // Function desc
+                function_desc_address = cur_struct_address;
+                break;
+            default:
+                printf("Unknown struct type %u\n", struct_type);
+                return { TestError::UnknownStructType };
+        }
     }
 
-    // Add the function to the context.
-    context.functions_by_vram[text_address].emplace_back(context.functions.size());
-    context.section_functions.emplace_back(context.functions.size());
-    context.sections[0].function_addrs.emplace_back(text_address);
-    context.functions.emplace_back(
-        text_address,
-        text_offset,
-        text_words,
-        "test_func",
-        0
-    );
+    // Check if a function description exists.
+    if (function_desc_address == 0) {
+        // No function description, so treat the whole thing as one function.
+
+        // Get the function's instruction words.
+        std::vector<uint32_t> text_words{};
+        text_words.resize(text_length / sizeof(uint32_t));
+        for (size_t i = 0; i < text_words.size(); i++) {
+            text_words[i] = read_u32(context.rom, text_offset + i * sizeof(uint32_t));
+        }
+
+        // Add the function to the context.
+        context.functions_by_vram[text_address].emplace_back(context.functions.size());
+        context.section_functions.emplace_back(context.functions.size());
+        context.sections[0].function_addrs.emplace_back(text_address);
+        context.functions.emplace_back(
+            text_address,
+            text_offset,
+            text_words,
+            "test_func",
+            0
+        );
+        start_func_index = 0;
+    }
+    else {
+        // Use the function description.
+        uint32_t num_funcs = read_u32_swap(context.rom, function_desc_address + 0x08);
+        start_func_index = read_u32_swap(context.rom, function_desc_address + 0x0C);
+
+        for (size_t func_index = 0; func_index < num_funcs; func_index++) {
+            uint32_t cur_func_address = read_u32_swap(context.rom, function_desc_address + 0x10 + 0x00 + 0x08 * func_index);
+            uint32_t cur_func_length = read_u32_swap(context.rom, function_desc_address + 0x10 + 0x04 + 0x08 * func_index);
+            uint32_t cur_func_offset = cur_func_address - text_address + text_offset;
+
+            // Get the function's instruction words.
+            std::vector<uint32_t> text_words{};
+            text_words.resize(cur_func_length / sizeof(uint32_t));
+            for (size_t i = 0; i < text_words.size(); i++) {
+                text_words[i] = read_u32(context.rom, cur_func_offset + i * sizeof(uint32_t));
+            }
+
+            // Add the function to the context.
+            context.functions_by_vram[cur_func_address].emplace_back(context.functions.size());
+            context.section_functions.emplace_back(context.functions.size());
+            context.sections[0].function_addrs.emplace_back(cur_func_address);
+            context.functions.emplace_back(
+                cur_func_address,
+                cur_func_offset,
+                std::move(text_words),
+                "test_func_" + std::to_string(func_index),
+                0
+            );
+        }
+    }
 
     std::vector<std::vector<uint32_t>> dummy_static_funcs{};
 
     auto before_codegen = std::chrono::system_clock::now();
 
-    // Create the sljit compiler and generator.
-    sljit_compiler* compiler = sljit_create_compiler(NULL);
-    N64Recomp::LiveGenerator generator{ compiler };
-    std::ostringstream dummy_ostream{};
+    // Create the sljit compiler and the generator.
+    N64Recomp::LiveGenerator generator{ context.functions.size() };
 
-    //sljit_emit_op0(compiler, SLJIT_BREAKPOINT);
+    for (size_t func_index = 0; func_index < context.functions.size(); func_index++) {
+        std::ostringstream dummy_ostream{};
 
-    if (!N64Recomp::recompile_function_live(generator, context, context.functions[0], dummy_ostream, dummy_static_funcs, true)) {
-        return { TestError::FailedToRecompile };
+        //sljit_emit_op0(compiler, SLJIT_BREAKPOINT);
+
+        if (!N64Recomp::recompile_function_live(generator, context, func_index, dummy_ostream, dummy_static_funcs, true)) {
+            return { TestError::FailedToRecompile };
+        }
     }
 
-    // Finish up code generation.
-    void* code = sljit_generate_code(compiler, 0, NULL);
-    size_t code_size = sljit_get_generated_code_size(compiler);
-
-    sljit_free_compiler(compiler);
+    // Generate the code.
+    N64Recomp::LiveGeneratorOutput output = generator.finish();
 
     auto after_codegen = std::chrono::system_clock::now();
 
     auto before_execution = std::chrono::system_clock::now();
 
     // Run the generated code.
-    typedef void (recomp_func_t)(uint8_t* rdram, recomp_context* ctx);
-    ((recomp_func_t*)code)(rdram.data(), &ctx);
-
-    sljit_free_code(code, nullptr);
+    ctx.r29 = 0xFFFFFFFF80000000 + rdram.size() - 0x10; // Set the stack pointer.
+    output.functions[start_func_index](rdram.data(), &ctx);
 
     auto after_execution = std::chrono::system_clock::now();
 
@@ -175,7 +229,7 @@ TestStats run_test(const std::filesystem::path& tests_dir, const std::string& te
     ret.error = TestError::Success;
     ret.codegen_microseconds = std::chrono::duration_cast<std::chrono::microseconds>(after_codegen - before_codegen).count();
     ret.execution_microseconds = std::chrono::duration_cast<std::chrono::microseconds>(after_execution - before_execution).count();
-    ret.code_size = code_size;
+    ret.code_size = output.code_size;
 
     return ret;
 }
@@ -213,6 +267,9 @@ int main(int argc, const char** argv) {
             break;
         case TestError::FailedToRecompile:
             printf("  Failed to recompile\n");
+            break;
+        case TestError::UnknownStructType:
+            printf("  Unknown additional data struct type in test data\n");
             break;
         case TestError::DataDifference:
             printf("  Output data did not match, dumped to file\n");
