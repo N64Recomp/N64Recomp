@@ -2,23 +2,49 @@
 #define __LIVE_RECOMPILER_H__
 
 #include "recompiler/generator.h"
+#include "recomp.h"
 
 struct sljit_compiler;
 
 namespace N64Recomp {
     struct LiveGeneratorContext;
+    struct LiveGeneratorOutput {
+        LiveGeneratorOutput() = default;
+        LiveGeneratorOutput(const LiveGeneratorOutput& rhs) = delete;
+        LiveGeneratorOutput(LiveGeneratorOutput&& rhs) { *this = std::move(rhs); }
+        LiveGeneratorOutput& operator=(const LiveGeneratorOutput& rhs) = delete;
+        LiveGeneratorOutput& operator=(LiveGeneratorOutput&& rhs) {
+            good = rhs.good;
+            functions = std::move(rhs.functions);
+            code = rhs.code;
+            code_size = rhs.code_size;
+
+            rhs.good = false;
+            rhs.code = nullptr;
+            rhs.code_size = 0;
+
+            return *this;
+        }
+        ~LiveGeneratorOutput();
+        bool good = false;
+        std::vector<recomp_func_t*> functions;
+        void* code;
+        size_t code_size;
+    };
     class LiveGenerator final : public Generator {
     public:
-        LiveGenerator(sljit_compiler* compiler);
+        LiveGenerator(size_t num_funcs);
         ~LiveGenerator();
+        LiveGeneratorOutput finish();
         void process_binary_op(const BinaryOp& op, const InstructionContext& ctx) const final;
         void process_unary_op(const UnaryOp& op, const InstructionContext& ctx) const final;
         void process_store_op(const StoreOp& op, const InstructionContext& ctx) const final;
-        void emit_function_start(const std::string& function_name) const final;
+        void emit_function_start(const std::string& function_name, size_t func_index) const final;
         void emit_function_end() const final;
         void emit_function_call_lookup(uint32_t addr) const final;
         void emit_function_call_by_register(int reg) const final;
-        void emit_function_call_by_name(const std::string& func_name) const final;
+        void emit_function_call_reference_symbol(const Context& context, uint16_t section_index, size_t symbol_index) const final;
+        void emit_function_call(const Context& context, size_t function_index) const final;
         void emit_goto(const std::string& target) const final;
         void emit_label(const std::string& label_name) const final;
         void emit_variable_declaration(const std::string& var_name, int reg) const final;
@@ -50,7 +76,7 @@ namespace N64Recomp {
     };
 
     void live_recompiler_init();
-    bool recompile_function_live(LiveGenerator& generator, const Context& context, const Function& func, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs);
+    bool recompile_function_live(LiveGenerator& generator, const Context& context, size_t function_index, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs);
 }
 
 #endif

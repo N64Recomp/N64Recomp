@@ -280,6 +280,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         // Normal symbol or reference symbol, 
         else {
             std::string jal_target_name{};
+            size_t matched_func_index = (size_t)-1;
             if (reloc_reference_symbol != (size_t)-1) {
                 const auto& ref_symbol = context.get_reference_symbol(reloc_section, reloc_reference_symbol);
 
@@ -292,11 +293,8 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                     fmt::print(stderr, "Function {} uses a MIPS_R_26 addend, which is not supported yet\n", func.name);
                     return false;
                 }
-
-                jal_target_name = ref_symbol.name;
             }
             else {
-                size_t matched_func_index = 0;
                 JalResolutionResult jal_result = resolve_jal(context, func.section_index, target_func_vram, matched_func_index);
 
                 switch (jal_result) {
@@ -331,11 +329,14 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                 return false;
             }
             print_indent();
-            if (call_by_lookup) {
+            if (reloc_reference_symbol != (size_t)-1) {
+                generator.emit_function_call_reference_symbol(context, reloc_section, reloc_reference_symbol);
+            }
+            else if (call_by_lookup) {
                 generator.emit_function_call_lookup(target_func_vram);
             }
             else {
-                generator.emit_function_call_by_name(jal_target_name);
+                generator.emit_function_call(context, matched_func_index);
             }
             print_link_branch();
         }
@@ -355,8 +356,8 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                 print_indent();
                 generator.emit_return();
                 // TODO check if this branch close should exist.
-                print_indent();
-                generator.emit_branch_close();
+                // print_indent();
+                // generator.emit_branch_close();
                 return true;
             }
 
@@ -747,11 +748,12 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
 }
 
 template <typename GeneratorType>
-bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context& context, const N64Recomp::Function& func, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
+bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context& context, size_t func_index, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
+    const N64Recomp::Function& func = context.functions[func_index];
     //fmt::print("Recompiling {}\n", func.name);
     std::vector<rabbitizer::InstructionCpu> instructions;
 
-    generator.emit_function_start(func.name);
+    generator.emit_function_start(func.name, func_index);
 
     // Skip analysis and recompilation of this function is stubbed.
     if (!func.stubbed) {
@@ -853,11 +855,11 @@ bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context&
 }
 
 // Wrap the templated function with CGenerator as the template parameter.
-bool N64Recomp::recompile_function(const N64Recomp::Context& context, const N64Recomp::Function& func, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
+bool N64Recomp::recompile_function(const N64Recomp::Context& context, size_t function_index, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
     CGenerator generator{output_file};
-    return recompile_function_impl(generator, context, func, output_file, static_funcs_out, tag_reference_relocs);
+    return recompile_function_impl(generator, context, function_index, output_file, static_funcs_out, tag_reference_relocs);
 }
 
-bool N64Recomp::recompile_function_custom(Generator& generator, const Context& context, const Function& func, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
-    return recompile_function_impl(generator, context, func, output_file, static_funcs_out, tag_reference_relocs);
+bool N64Recomp::recompile_function_custom(Generator& generator, const Context& context, size_t function_index, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
+    return recompile_function_impl(generator, context, function_index, output_file, static_funcs_out, tag_reference_relocs);
 }

@@ -111,7 +111,7 @@ bool compare_files(const std::filesystem::path& file1_path, const std::filesyste
     return std::equal(begin1, std::istreambuf_iterator<char>(), begin2); //Second argument is end-of-range iterator
 }
 
-bool recompile_single_function(const N64Recomp::Context& context, const N64Recomp::Function& func, const std::string& recomp_include, const std::filesystem::path& output_path, std::span<std::vector<uint32_t>> static_funcs_out) {
+bool recompile_single_function(const N64Recomp::Context& context, size_t func_index, const std::string& recomp_include, const std::filesystem::path& output_path, std::span<std::vector<uint32_t>> static_funcs_out) {
     // Open the temporary output file
     std::filesystem::path temp_path = output_path;
     temp_path.replace_extension(".tmp");
@@ -127,7 +127,7 @@ bool recompile_single_function(const N64Recomp::Context& context, const N64Recom
         "\n",
         recomp_include);
 
-    if (!N64Recomp::recompile_function(context, func, output_file, static_funcs_out, false)) {
+    if (!N64Recomp::recompile_function(context, func_index, output_file, static_funcs_out, false)) {
         return false;
     }
     
@@ -702,7 +702,7 @@ int main(int argc, char** argv) {
 
             // Recompile the function.
             if (config.single_file_output || config.functions_per_output_file > 1) {
-                result = N64Recomp::recompile_function(context, func, current_output_file, static_funcs_by_section, false);
+                result = N64Recomp::recompile_function(context, i, current_output_file, static_funcs_by_section, false);
                 if (!config.single_file_output) {
                     cur_file_function_count++;
                     if (cur_file_function_count >= config.functions_per_output_file) {
@@ -711,7 +711,7 @@ int main(int argc, char** argv) {
                 }
             }
             else {
-                result = recompile_single_function(context, func, config.recomp_include, config.output_func_path / (func.name + ".c"), static_funcs_by_section);
+                result = recompile_single_function(context, i, config.recomp_include, config.output_func_path / (func.name + ".c"), static_funcs_by_section);
             }
             if (result == false) {
                 fmt::print(stderr, "Error recompiling {}\n", func.name);
@@ -774,22 +774,25 @@ int main(int argc, char** argv) {
             std::vector<uint32_t> insn_words((cur_func_end - static_func_addr) / sizeof(uint32_t));
             insn_words.assign(func_rom_start, func_rom_start + insn_words.size());
 
-            N64Recomp::Function func {
+            // Create the new function and add it to the context.
+            size_t new_func_index = context.functions.size();
+            context.functions.emplace_back(
                 static_func_addr,
                 rom_addr,
                 std::move(insn_words),
                 fmt::format("static_{}_{:08X}", section_index, static_func_addr),
                 static_cast<uint16_t>(section_index),
                 false
-            };
+            );
+            const N64Recomp::Function& new_func = context.functions[new_func_index];
 
             fmt::print(func_header_file,
-                       "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
+                       "void {}(uint8_t* rdram, recomp_context* ctx);\n", new_func.name);
 
             bool result;
-            size_t prev_num_statics = static_funcs_by_section[func.section_index].size();
+            size_t prev_num_statics = static_funcs_by_section[new_func.section_index].size();
             if (config.single_file_output || config.functions_per_output_file > 1) {
-                result = N64Recomp::recompile_function(context, func, current_output_file, static_funcs_by_section, false);
+                result = N64Recomp::recompile_function(context, new_func_index, current_output_file, static_funcs_by_section, false);
                 if (!config.single_file_output) {
                     cur_file_function_count++;
                     if (cur_file_function_count >= config.functions_per_output_file) {
@@ -798,14 +801,14 @@ int main(int argc, char** argv) {
                 }
             }
             else {
-                result = recompile_single_function(context, func, config.recomp_include, config.output_func_path / (func.name + ".c"), static_funcs_by_section);
+                result = recompile_single_function(context, new_func_index, config.recomp_include, config.output_func_path / (new_func.name + ".c"), static_funcs_by_section);
             }
 
             // Add any new static functions that were found while recompiling this one.
-            size_t cur_num_statics = static_funcs_by_section[func.section_index].size();
+            size_t cur_num_statics = static_funcs_by_section[new_func.section_index].size();
             if (cur_num_statics != prev_num_statics) {
                 for (size_t new_static_index = prev_num_statics; new_static_index < cur_num_statics; new_static_index++) {
-                    uint32_t new_static_vram = static_funcs_by_section[func.section_index][new_static_index];
+                    uint32_t new_static_vram = static_funcs_by_section[new_func.section_index][new_static_index];
 
                     if (!statics_set.contains(new_static_vram)) {
                         statics_set.emplace(new_static_vram);
@@ -815,7 +818,7 @@ int main(int argc, char** argv) {
             }
 
             if (result == false) {
-                fmt::print(stderr, "Error recompiling {}\n", func.name);
+                fmt::print(stderr, "Error recompiling {}\n", new_func.name);
                 std::exit(EXIT_FAILURE);
             }
         }

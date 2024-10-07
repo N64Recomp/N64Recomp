@@ -31,17 +31,78 @@ namespace Registers {
     constexpr int float_temp = SLJIT_FR0;
 }
 
+struct InnerCall {
+    size_t target_func_index;
+    sljit_jump* jump;
+};
+
+struct ReferenceSymbolCall {
+    uint16_t reference;
+};
+
 struct N64Recomp::LiveGeneratorContext {
     std::unordered_map<std::string, sljit_label*> labels;
     std::unordered_map<std::string, std::vector<sljit_jump*>> pending_jumps;
+    std::vector<sljit_label*> func_labels;
+    std::vector<InnerCall> inner_calls;
     sljit_jump* cur_branch_jump;
 };
 
-N64Recomp::LiveGenerator::LiveGenerator(sljit_compiler* compiler) : compiler(compiler) {
+N64Recomp::LiveGenerator::LiveGenerator(size_t num_funcs) : compiler(compiler) {
+    compiler = sljit_create_compiler(NULL);
     context = std::make_unique<LiveGeneratorContext>();
+    context->func_labels.resize(num_funcs);
 }
 
-N64Recomp::LiveGenerator::~LiveGenerator() {}
+N64Recomp::LiveGenerator::~LiveGenerator() {
+    if (compiler != nullptr) {
+        sljit_free_compiler(compiler);
+        compiler = nullptr;
+    }
+}
+
+N64Recomp::LiveGeneratorOutput N64Recomp::LiveGenerator::finish() {
+    LiveGeneratorOutput ret{};
+    ret.good = true;
+
+    // Populate all the pending inner function calls.
+    for (const InnerCall& call : context->inner_calls) {
+        sljit_label* target_func_label = context->func_labels[call.target_func_index];
+
+        // Generation isn't valid if the target function wasn't recompiled.
+        if (target_func_label == nullptr) {
+            return { };
+        }
+
+        sljit_set_label(call.jump, target_func_label);
+    }
+
+    // Generate the code.
+    ret.code = sljit_generate_code(compiler, 0, NULL);
+    ret.code_size = sljit_get_generated_code_size(compiler);
+    ret.functions.resize(context->func_labels.size());
+
+    // Get the function addresses.
+    for (size_t func_index = 0; func_index < ret.functions.size(); func_index++) {
+        sljit_label* func_label = context->func_labels[func_index];
+
+        // If the function wasn't recompiled, don't populate its address.
+        if (func_label != nullptr) {
+            ret.functions[func_index] = reinterpret_cast<recomp_func_t*>(sljit_get_label_addr(func_label));
+        }
+    }
+
+    sljit_free_compiler(compiler);
+    compiler = nullptr;
+
+    return ret;
+}
+
+N64Recomp::LiveGeneratorOutput::~LiveGeneratorOutput() {
+    if (code != nullptr) {
+        sljit_free_code(code, nullptr);
+    }
+}
 
 constexpr int get_gpr_context_offset(int gpr_index) {
     return offsetof(recomp_context, r0) + sizeof(recomp_context::r0) * gpr_index;
@@ -638,7 +699,8 @@ void N64Recomp::LiveGenerator::process_store_op(const StoreOp& op, const Instruc
     }
 }
 
-void N64Recomp::LiveGenerator::emit_function_start(const std::string& function_name) const {
+void N64Recomp::LiveGenerator::emit_function_start(const std::string& function_name, size_t func_index) const {
+    context->func_labels[func_index] = sljit_emit_label(compiler);
     sljit_emit_enter(compiler, 0, SLJIT_ARGS2V(P, P), 4, 5, 0);
     sljit_emit_op2(compiler, SLJIT_SUB, Registers::rdram, 0, Registers::rdram, 0, SLJIT_IMM, 0xFFFFFFFF80000000);
 }
@@ -655,8 +717,16 @@ void N64Recomp::LiveGenerator::emit_function_call_by_register(int reg) const {
     assert(false);
 }
 
-void N64Recomp::LiveGenerator::emit_function_call_by_name(const std::string& func_name) const {
+void N64Recomp::LiveGenerator::emit_function_call_reference_symbol(const Context& context, uint16_t section_index, size_t symbol_index) const {
+    const N64Recomp::ReferenceSymbol& sym = context.get_reference_symbol(section_index, symbol_index);
     assert(false);
+}
+
+void N64Recomp::LiveGenerator::emit_function_call(const Context& recompiler_context, size_t function_index) const {
+    sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, Registers::rdram, 0, SLJIT_IMM, 0xFFFFFFFF80000000);
+    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, Registers::ctx, 0);
+    sljit_jump* call_jump = sljit_emit_call(compiler, SLJIT_CALL, SLJIT_ARGS2V(P, P));
+    context->inner_calls.emplace_back(InnerCall{ .target_func_index = function_index, .jump = call_jump });
 }
 
 void N64Recomp::LiveGenerator::emit_goto(const std::string& target) const {
@@ -996,7 +1066,7 @@ void N64Recomp::LiveGenerator::emit_comment(const std::string& comment) const {
     // Nothing to do here.
 }
 
-bool N64Recomp::recompile_function_live(LiveGenerator& generator, const Context& context, const Function& func, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
-    return recompile_function_custom(generator, context, func, output_file, static_funcs_out, tag_reference_relocs);
+bool N64Recomp::recompile_function_live(LiveGenerator& generator, const Context& context, size_t function_index, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
+    return recompile_function_custom(generator, context, function_index, output_file, static_funcs_out, tag_reference_relocs);
 }
 
