@@ -48,7 +48,7 @@ struct N64Recomp::LiveGeneratorContext {
     sljit_jump* cur_branch_jump;
 };
 
-N64Recomp::LiveGenerator::LiveGenerator(size_t num_funcs) : compiler(compiler) {
+N64Recomp::LiveGenerator::LiveGenerator(size_t num_funcs, const LiveGeneratorInputs& inputs) : compiler(compiler), inputs(inputs) {
     compiler = sljit_create_compiler(NULL);
     context = std::make_unique<LiveGeneratorContext>();
     context->func_labels.resize(num_funcs);
@@ -101,6 +101,9 @@ N64Recomp::LiveGeneratorOutput N64Recomp::LiveGenerator::finish() {
 N64Recomp::LiveGeneratorOutput::~LiveGeneratorOutput() {
     if (code != nullptr) {
         sljit_free_code(code, nullptr);
+    }
+    for (const char* literal : string_literals) {
+        delete[] literal;
     }
 }
 
@@ -710,11 +713,39 @@ void N64Recomp::LiveGenerator::emit_function_end() const {
 }
 
 void N64Recomp::LiveGenerator::emit_function_call_lookup(uint32_t addr) const {
-    assert(false);
+    // Load the address immediate into the first argument. 
+    sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, int32_t(addr));
+    
+    // Call get_function.
+    sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS1(P, 32), SLJIT_IMM, sljit_sw(inputs.get_function));
+    
+    // Copy the return value into R2 so that it can be used for icall
+    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_R0, 0);
+    
+    // Load rdram and ctx into R0 and R1.
+    sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, Registers::rdram, 0, SLJIT_IMM, 0xFFFFFFFF80000000);
+    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, Registers::ctx, 0);
+
+    // Call the function.
+    sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS2V(P, P), SLJIT_R2, 0);
 }
 
 void N64Recomp::LiveGenerator::emit_function_call_by_register(int reg) const {
-    assert(false);
+    // Load the register's value into the first argument. 
+    sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_MEM1(Registers::ctx), get_gpr_context_offset(reg));
+
+    // Call get_function.
+    sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS1(P, 32), SLJIT_IMM, sljit_sw(inputs.get_function));
+
+    // Copy the return value into R2 so that it can be used for icall
+    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_R0, 0);
+
+    // Load rdram and ctx into R0 and R1.
+    sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, Registers::rdram, 0, SLJIT_IMM, 0xFFFFFFFF80000000);
+    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, Registers::ctx, 0);
+
+    // Call the function.
+    sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS2V(P, P), SLJIT_R2, 0);
 }
 
 void N64Recomp::LiveGenerator::emit_function_call_reference_symbol(const Context& context, uint16_t section_index, size_t symbol_index) const {
@@ -767,8 +798,12 @@ void N64Recomp::LiveGenerator::emit_branch_condition(const ConditionalBranchOp& 
     // Make sure there's no pending jump.
     assert(context->cur_branch_jump == nullptr);
 
+    // Branch conditions do not allow unary ops, except for ToS64 on the first operand to indicate the branch comparison is signed.
+    assert(op.operands.operand_operations[0] == UnaryOpType::None || op.operands.operand_operations[0] == UnaryOpType::ToS64);
+    assert(op.operands.operand_operations[1] == UnaryOpType::None);
+
     sljit_s32 condition_type;
-    bool cmp_signed = op.operands.operand_operations[1] == UnaryOpType::ToS64;
+    bool cmp_signed = op.operands.operand_operations[0] == UnaryOpType::ToS64;
     // Comparisons need to be inverted to account for the fact that the generator is expected to generate a code block that only runs if
     // the condition is met, meaning the branch should be taken if the condition isn't met.
     switch (op.comparison) {
@@ -780,34 +815,34 @@ void N64Recomp::LiveGenerator::emit_branch_condition(const ConditionalBranchOp& 
             break;
         case BinaryOpType::GreaterEq:
             if (cmp_signed) {
-                condition_type = SLJIT_LESS;
+                condition_type = SLJIT_SIG_LESS;
             }
             else {
-                condition_type = SLJIT_SIG_LESS;
+                condition_type = SLJIT_LESS;
             }
             break;
         case BinaryOpType::Greater:
             if (cmp_signed) {
-                condition_type = SLJIT_LESS_EQUAL;
+                condition_type = SLJIT_SIG_LESS_EQUAL;
             }
             else {
-                condition_type = SLJIT_SIG_LESS_EQUAL;
+                condition_type = SLJIT_LESS_EQUAL;
             }
             break;
         case BinaryOpType::LessEq:
             if (cmp_signed) {
-                condition_type = SLJIT_GREATER;
+                condition_type = SLJIT_SIG_GREATER;
             }
             else {
-                condition_type = SLJIT_SIG_GREATER;
+                condition_type = SLJIT_GREATER;
             }
             break;
         case BinaryOpType::Less:
             if (cmp_signed) {
-                condition_type = SLJIT_GREATER_EQUAL;
+                condition_type = SLJIT_SIG_GREATER_EQUAL;
             }
             else {
-                condition_type = SLJIT_SIG_GREATER_EQUAL;
+                condition_type = SLJIT_GREATER_EQUAL;
             }
             break;
         default:
@@ -820,10 +855,6 @@ void N64Recomp::LiveGenerator::emit_branch_condition(const ConditionalBranchOp& 
 
     get_operand_values(op.operands.operands[0], ctx, src1, src1w);
     get_operand_values(op.operands.operands[1], ctx, src2, src2w);
-
-    // Branch conditions do not allow unary ops, except for ToS64 on the first operand to indicate the branch comparison is signed.
-    assert(op.operands.operand_operations[0] == UnaryOpType::None || op.operands.operand_operations[1] == UnaryOpType::ToS64);
-    assert(op.operands.operand_operations[1] == UnaryOpType::None);
 
     // Create a compare jump and track it as the pending branch jump.
     context->cur_branch_jump = sljit_emit_cmp(compiler, condition_type, src1, src1w, src2, src2w);

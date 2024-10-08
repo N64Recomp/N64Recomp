@@ -65,6 +65,18 @@ struct TestStats {
     uint64_t code_size;
 };
 
+void write1(uint8_t* rdram, recomp_context* ctx) {
+    MEM_B(0, ctx->r4) = 1;
+}
+
+recomp_func_t* test_get_function(int32_t vram) {
+    if (vram == 0x80100000) {
+        return write1;
+    }
+    assert(false);
+    return nullptr;
+}
+
 TestStats run_test(const std::filesystem::path& tests_dir, const std::string& test_name) {
     std::filesystem::path input_path = tests_dir / (test_name + "_data.bin");
     std::filesystem::path data_dump_path = tests_dir / (test_name + "_data_out.bin");
@@ -185,8 +197,12 @@ TestStats run_test(const std::filesystem::path& tests_dir, const std::string& te
 
     auto before_codegen = std::chrono::system_clock::now();
 
+    N64Recomp::LiveGeneratorInputs generator_inputs {
+        .get_function = test_get_function,
+    };
+
     // Create the sljit compiler and the generator.
-    N64Recomp::LiveGenerator generator{ context.functions.size() };
+    N64Recomp::LiveGenerator generator{ context.functions.size(), generator_inputs };
 
     for (size_t func_index = 0; func_index < context.functions.size(); func_index++) {
         std::ostringstream dummy_ostream{};

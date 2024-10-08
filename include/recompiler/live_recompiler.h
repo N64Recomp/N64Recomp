@@ -27,13 +27,28 @@ namespace N64Recomp {
         }
         ~LiveGeneratorOutput();
         bool good = false;
-        std::vector<recomp_func_t*> functions;
+        // Storage for string literals referenced by recompiled code. These must be manually allocated to prevent
+        // them from moving, as the referenced address is baked into the recompiled code.
+        std::vector<const char*> string_literals;
+        // Recompiled code.
         void* code;
+        // Size of the recompiled code.
         size_t code_size;
+        // Pointers to each individual function within the recompiled code.
+        std::vector<recomp_func_t*> functions;
+    };
+    struct LiveGeneratorInputs {
+        void (*cop0_status_write)(recomp_context* ctx, gpr value);
+        gpr (*cop0_status_read)(recomp_context* ctx);
+        void (*switch_error)(const char* func, uint32_t vram, uint32_t jtbl);
+        void (*do_break)(uint32_t vram);
+        recomp_func_t* (*get_function)(int32_t vram);
+        void (*syscall_handler)(uint8_t* rdram, recomp_context* ctx, int32_t instruction_vram);
+        void (*pause_self)(uint8_t* rdram);
     };
     class LiveGenerator final : public Generator {
     public:
-        LiveGenerator(size_t num_funcs);
+        LiveGenerator(size_t num_funcs, const LiveGeneratorInputs& inputs);
         ~LiveGenerator();
         LiveGeneratorOutput finish();
         void process_binary_op(const BinaryOp& op, const InstructionContext& ctx) const final;
@@ -72,6 +87,7 @@ namespace N64Recomp {
         void get_binary_expr_string(BinaryOpType type, const BinaryOperands& operands, const InstructionContext& ctx, const std::string& output, std::string& expr_string) const;
         void get_notation(BinaryOpType op_type, std::string& func_string, std::string& infix_string) const;
         sljit_compiler* compiler;
+        LiveGeneratorInputs inputs;
         mutable std::unique_ptr<LiveGeneratorContext> context;
     };
 
