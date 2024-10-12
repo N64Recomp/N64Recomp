@@ -48,8 +48,8 @@ struct N64Recomp::LiveGeneratorContext {
     sljit_jump* cur_branch_jump;
 };
 
-N64Recomp::LiveGenerator::LiveGenerator(size_t num_funcs, const LiveGeneratorInputs& inputs) : compiler(compiler), inputs(inputs) {
-    compiler = sljit_create_compiler(NULL);
+N64Recomp::LiveGenerator::LiveGenerator(size_t num_funcs, const LiveGeneratorInputs& inputs) : inputs(inputs) {
+    compiler = sljit_create_compiler(nullptr);
     context = std::make_unique<LiveGeneratorContext>();
     context->func_labels.resize(num_funcs);
 }
@@ -1026,7 +1026,7 @@ void N64Recomp::LiveGenerator::emit_muldiv(InstrId instr_id, int reg1, int reg2)
         sljit_set_label(jump_skip_division, after_division);
 
         // Move the numerator into hi.
-        sljit_emit_op1(compiler, SLJIT_MOV, Registers::hi, 0, SLJIT_R0, 0);
+        sljit_emit_op1(compiler, save_opcode, Registers::hi, 0, SLJIT_R0, 0);
 
         if (is_signed) {
             // Calculate the negative signum of the numerator and place it in lo.
@@ -1037,7 +1037,7 @@ void N64Recomp::LiveGenerator::emit_muldiv(InstrId instr_id, int reg1, int reg2)
         }
         else {
             // Move -1 into lo.
-            sljit_emit_op1(compiler, SLJIT_MOV, Registers::lo, 0, SLJIT_IMM, -1);
+            sljit_emit_op1(compiler, SLJIT_MOV, Registers::lo, 0, SLJIT_IMM, sljit_sw(-1));
         }
 
         // Emit a label and set it as the target of the jump after the divison.

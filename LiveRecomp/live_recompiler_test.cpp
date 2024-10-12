@@ -1,6 +1,7 @@
 #include <fstream>
 #include <chrono>
 #include <filesystem>
+#include <cinttypes>
 
 #include "sljitLir.h"
 #include "recompiler/live_recompiler.h"
@@ -274,7 +275,7 @@ int main(int argc, const char** argv) {
         switch (stats.error) {
         case TestError::Success:
             printf("  Success\n");
-            printf("  Generated %llu bytes in %llu microseconds and ran in %llu microseconds\n",
+            printf("  Generated %" PRIu64 " bytes in %" PRIu64 " microseconds and ran in %" PRIu64 " microseconds\n",
                 stats.code_size, stats.codegen_microseconds, stats.execution_microseconds);
             passed_count++;
             break;
