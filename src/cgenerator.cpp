@@ -490,6 +490,9 @@ void N64Recomp::CGenerator::emit_muldiv(InstrId instr_id, int reg1, int reg2) co
         case InstrId::cpu_ddivu:
             fmt::print(output_file, "DDIVU(U64({}), U64({}), &lo, &hi);\n", gpr_to_string(reg1), gpr_to_string(reg2));
             break;
+        default:
+            assert(false);
+            break;
     }
 }
 
