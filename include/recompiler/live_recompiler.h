@@ -15,11 +15,15 @@ namespace N64Recomp {
         LiveGeneratorOutput& operator=(const LiveGeneratorOutput& rhs) = delete;
         LiveGeneratorOutput& operator=(LiveGeneratorOutput&& rhs) {
             good = rhs.good;
-            functions = std::move(rhs.functions);
+            string_literals = std::move(rhs.string_literals);
+            jump_tables = std::move(rhs.jump_tables);
             code = rhs.code;
             code_size = rhs.code_size;
+            functions = std::move(rhs.functions);
 
             rhs.good = false;
+            rhs.string_literals.clear();
+            rhs.jump_tables.clear();
             rhs.code = nullptr;
             rhs.code_size = 0;
 
@@ -30,6 +34,9 @@ namespace N64Recomp {
         // Storage for string literals referenced by recompiled code. These must be manually allocated to prevent
         // them from moving, as the referenced address is baked into the recompiled code.
         std::vector<const char*> string_literals;
+        // Storage for jump tables referenced by recompiled code (vector of arrays of pointers). These must also be manually allocated
+        // for the same reason as strings.
+        std::vector<void**> jump_tables;
         // Recompiled code.
         void* code;
         // Size of the recompiled code.
@@ -38,6 +45,7 @@ namespace N64Recomp {
         std::vector<recomp_func_t*> functions;
     };
     struct LiveGeneratorInputs {
+        uint32_t base_event_index;
         void (*cop0_status_write)(recomp_context* ctx, gpr value);
         gpr (*cop0_status_read)(recomp_context* ctx);
         void (*switch_error)(const char* func, uint32_t vram, uint32_t jtbl);
@@ -45,11 +53,18 @@ namespace N64Recomp {
         recomp_func_t* (*get_function)(int32_t vram);
         void (*syscall_handler)(uint8_t* rdram, recomp_context* ctx, int32_t instruction_vram);
         void (*pause_self)(uint8_t* rdram);
+        void (*trigger_event)(uint8_t* rdram, recomp_context* ctx, uint32_t event_index);
     };
     class LiveGenerator final : public Generator {
     public:
         LiveGenerator(size_t num_funcs, const LiveGeneratorInputs& inputs);
         ~LiveGenerator();
+        // Prevent moving or copying.
+        LiveGenerator(const LiveGenerator& rhs) = delete;
+        LiveGenerator(LiveGenerator&& rhs) = delete;
+        LiveGenerator& operator=(const LiveGenerator& rhs) = delete;
+        LiveGenerator& operator=(LiveGenerator&& rhs) = delete;
+
         LiveGeneratorOutput finish();
         void process_binary_op(const BinaryOp& op, const InstructionContext& ctx) const final;
         void process_unary_op(const UnaryOp& op, const InstructionContext& ctx) const final;
@@ -62,10 +77,10 @@ namespace N64Recomp {
         void emit_function_call(const Context& context, size_t function_index) const final;
         void emit_goto(const std::string& target) const final;
         void emit_label(const std::string& label_name) const final;
-        void emit_variable_declaration(const std::string& var_name, int reg) const final;
+        void emit_jtbl_addend_declaration(const JumpTable& jtbl, int reg) const final;
         void emit_branch_condition(const ConditionalBranchOp& op, const InstructionContext& ctx) const final;
         void emit_branch_close() const final;
-        void emit_switch(const std::string& jump_variable, int shift_amount) const final;
+        void emit_switch(const JumpTable& jtbl, int reg) const final;
         void emit_case(int case_index, const std::string& target_label) const final;
         void emit_switch_error(uint32_t instr_vram, uint32_t jtbl_vram) const final;
         void emit_switch_close() const final;
@@ -80,7 +95,7 @@ namespace N64Recomp {
         void emit_syscall(uint32_t instr_vram) const final;
         void emit_do_break(uint32_t instr_vram) const final;
         void emit_pause_self() const final;
-        void emit_trigger_event(size_t event_index) const final;
+        void emit_trigger_event(uint32_t event_index) const final;
         void emit_comment(const std::string& comment) const final;
     private:
         void get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string) const;

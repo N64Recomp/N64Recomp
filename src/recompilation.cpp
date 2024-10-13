@@ -110,7 +110,7 @@ std::string_view ctx_gpr_prefix(int reg) {
 }
 
 template <typename GeneratorType>
-bool process_instruction(GeneratorType& generator, const N64Recomp::Context& context, const N64Recomp::Function& func, const N64Recomp::FunctionStats& stats, const std::unordered_set<uint32_t>& skipped_insns, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ostream& output_file, bool indent, bool emit_link_branch, int link_branch_index, size_t reloc_index, bool& needs_link_branch, bool& is_branch_likely, bool tag_reference_relocs, std::span<std::vector<uint32_t>> static_funcs_out) {
+bool process_instruction(GeneratorType& generator, const N64Recomp::Context& context, const N64Recomp::Function& func, const N64Recomp::FunctionStats& stats, const std::unordered_set<uint32_t>& jtbl_lw_instructions, size_t instr_index, const std::vector<rabbitizer::InstructionCpu>& instructions, std::ostream& output_file, bool indent, bool emit_link_branch, int link_branch_index, size_t reloc_index, bool& needs_link_branch, bool& is_branch_likely, bool tag_reference_relocs, std::span<std::vector<uint32_t>> static_funcs_out) {
     using namespace N64Recomp;
 
     const auto& section = context.sections[func.section_index];
@@ -118,6 +118,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
     needs_link_branch = false;
     is_branch_likely = false;
     uint32_t instr_vram = instr.getVram();
+    InstrId instr_id = instr.getUniqueId();
 
     auto print_indent = [&]() {
         fmt::print(output_file, "    ");
@@ -133,16 +134,19 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
 
     // Output a comment with the original instruction
     print_indent();
-    if (instr.isBranch() || instr.getUniqueId() == InstrId::cpu_j) {
+    if (instr.isBranch() || instr_id == InstrId::cpu_j) {
         generator.emit_comment(fmt::format("0x{:08X}: {}", instr_vram, instr.disassemble(0, fmt::format("L_{:08X}", (uint32_t)instr.getBranchVramGeneric()))));
-    } else if (instr.getUniqueId() == InstrId::cpu_jal) {
+    } else if (instr_id == InstrId::cpu_jal) {
         generator.emit_comment(fmt::format("0x{:08X}: {}", instr_vram, instr.disassemble(0, fmt::format("0x{:08X}", (uint32_t)instr.getBranchVramGeneric()))));
     } else {
         generator.emit_comment(fmt::format("0x{:08X}: {}", instr_vram, instr.disassemble(0)));
     }
 
-    if (skipped_insns.contains(instr_vram)) {
-        return true;
+    // Replace loads for jump table entries into addiu. This leaves the jump table entry's address in the output register
+    // instead of the entry's value, which can then be used to determine the offset from the start of the jump table.
+    if (jtbl_lw_instructions.contains(instr_vram)) {
+        assert(instr_id == InstrId::cpu_lw);
+        instr_id = InstrId::cpu_addiu;
     }
 
     N64Recomp::RelocType reloc_type = N64Recomp::RelocType::R_MIPS_NONE;
@@ -216,7 +220,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             if (reloc_index + 1 < section.relocs.size() && next_vram > section.relocs[reloc_index].address) {
                 next_reloc_index++;
             }
-            if (!process_instruction(generator, context, func, stats, skipped_insns, instr_index + 1, instructions, output_file, use_indent, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, tag_reference_relocs, static_funcs_out)) {
+            if (!process_instruction(generator, context, func, stats, jtbl_lw_instructions, instr_index + 1, instructions, output_file, use_indent, false, link_branch_index, next_reloc_index, dummy_needs_link_branch, dummy_is_branch_likely, tag_reference_relocs, static_funcs_out)) {
                 return false;
             }
         }
@@ -274,7 +278,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                 return false;
             }
             print_indent();
-            generator.emit_trigger_event(reloc_reference_symbol);
+            generator.emit_trigger_event((uint32_t)reloc_reference_symbol);
             print_link_branch();
         }
         // Normal symbol or reference symbol, 
@@ -398,7 +402,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
 
     bool handled = true;
 
-    switch (instr.getUniqueId()) {
+    switch (instr_id) {
     case InstrId::cpu_nop:
         fmt::print(output_file, "\n");
         break;
@@ -444,7 +448,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             if (find_result != stats.jump_tables.end()) {
                 const N64Recomp::JumpTable& cur_jtbl = *find_result;
                 print_indent();
-                generator.emit_variable_declaration(fmt::format("jr_addend_{:08X}", cur_jtbl.jr_vram), cur_jtbl.addend_reg);
+                generator.emit_jtbl_addend_declaration(cur_jtbl, cur_jtbl.addend_reg);
             }
         }
         break;
@@ -457,7 +461,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
     case InstrId::cpu_divu:
     case InstrId::cpu_ddivu:
         print_indent();
-        generator.emit_muldiv(instr.getUniqueId(), rs, rt);
+        generator.emit_muldiv(instr_id, rs, rt);
         break;
     // Branches
     case InstrId::cpu_jal:
@@ -527,7 +531,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                     return false;
                 }
                 print_indent();
-                generator.emit_switch(fmt::format("jr_addend_{:08X}", cur_jtbl.jr_vram), 2);
+                generator.emit_switch(cur_jtbl, rs);
                 for (size_t entry_index = 0; entry_index < cur_jtbl.entries.size(); entry_index++) {
                     print_indent();
                     print_indent();
@@ -652,7 +656,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         }
     };
 
-    auto find_binary_it = binary_ops.find(instr.getUniqueId());
+    auto find_binary_it = binary_ops.find(instr_id);
     if (find_binary_it != binary_ops.end()) {
         print_indent();
         const BinaryOp& op = find_binary_it->second;
@@ -674,7 +678,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         handled = true;
     }
 
-    auto find_unary_it = unary_ops.find(instr.getUniqueId());
+    auto find_unary_it = unary_ops.find(instr_id);
     if (find_unary_it != unary_ops.end()) {
         print_indent();
         const UnaryOp& op = find_unary_it->second;
@@ -694,7 +698,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         handled = true;
     }
 
-    auto find_conditional_branch_it = conditional_branch_ops.find(instr.getUniqueId());
+    auto find_conditional_branch_it = conditional_branch_ops.find(instr_id);
     if (find_conditional_branch_it != conditional_branch_ops.end()) {
         print_indent();
         // TODO combining the branch condition and branch target into one generator call would allow better optimization in the runtime's JIT generator.
@@ -720,7 +724,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         handled = true;
     }
 
-    auto find_store_it = store_ops.find(instr.getUniqueId());
+    auto find_store_it = store_ops.find(instr_id);
     if (find_store_it != store_ops.end()) {
         print_indent();
         const StoreOp& op = find_store_it->second;
@@ -788,11 +792,11 @@ bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context&
             return false;
         }
 
-        std::unordered_set<uint32_t> skipped_insns{};
+        std::unordered_set<uint32_t> jtbl_lw_instructions{};
 
         // Add jump table labels into function
         for (const auto& jtbl : stats.jump_tables) {
-            skipped_insns.insert(jtbl.lw_vram);
+            jtbl_lw_instructions.insert(jtbl.lw_vram);
             for (uint32_t jtbl_entry : jtbl.entries) {
                 branch_labels.insert(jtbl_entry);
             }
@@ -826,7 +830,7 @@ bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context&
             }
 
             // Process the current instruction and check for errors
-            if (process_instruction(generator, context, func, stats, skipped_insns, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, reloc_index, needs_link_branch, is_branch_likely, tag_reference_relocs, static_funcs_out) == false) {
+            if (process_instruction(generator, context, func, stats, jtbl_lw_instructions, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, reloc_index, needs_link_branch, is_branch_likely, tag_reference_relocs, static_funcs_out) == false) {
                 fmt::print(stderr, "Error in recompiling {}, clearing output file\n", func.name);
                 output_file.clear();
                 return false;

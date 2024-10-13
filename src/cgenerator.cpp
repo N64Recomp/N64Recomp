@@ -403,8 +403,9 @@ void N64Recomp::CGenerator::emit_label(const std::string& label_name) const {
         "{}:\n", label_name);
 }
 
-void N64Recomp::CGenerator::emit_variable_declaration(const std::string& var_name, int reg) const {
-    fmt::print(output_file, "gpr {} = {};\n", var_name, gpr_to_string(reg));
+void N64Recomp::CGenerator::emit_jtbl_addend_declaration(const JumpTable& jtbl, int reg) const {
+    std::string jump_variable = fmt::format("jr_addend_{:08X}", jtbl.jr_vram);
+    fmt::print(output_file, "gpr {} = {};\n", jump_variable, gpr_to_string(reg));
 }
 
 void N64Recomp::CGenerator::emit_branch_condition(const ConditionalBranchOp& op, const InstructionContext& ctx) const {
@@ -423,8 +424,12 @@ void N64Recomp::CGenerator::emit_switch_close() const {
     fmt::print(output_file, "}}\n");
 }
 
-void N64Recomp::CGenerator::emit_switch(const std::string& jump_variable, int shift_amount) const {
-    fmt::print(output_file, "switch ({} >> {}) {{\n", jump_variable, shift_amount);
+void N64Recomp::CGenerator::emit_switch(const JumpTable& jtbl, int reg) const {
+    // TODO generate code to subtract the jump table address from the register's value instead.
+    // Once that's done, the addend temp can be deleted to simplify the generator interface.
+    std::string jump_variable = fmt::format("jr_addend_{:08X}", jtbl.jr_vram);
+
+    fmt::print(output_file, "switch ({} >> 2) {{\n", jump_variable);
 }
 
 void N64Recomp::CGenerator::emit_case(int case_index, const std::string& target_label) const {
@@ -508,7 +513,7 @@ void N64Recomp::CGenerator::emit_pause_self() const {
     fmt::print(output_file, "pause_self(rdram);\n");
 }
 
-void N64Recomp::CGenerator::emit_trigger_event(size_t event_index) const {
+void N64Recomp::CGenerator::emit_trigger_event(uint32_t event_index) const {
     fmt::print(output_file, "recomp_trigger_event(rdram, ctx, base_event_index + {});\n", event_index);
 }
 

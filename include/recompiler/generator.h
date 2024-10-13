@@ -38,10 +38,10 @@ namespace N64Recomp {
         virtual void emit_function_call(const Context& context, size_t function_index) const = 0;
         virtual void emit_goto(const std::string& target) const = 0;
         virtual void emit_label(const std::string& label_name) const = 0;
-        virtual void emit_variable_declaration(const std::string& var_name, int reg) const = 0;
+        virtual void emit_jtbl_addend_declaration(const JumpTable& jtbl, int reg) const = 0;
         virtual void emit_branch_condition(const ConditionalBranchOp& op, const InstructionContext& ctx) const = 0;
         virtual void emit_branch_close() const = 0;
-        virtual void emit_switch(const std::string& jump_variable, int shift_amount) const = 0;
+        virtual void emit_switch(const JumpTable& jtbl, int reg) const = 0;
         virtual void emit_case(int case_index, const std::string& target_label) const = 0;
         virtual void emit_switch_error(uint32_t instr_vram, uint32_t jtbl_vram) const = 0;
         virtual void emit_switch_close() const = 0;
@@ -56,7 +56,7 @@ namespace N64Recomp {
         virtual void emit_syscall(uint32_t instr_vram) const = 0;
         virtual void emit_do_break(uint32_t instr_vram) const = 0;
         virtual void emit_pause_self() const = 0;
-        virtual void emit_trigger_event(size_t event_index) const = 0;
+        virtual void emit_trigger_event(uint32_t event_index) const = 0;
         virtual void emit_comment(const std::string& comment) const = 0;
     };
 
@@ -74,10 +74,10 @@ namespace N64Recomp {
         void emit_function_call(const Context& context, size_t function_index) const final;
         void emit_goto(const std::string& target) const final;
         void emit_label(const std::string& label_name) const final;
-        void emit_variable_declaration(const std::string& var_name, int reg) const final;
+        void emit_jtbl_addend_declaration(const JumpTable& jtbl, int reg) const final;
         void emit_branch_condition(const ConditionalBranchOp& op, const InstructionContext& ctx) const final;
         void emit_branch_close() const final;
-        void emit_switch(const std::string& jump_variable, int shift_amount) const final;
+        void emit_switch(const JumpTable& jtbl, int reg) const final;
         void emit_case(int case_index, const std::string& target_label) const final;
         void emit_switch_error(uint32_t instr_vram, uint32_t jtbl_vram) const final;
         void emit_switch_close() const final;
@@ -92,7 +92,7 @@ namespace N64Recomp {
         void emit_syscall(uint32_t instr_vram) const final;
         void emit_do_break(uint32_t instr_vram) const final;
         void emit_pause_self() const final;
-        void emit_trigger_event(size_t event_index) const final;
+        void emit_trigger_event(uint32_t event_index) const final;
         void emit_comment(const std::string& comment) const final;
     private:
         void get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string) const;
