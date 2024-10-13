@@ -78,6 +78,10 @@ recomp_func_t* test_get_function(int32_t vram) {
     return nullptr;
 }
 
+void test_switch_error(const char* func, uint32_t vram, uint32_t jtbl) {
+    printf("  Switch-case out of bounds in %s at 0x%08X for jump table at 0x%08X\n", func, vram, jtbl);
+}
+
 TestStats run_test(const std::filesystem::path& tests_dir, const std::string& test_name) {
     std::filesystem::path input_path = tests_dir / (test_name + "_data.bin");
     std::filesystem::path data_dump_path = tests_dir / (test_name + "_data_out.bin");
@@ -199,6 +203,7 @@ TestStats run_test(const std::filesystem::path& tests_dir, const std::string& te
     auto before_codegen = std::chrono::system_clock::now();
 
     N64Recomp::LiveGeneratorInputs generator_inputs {
+        .switch_error = test_switch_error,
         .get_function = test_get_function,
     };
 
