@@ -14,10 +14,11 @@ namespace N64Recomp {
         uint32_t lw_vram;
         uint32_t addu_vram;
         uint32_t jr_vram;
+        std::optional<uint32_t> got_offset;
         std::vector<uint32_t> entries;
 
-        JumpTable(uint32_t vram, uint32_t addend_reg, uint32_t rom, uint32_t lw_vram, uint32_t addu_vram, uint32_t jr_vram, std::vector<uint32_t>&& entries)
-                : vram(vram), addend_reg(addend_reg), rom(rom), lw_vram(lw_vram), addu_vram(addu_vram), jr_vram(jr_vram), entries(std::move(entries)) {}
+        JumpTable(uint32_t vram, uint32_t addend_reg, uint32_t rom, uint32_t lw_vram, uint32_t addu_vram, uint32_t jr_vram, std::optional<uint32_t> got_offset, std::vector<uint32_t>&& entries)
+                : vram(vram), addend_reg(addend_reg), rom(rom), lw_vram(lw_vram), addu_vram(addu_vram), jr_vram(jr_vram), got_offset(got_offset), entries(std::move(entries)) {}
     };
 
     struct AbsoluteJump {
