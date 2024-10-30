@@ -2,6 +2,7 @@
 #define __RECOMP_ANALYSIS_H__
 
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 #include "n64recomp.h"
