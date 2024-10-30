@@ -489,7 +489,7 @@ bool N64Recomp::Context::from_symbol_file(const std::filesystem::path& symbol_fi
                 section.ram_addr = vram_addr.value();
                 section.size = size.value();
                 section.name = name.value();
-                section.gp_ram_addr = gp_ram_addr.value_or(0);
+                section.gp_ram_addr = gp_ram_addr;
                 section.executable = true;
 
                 // Read functions for the section.

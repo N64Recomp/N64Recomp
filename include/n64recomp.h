@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <filesystem>
+#include <optional>
 
 #ifdef _MSC_VER
 inline uint32_t byteswap(uint32_t val) {
@@ -86,7 +87,7 @@ namespace N64Recomp {
         bool executable = false;
         bool relocatable = false; // TODO is this needed? relocs being non-empty should be an equivalent check.
         bool has_mips32_relocs = false;
-        uint32_t gp_ram_addr = 0;
+        std::optional<uint32_t> gp_ram_addr = std::nullopt;
     };
 
     struct ReferenceSection {
