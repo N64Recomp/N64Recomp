@@ -344,7 +344,7 @@ bool N64Recomp::analyze_function(const N64Recomp::Context& context, const N64Rec
             }
 
             // Check if the entry is a valid address in the current function
-            if (jtbl_word < func.vram || jtbl_word > func.vram + func.words.size() * sizeof(func.words[0])) {
+            if (jtbl_word < func.vram || jtbl_word >= func.vram + func.words.size() * sizeof(func.words[0])) {
                 // If it's not then this is the end of the jump table
                 break;
             }
