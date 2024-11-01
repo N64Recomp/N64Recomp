@@ -320,7 +320,6 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
                     return false;
                 }
                 print_line("    return");
-                fmt::print(output_file, "    }}\n");
                 return true;
             }
 
