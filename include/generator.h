@@ -23,7 +23,6 @@ namespace N64Recomp {
         RelocType reloc_type;
         uint32_t reloc_section_index;
         uint32_t reloc_target_section_offset;
-        bool reloc_unaligned;
     };
 
     class Generator {

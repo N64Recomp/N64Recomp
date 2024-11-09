@@ -569,7 +569,6 @@ bool N64Recomp::Context::from_symbol_file(const std::filesystem::path& symbol_fi
                                 std::optional<uint32_t> vram = reloc_el["vram"].template value<uint32_t>();
                                 std::optional<uint32_t> target_vram = reloc_el["target_vram"].template value<uint32_t>();
                                 std::optional<std::string> type_string = reloc_el["type"].template value<std::string>();
-                                std::optional<bool> unaligned = reloc_el["unaligned"].template value<bool>();
 
                                 if (!vram.has_value() || !target_vram.has_value() || !type_string.has_value()) {
                                     throw toml::parse_error("Reloc entry missing required field(s)", reloc_el.source());
@@ -587,7 +586,6 @@ bool N64Recomp::Context::from_symbol_file(const std::filesystem::path& symbol_fi
                                 cur_reloc.symbol_index = (uint32_t)-1;
                                 cur_reloc.target_section = section_index;
                                 cur_reloc.type = reloc_type;
-                                cur_reloc.unaligned = unaligned.value_or(false);
 
                                 section.relocs.emplace_back(cur_reloc);
                             }

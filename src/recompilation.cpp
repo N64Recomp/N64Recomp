@@ -148,7 +148,6 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
     uint32_t reloc_section = 0;
     uint32_t reloc_target_section_offset = 0;
     size_t reloc_reference_symbol = (size_t)-1;
-    bool reloc_unaligned = false;
 
     uint32_t func_vram_end = func.vram + func.words.size() * sizeof(func.words[0]);
 
@@ -172,7 +171,6 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
             // Record the reloc's data.
             reloc_type = reloc.type;
             reloc_target_section_offset = reloc.target_section_offset;
-            reloc_unaligned = reloc.unaligned;
             // Ignore all relocs that aren't MIPS_HI16, MIPS_LO16 or MIPS_26.
             if (reloc_type == N64Recomp::RelocType::R_MIPS_HI16 || reloc_type == N64Recomp::RelocType::R_MIPS_LO16 || reloc_type == N64Recomp::RelocType::R_MIPS_26) {
                 if (reloc.reference_symbol) {
@@ -589,7 +587,6 @@ bool process_instruction(const N64Recomp::Context& context, const N64Recomp::Fun
     instruction_context.reloc_type = reloc_type;
     instruction_context.reloc_section_index = reloc_section;
     instruction_context.reloc_target_section_offset = reloc_target_section_offset;
-    instruction_context.reloc_unaligned = reloc_unaligned;
     
     auto do_check_fr = [](std::ostream& output_file, const CGenerator& generator, const InstructionContext& ctx, Operand operand) {
         switch (operand) {

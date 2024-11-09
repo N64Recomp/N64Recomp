@@ -56,7 +56,6 @@ namespace N64Recomp {
         uint16_t target_section;
         RelocType type;
         bool reference_symbol;
-        bool unaligned;
     };
 
     // Special section indices.
