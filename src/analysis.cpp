@@ -104,18 +104,7 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const N64Recom
     case InstrId::cpu_addu:
         // rd has been completely overwritten, so invalidate it
         temp.invalidate();
-        // Exactly one of the two addend register states should have a valid lui at this time
-        if (reg_states[rs].valid_lui != reg_states[rt].valid_lui) {
-            // Track which of the two registers has the valid lui state and which is the addend
-            int valid_lui_reg = reg_states[rs].valid_lui ? rs : rt;
-            int addend_reg = reg_states[rs].valid_lui ? rt : rs;
-
-            // Copy the lui reg's state into the destination reg, then set the destination reg's addend to the other operand
-            temp = reg_states[valid_lui_reg];
-            temp.valid_addend = true;
-            temp.prev_addend_reg = addend_reg;
-            temp.prev_addu_vram = instr.getVram();
-        } else if (reg_states[rs].valid_got_offset != reg_states[rt].valid_got_offset) {
+        if (reg_states[rs].valid_got_offset != reg_states[rt].valid_got_offset) {
             // Track which of the two registers has the valid GOT offset state and which is the addend
             int valid_got_offset_reg = reg_states[rs].valid_got_offset ? rs : rt;
             int addend_reg = reg_states[rs].valid_got_offset ? rt : rs;
@@ -130,9 +119,20 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const N64Recom
             // `addu rd, rs, $gp` or `addu rd, $gp, rt` after valid GOT load, this is the last part of a position independent
             // jump table call. Keep the register state intact.
             int valid_gp_loaded_reg = reg_states[rs].valid_got_loaded ? rs : rt;
-            int gp_reg = reg_states[rs].valid_got_loaded ? rt : rs;
 
             temp = reg_states[valid_gp_loaded_reg];
+        }
+        // Exactly one of the two addend register states should have a valid lui at this time
+        else if (reg_states[rs].valid_lui != reg_states[rt].valid_lui) {
+            // Track which of the two registers has the valid lui state and which is the addend
+            int valid_lui_reg = reg_states[rs].valid_lui ? rs : rt;
+            int addend_reg = reg_states[rs].valid_lui ? rt : rs;
+
+            // Copy the lui reg's state into the destination reg, then set the destination reg's addend to the other operand
+            temp = reg_states[valid_lui_reg];
+            temp.valid_addend = true;
+            temp.prev_addend_reg = addend_reg;
+            temp.prev_addu_vram = instr.getVram();
         } else {
             // Check if this is a move
             check_move();
