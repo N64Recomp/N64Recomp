@@ -235,8 +235,14 @@ void get_gpr_values(int gpr, sljit_sw& out, sljit_sw& outw) {
     }
 }
 
-void get_operand_values(N64Recomp::Operand operand, const N64Recomp::InstructionContext& context, sljit_sw& out, sljit_sw& outw) {
+void get_operand_values(N64Recomp::Operand operand, const N64Recomp::InstructionContext& context, sljit_sw& out, sljit_sw& outw, bool& needs_relocation) {
     using namespace N64Recomp;
+    bool relocation_valid = false;
+
+    // Relocations are only valid for ImmS16 and ImmU16 operands.
+    assert(context.reloc_type == RelocType::R_MIPS_NONE ||
+        (operand == Operand::ImmS16 || operand == Operand::ImmU16));
+
     switch (operand) {
         case Operand::Rd:
             get_gpr_values(context.rd, out, outw);
@@ -305,22 +311,14 @@ void get_operand_values(N64Recomp::Operand operand, const N64Recomp::Instruction
             outw = get_fpr_u64_context_offset(context.ft);
             break;
         case Operand::ImmU16:
-            //if (context.reloc_type != N64Recomp::RelocType::R_MIPS_NONE) {
-            //    assert(false);
-            //}
-            //else {
-                out = SLJIT_IMM;
-                outw = (sljit_sw)(uint16_t)context.imm16;
-            //}
+            relocation_valid = true;
+            out = SLJIT_IMM;
+            outw = (sljit_sw)(uint16_t)context.imm16;
             break;
         case Operand::ImmS16:
-            //if (context.reloc_type != N64Recomp::RelocType::R_MIPS_NONE) {
-            //    assert(false);
-            //}
-            //else {
-                out = SLJIT_IMM;
-                outw = (sljit_sw)(int16_t)context.imm16;
-            //}
+            relocation_valid = true;
+            out = SLJIT_IMM;
+            outw = (sljit_sw)(int16_t)context.imm16;
             break;
         case Operand::Sa:
             out = SLJIT_IMM;
@@ -347,6 +345,13 @@ void get_operand_values(N64Recomp::Operand operand, const N64Recomp::Instruction
             outw = 0;
             break;
     }
+    if (context.reloc_type != N64Recomp::RelocType::R_MIPS_NONE) {
+        assert(relocation_valid && "Relocation present but not valid on the given operand!");
+        needs_relocation = true;
+    }
+    else {
+        needs_relocation = false;
+    }
 }
 
 bool outputs_to_zero(N64Recomp::Operand output, const N64Recomp::InstructionContext& ctx) {
@@ -371,13 +376,25 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
     bool failed = false;    
     sljit_sw dst;
     sljit_sw dstw;
+    bool relocation_needed_dst;
     sljit_sw src1;
     sljit_sw src1w;
+    bool relocation_needed_src1;
     sljit_sw src2;
     sljit_sw src2w;
-    get_operand_values(op.output, ctx, dst, dstw);
-    get_operand_values(op.operands.operands[0], ctx, src1, src1w);
-    get_operand_values(op.operands.operands[1], ctx, src2, src2w);
+    bool relocation_needed_src2;
+    get_operand_values(op.output, ctx, dst, dstw, relocation_needed_dst);
+    get_operand_values(op.operands.operands[0], ctx, src1, src1w, relocation_needed_src1);
+    get_operand_values(op.operands.operands[1], ctx, src2, src2w, relocation_needed_src2);
+
+    // Relocations are only valid on the second operand.
+    assert(!relocation_needed_dst && !relocation_needed_src1);
+
+    // TODO perform relocation.
+    // If a relocation is needed for the second operand, perform the relocation and change src2/src2w to use the relocated value.
+    if (relocation_needed_src2) {
+        assert(false);
+    } 
 
     // TODO validate that the unary ops are valid for the current binary op.
     assert(op.operands.operand_operations[0] == UnaryOpType::None ||
@@ -686,22 +703,27 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
 
 void N64Recomp::LiveGenerator::process_unary_op(const UnaryOp& op, const InstructionContext& ctx) const {
     // Skip instructions that output to $zero
-    if (op.output == Operand::Rd && ctx.rd == 0) {
+    if (outputs_to_zero(op.output, ctx)) {
         return;
     }
-    if (op.output == Operand::Rt && ctx.rt == 0) {
-        return;
-    }
-    if (op.output == Operand::Rs && ctx.rs == 0) {
-        return;
-    }
-    
+
     sljit_sw dst;
     sljit_sw dstw;
+    bool relocation_needed_dst;
     sljit_sw src;
     sljit_sw srcw;
-    get_operand_values(op.output, ctx, dst, dstw);
-    get_operand_values(op.input, ctx, src, srcw);
+    bool relocation_needed_src;
+    get_operand_values(op.output, ctx, dst, dstw, relocation_needed_dst);
+    get_operand_values(op.input, ctx, src, srcw, relocation_needed_src);
+
+    // Relocations aren't valid on the output operand.
+    assert(!relocation_needed_dst);
+
+    // TODO perform relocation.
+    // If a relocation is needed for the input operand, perform the relocation and change src/srcw to use the relocated value.
+    if (relocation_needed_src) {
+        assert(false);
+    }
 
     sljit_s32 jit_op;
 
@@ -747,9 +769,13 @@ void N64Recomp::LiveGenerator::process_unary_op(const UnaryOp& op, const Instruc
 void N64Recomp::LiveGenerator::process_store_op(const StoreOp& op, const InstructionContext& ctx) const {
     sljit_sw src;
     sljit_sw srcw;
+    bool relocation_needed_src;
     sljit_sw imm = (sljit_sw)(int16_t)ctx.imm16;
 
-    get_operand_values(op.value_input, ctx, src, srcw);
+    get_operand_values(op.value_input, ctx, src, srcw, relocation_needed_src);
+
+    // Relocations aren't valid on the input operand.
+    assert(!relocation_needed_src);
 
     // Add the base register (rs) and the immediate to get the address and store it in the arithemtic temp.
     sljit_emit_op2(compiler, SLJIT_ADD, Registers::arithmetic_temp1, 0, SLJIT_MEM1(Registers::ctx), get_gpr_context_offset(ctx.rs), SLJIT_IMM, imm);
@@ -939,15 +965,20 @@ void N64Recomp::LiveGenerator::emit_branch_condition(const ConditionalBranchOp& 
             }
             break;
         default:
-            assert(false);
+            assert(false && "Invalid branch condition comparison operation!");
     }
     sljit_sw src1;
     sljit_sw src1w;
+    bool relocation_needed_src1;
     sljit_sw src2;
     sljit_sw src2w;
+    bool relocation_needed_src2;
 
-    get_operand_values(op.operands.operands[0], ctx, src1, src1w);
-    get_operand_values(op.operands.operands[1], ctx, src2, src2w);
+    get_operand_values(op.operands.operands[0], ctx, src1, src1w, relocation_needed_src1);
+    get_operand_values(op.operands.operands[1], ctx, src2, src2w, relocation_needed_src2);
+
+    // Relocations aren't valid on the input operands.
+    assert(!relocation_needed_src1 && !relocation_needed_src2);
 
     // Create a compare jump and track it as the pending branch jump.
     context->cur_branch_jump = sljit_emit_cmp(compiler, condition_type, src1, src1w, src2, src2w);
@@ -1023,19 +1054,57 @@ void N64Recomp::LiveGenerator::emit_check_nan(int fpr, bool is_double) const {
 }
 
 void N64Recomp::LiveGenerator::emit_cop0_status_read(int reg) const {
-    assert(false);
+    // Skip the read if the target is the zero register.
+    if (reg != 0) {
+        // Load ctx into R0.
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, Registers::ctx, 0);
+
+        // Call cop0_status_read.
+        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS2V(P,32), SLJIT_IMM, sljit_sw(inputs.cop0_status_read));
+
+        // Store the result in the output register.
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(Registers::ctx), get_gpr_context_offset(reg), SLJIT_R0, 0);
+    }
 }
 
 void N64Recomp::LiveGenerator::emit_cop0_status_write(int reg) const {
-    assert(false);
+    sljit_sw src;
+    sljit_sw srcw;
+    get_gpr_values(reg, src, srcw);
+    
+    // Load ctx and the input register value into R0 and R1
+    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, Registers::ctx, 0);
+    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, src, srcw);
+
+    // Call cop0_status_write.
+    sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS2V(P,32), SLJIT_IMM, sljit_sw(inputs.cop0_status_write));
 }
 
 void N64Recomp::LiveGenerator::emit_cop1_cs_read(int reg) const {
-    assert(false);
+    // Skip the read if the target is the zero register.
+    if (reg != 0) {
+        // Load ctx into R0.
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, Registers::ctx, 0);
+
+        // Call cop1_cs_read.
+        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS2V(P,32), SLJIT_IMM, sljit_sw(inputs.cop1_cs_read));
+
+        // Store the result in the output register.
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(Registers::ctx), get_gpr_context_offset(reg), SLJIT_R0, 0);
+    }
 }
 
 void N64Recomp::LiveGenerator::emit_cop1_cs_write(int reg) const {
-    assert(false);
+    sljit_sw src;
+    sljit_sw srcw;
+    get_gpr_values(reg, src, srcw);
+
+    // Load ctx and the input register value into R0 and R1
+    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, Registers::ctx, 0);
+    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, src, srcw);
+
+    // Call cop1_cs_write.
+    sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS2V(P,32), SLJIT_IMM, sljit_sw(inputs.cop1_cs_write));
 }
 
 void N64Recomp::LiveGenerator::emit_muldiv(InstrId instr_id, int reg1, int reg2) const {
@@ -1194,7 +1263,7 @@ void N64Recomp::LiveGenerator::emit_muldiv(InstrId instr_id, int reg1, int reg2)
             do_div_op(true, false);
             break;
         default:
-            assert(false);
+            assert(false && "Invalid mul/div instruction id!");
             break;
     }
 }

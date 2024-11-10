@@ -48,6 +48,8 @@ namespace N64Recomp {
         uint32_t base_event_index;
         void (*cop0_status_write)(recomp_context* ctx, gpr value);
         gpr (*cop0_status_read)(recomp_context* ctx);
+        void (*cop1_cs_read)(recomp_context* ctx, gpr value);
+        gpr (*cop1_cs_write)(recomp_context* ctx);
         void (*switch_error)(const char* func, uint32_t vram, uint32_t jtbl);
         void (*do_break)(uint32_t vram);
         recomp_func_t* (*get_function)(int32_t vram);
