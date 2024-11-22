@@ -23,6 +23,55 @@
     #error "No RECOMP_FUNC definition for this compiler"
 #endif
 
+// Implementation of 64-bit multiply and divide instructions
+#if defined(__SIZEOF_INT128__)
+
+typedef __int128 int128_t;
+typedef unsigned __int128 uint128_t;
+
+static inline void DMULT(int64_t a, int64_t b, int64_t* lo64, int64_t* hi64) {
+    int128_t full128 = ((int128_t)a) * ((int128_t)b);
+
+    *hi64 = (int64_t)(full128 >> 64);
+    *lo64 = (int64_t)(full128 >> 0);
+}
+
+static inline void DMULTU(uint64_t a, uint64_t b, uint64_t* lo64, uint64_t* hi64) {
+    uint128_t full128 = ((uint128_t)a) * ((uint128_t)b);
+
+    *hi64 = (uint64_t)(full128 >> 64);
+    *lo64 = (uint64_t)(full128 >> 0);
+}
+
+#elif defined(_MSC_VER)
+
+#include <intrin.h>
+#pragma intrinsic(_mul128)
+#pragma intrinsic(_umul128)
+
+static inline void DMULT(int64_t a, int64_t b, int64_t* lo64, int64_t* hi64) {
+    *lo64 = _mul128(a, b, hi64);
+}
+
+static inline void DMULTU(uint64_t a, uint64_t b, uint64_t* lo64, uint64_t* hi64) {
+    *lo64 = _umul128(a, b, hi64);
+}
+
+#else
+#error "128-bit integer type not found"
+#endif
+
+static inline void DDIV(int64_t a, int64_t b, int64_t* quot, int64_t* rem) {
+    bool overflow = ((uint64_t)a == 0x8000000000000000ull) && (b == -1ll);
+    *quot = overflow ? a : (a / b);
+    *rem = overflow ? 0 : (a % b);
+}
+
+static inline void DDIVU(uint64_t a, uint64_t b, uint64_t* quot, uint64_t* rem) {
+    *quot = a / b;
+    *rem = a % b;
+}
+
 typedef uint64_t gpr;
 
 #define SIGNED(val) \
@@ -159,6 +208,12 @@ static inline void do_swr(uint8_t* rdram, gpr offset, gpr reg, gpr val) {
 #define CVT_D_W(val) \
     ((double)((int32_t)(val)))
 
+#define CVT_D_L(val) \
+    ((double)((int64_t)(val)))
+
+#define CVT_S_L(val) \
+    ((float)((int64_t)(val)))
+
 #define CVT_D_S(val) \
     ((double)(val))
 
@@ -214,6 +269,42 @@ static inline int32_t do_cvt_w_d(double val, unsigned int rounding_mode) {
 
 #define CVT_W_D(val) \
     do_cvt_w_d(val, rounding_mode)
+
+static inline int64_t do_cvt_l_s(float val, unsigned int rounding_mode) {
+    switch (rounding_mode) {
+        case 0: // round to nearest value
+            return (int64_t)llroundf(val);
+        case 1: // round to zero (truncate)
+            return (int64_t)val;
+        case 2: // round to positive infinity (ceil)
+            return (int64_t)ceilf(val);
+        case 3: // round to negative infinity (floor)
+            return (int64_t)floorf(val);
+    }
+    assert(0);
+    return 0;
+}
+
+#define CVT_L_S(val) \
+    do_cvt_l_s(val, rounding_mode)
+
+static inline int64_t do_cvt_l_d(double val, unsigned int rounding_mode) {
+    switch (rounding_mode) {
+        case 0: // round to nearest value
+            return (int64_t)llround(val);
+        case 1: // round to zero (truncate)
+            return (int64_t)val;
+        case 2: // round to positive infinity (ceil)
+            return (int64_t)ceil(val);
+        case 3: // round to negative infinity (floor)
+            return (int64_t)floor(val);
+    }
+    assert(0);
+    return 0;
+}
+
+#define CVT_L_D(val) \
+    do_cvt_l_d(val, rounding_mode)
 
 #define NAN_CHECK(val) \
     assert(val == val)
