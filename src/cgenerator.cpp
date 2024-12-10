@@ -289,11 +289,23 @@ void N64Recomp::CGenerator::get_operand_string(Operand operand, UnaryOpType oper
         case UnaryOpType::TruncateWFromD:
             operand_string = "TRUNC_W_D(" + operand_string + ")";
             break;
+        case UnaryOpType::TruncateLFromS:
+            operand_string = "TRUNC_L_S(" + operand_string + ")";
+            break;
+        case UnaryOpType::TruncateLFromD:
+            operand_string = "TRUNC_L_D(" + operand_string + ")";
+            break;
         case UnaryOpType::RoundWFromS:
             operand_string = "lroundf(" + operand_string + ")";
             break;
         case UnaryOpType::RoundWFromD:
             operand_string = "lround(" + operand_string + ")";
+            break;
+        case UnaryOpType::RoundLFromS:
+            operand_string = "llroundf(" + operand_string + ")";
+            break;
+        case UnaryOpType::RoundLFromD:
+            operand_string = "llround(" + operand_string + ")";
             break;
         case UnaryOpType::CeilWFromS:
             operand_string = "S32(ceilf(" + operand_string + "))";
@@ -301,11 +313,23 @@ void N64Recomp::CGenerator::get_operand_string(Operand operand, UnaryOpType oper
         case UnaryOpType::CeilWFromD:
             operand_string = "S32(ceil(" + operand_string + "))";
             break;
+        case UnaryOpType::CeilLFromS:
+            operand_string = "S64(ceilf(" + operand_string + "))";
+            break;
+        case UnaryOpType::CeilLFromD:
+            operand_string = "S64(ceil(" + operand_string + "))";
+            break;
         case UnaryOpType::FloorWFromS:
             operand_string = "S32(floorf(" + operand_string + "))";
             break;
         case UnaryOpType::FloorWFromD:
             operand_string = "S32(floor(" + operand_string + "))";
+            break;
+        case UnaryOpType::FloorLFromS:
+            operand_string = "S64(floorf(" + operand_string + "))";
+            break;
+        case UnaryOpType::FloorLFromD:
+            operand_string = "S64(floor(" + operand_string + "))";
             break;
     }
 }
@@ -367,7 +391,6 @@ void N64Recomp::CGenerator::emit_function_start(const std::string& function_name
         "RECOMP_FUNC void {}(uint8_t* rdram, recomp_context* ctx) {{\n"
         // these variables shouldn't need to be preserved across function boundaries, so make them local for more efficient output
         "    uint64_t hi = 0, lo = 0, result = 0;\n"
-        "    unsigned int rounding_mode = DEFAULT_ROUNDING_MODE;\n"
         "    int c1cs = 0;\n", // cop1 conditional signal
         function_name);
 }
@@ -461,11 +484,11 @@ void N64Recomp::CGenerator::emit_cop0_status_write(int reg) const {
 }
 
 void N64Recomp::CGenerator::emit_cop1_cs_read(int reg) const {
-    fmt::print(output_file, "{} = rounding_mode;\n", gpr_to_string(reg));
+    fmt::print(output_file, "{} = get_cop1_cs();\n", gpr_to_string(reg));
 }
 
 void N64Recomp::CGenerator::emit_cop1_cs_write(int reg) const {
-    fmt::print(output_file, "rounding_mode = ({}) & 0x3;\n", gpr_to_string(reg));
+    fmt::print(output_file, "set_cop1_cs({});\n", gpr_to_string(reg));
 }
 
 void N64Recomp::CGenerator::emit_muldiv(InstrId instr_id, int reg1, int reg2) const {

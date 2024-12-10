@@ -50,12 +50,20 @@ namespace N64Recomp {
         ConvertLFromS,
         TruncateWFromS,
         TruncateWFromD,
+        TruncateLFromS,
+        TruncateLFromD,
         RoundWFromS,
         RoundWFromD,
+        RoundLFromS,
+        RoundLFromD,
         CeilWFromS,
         CeilWFromD,
+        CeilLFromS,
+        CeilLFromD,
         FloorWFromS,
-        FloorWFromD
+        FloorWFromD,
+        FloorLFromS,
+        FloorLFromD
     };
 
     enum class BinaryOpType {

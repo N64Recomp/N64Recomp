@@ -227,9 +227,13 @@ TestStats run_test(const std::filesystem::path& tests_dir, const std::string& te
 
     auto before_execution = std::chrono::system_clock::now();
 
+    int old_rounding = fegetround();
+
     // Run the generated code.
     ctx.r29 = 0xFFFFFFFF80000000 + rdram.size() - 0x10; // Set the stack pointer.
     output.functions[start_func_index](rdram.data(), &ctx);
+
+    fesetround(old_rounding);
 
     auto after_execution = std::chrono::system_clock::now();
 

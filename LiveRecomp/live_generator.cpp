@@ -1,6 +1,7 @@
 #include <cassert>
 #include <fstream>
 #include <unordered_map>
+#include <cmath>
 
 #include "fmt/format.h"
 #include "fmt/ostream.h"
@@ -701,6 +702,54 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
     assert(!failed);
 }
 
+int32_t do_round_w_s(float num) {
+    return lroundf(num);
+}
+
+int32_t do_round_w_d(double num) {
+    return lround(num);
+}
+
+int64_t do_round_l_s(float num) {
+    return llroundf(num);
+}
+
+int64_t do_round_l_d(double num) {
+    return llround(num);
+}
+
+int32_t do_ceil_w_s(float num) {
+    return (int32_t)ceilf(num);
+}
+
+int32_t do_ceil_w_d(double num) {
+    return (int32_t)ceil(num);
+}
+
+int64_t do_ceil_l_s(float num) {
+    return (int64_t)ceilf(num);
+}
+
+int64_t do_ceil_l_d(double num) {
+    return (int64_t)ceil(num);
+}
+
+int32_t do_floor_w_s(float num) {
+    return (int32_t)floorf(num);
+}
+
+int32_t do_floor_w_d(double num) {
+    return (int32_t)floor(num);
+}
+
+int64_t do_floor_l_s(float num) {
+    return (int64_t)floorf(num);
+}
+
+int64_t do_floor_l_d(double num) {
+    return (int64_t)floor(num);
+}
+
 void N64Recomp::LiveGenerator::process_unary_op(const UnaryOp& op, const InstructionContext& ctx) const {
     // Skip instructions that output to $zero
     if (outputs_to_zero(op.output, ctx)) {
@@ -725,10 +774,59 @@ void N64Recomp::LiveGenerator::process_unary_op(const UnaryOp& op, const Instruc
         assert(false);
     }
 
-    sljit_s32 jit_op;
+    sljit_s32 jit_op = SLJIT_BREAKPOINT;
 
     bool failed = false;
     bool float_op = false;
+    bool func_float_op = false;
+
+    auto emit_s_func = [this, src, srcw, dst, dstw, &func_float_op](float (*func)(float)) {
+        func_float_op = true;
+
+        sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR0, 0, src, srcw);
+        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS1(F32, F32), SLJIT_IMM, sljit_sw(func));
+        sljit_emit_fop1(compiler, SLJIT_MOV_F32, dst, dstw, SLJIT_RETURN_FREG, 0);
+    };
+
+    auto emit_d_func = [this, src, srcw, dst, dstw, &func_float_op](double (*func)(double)) {
+        func_float_op = true;
+
+        sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR0, 0, src, srcw);
+        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS1(F64, F64), SLJIT_IMM, sljit_sw(func));
+        sljit_emit_fop1(compiler, SLJIT_MOV_F64, dst, dstw, SLJIT_RETURN_FREG, 0);
+    };
+
+    auto emit_l_from_s_func = [this, src, srcw, dst, dstw, &func_float_op](int64_t (*func)(float)) {
+        func_float_op = true;
+
+        sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR0, 0, src, srcw);
+        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS1(P, F32), SLJIT_IMM, sljit_sw(func));
+        sljit_emit_op1(compiler, SLJIT_MOV, dst, dstw, SLJIT_RETURN_REG, 0);
+    };
+
+    auto emit_w_from_s_func = [this, src, srcw, dst, dstw, &func_float_op](int32_t (*func)(float)) {
+        func_float_op = true;
+
+        sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR0, 0, src, srcw);
+        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS1(32, F32), SLJIT_IMM, sljit_sw(func));
+        sljit_emit_op1(compiler, SLJIT_MOV_S32, dst, dstw, SLJIT_RETURN_REG, 0);
+    };
+
+    auto emit_l_from_d_func = [this, src, srcw, dst, dstw, &func_float_op](int64_t (*func)(double)) {
+        func_float_op = true;
+
+        sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR0, 0, src, srcw);
+        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS1(P, F64), SLJIT_IMM, sljit_sw(func));
+        sljit_emit_op1(compiler, SLJIT_MOV, dst, dstw, SLJIT_RETURN_REG, 0);
+    };
+
+    auto emit_w_from_d_func = [this, src, srcw, dst, dstw, &func_float_op](int32_t (*func)(double)) {
+        func_float_op = true;
+
+        sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR0, 0, src, srcw);
+        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS1(32, F64), SLJIT_IMM, sljit_sw(func));
+        sljit_emit_op1(compiler, SLJIT_MOV_S32, dst, dstw, SLJIT_RETURN_REG, 0);
+    };
 
     switch (op.operation) {
         case UnaryOpType::Lui:
@@ -748,15 +846,134 @@ void N64Recomp::LiveGenerator::process_unary_op(const UnaryOp& op, const Instruc
             jit_op = SLJIT_NEG_F64;
             float_op = true;
             break;
+        case UnaryOpType::AbsFloat:
+            jit_op = SLJIT_ABS_F32;
+            float_op = true;
+            break;
+        case UnaryOpType::AbsDouble:
+            jit_op = SLJIT_ABS_F64;
+            float_op = true;
+            break;
+        case UnaryOpType::SqrtFloat:
+            emit_s_func(sqrtf);
+            break;
+        case UnaryOpType::SqrtDouble:
+            emit_d_func(sqrt);
+            break;
+        case UnaryOpType::ConvertSFromW:
+            jit_op = SLJIT_CONV_F32_FROM_S32;
+            float_op = true;
+            break;
+        case UnaryOpType::ConvertWFromS:
+            emit_w_from_s_func(do_cvt_w_s);
+            break;
+        case UnaryOpType::ConvertDFromW:
+            jit_op = SLJIT_CONV_F64_FROM_S32;
+            float_op = true;
+            break;
+        case UnaryOpType::ConvertWFromD:
+            emit_w_from_d_func(do_cvt_w_d);
+            break;
+        case UnaryOpType::ConvertDFromS:
+            jit_op = SLJIT_CONV_F64_FROM_F32;
+            float_op = true;
+            break;
+        case UnaryOpType::ConvertSFromD:
+            // SLJIT_CONV_F32_FROM_F64 uses the current rounding mode, just as CVT_S_D does.
+            jit_op = SLJIT_CONV_F32_FROM_F64;
+            float_op = true;
+            break;
+        case UnaryOpType::ConvertDFromL:
+            jit_op = SLJIT_CONV_F64_FROM_SW;
+            float_op = true;
+            break;
+        case UnaryOpType::ConvertLFromD:
+            emit_l_from_d_func(do_cvt_l_d);
+            break;
+        case UnaryOpType::ConvertSFromL:
+            jit_op = SLJIT_CONV_F32_FROM_SW;
+            float_op = true;
+            break;
+        case UnaryOpType::ConvertLFromS:
+            emit_l_from_s_func(do_cvt_l_s);
+            break;
+        case UnaryOpType::TruncateWFromS:
+            // SLJIT_CONV_S32_FROM_F32 rounds towards zero, just as TRUNC_W_S does.
+            jit_op = SLJIT_CONV_S32_FROM_F32;
+            float_op = true;
+            break;
+        case UnaryOpType::TruncateWFromD:
+            // SLJIT_CONV_S32_FROM_F64 rounds towards zero, just as TRUNC_W_D does.
+            jit_op = SLJIT_CONV_S32_FROM_F64;
+            float_op = true;
+            break;
+        case UnaryOpType::TruncateLFromS:
+            // SLJIT_CONV_SW_FROM_F32 rounds towards zero, just as TRUNC_L_S does.
+            jit_op = SLJIT_CONV_SW_FROM_F32;
+            float_op = true;
+            break;
+        case UnaryOpType::TruncateLFromD:
+            // SLJIT_CONV_SW_FROM_F64 rounds towards zero, just as TRUNC_L_D does.
+            jit_op = SLJIT_CONV_SW_FROM_F64;
+            float_op = true;
+            break;
+        case UnaryOpType::RoundWFromS:
+            emit_w_from_s_func(do_round_w_s);
+            break;
+        case UnaryOpType::RoundWFromD:
+            emit_w_from_d_func(do_round_w_d);
+            break;
+        case UnaryOpType::RoundLFromS:
+            emit_l_from_s_func(do_round_l_s);
+            break;
+        case UnaryOpType::RoundLFromD:
+            emit_l_from_d_func(do_round_l_d);
+            break;
+        case UnaryOpType::CeilWFromS:
+            emit_w_from_s_func(do_ceil_w_s);
+            break;
+        case UnaryOpType::CeilWFromD:
+            emit_w_from_d_func(do_ceil_w_d);
+            break;
+        case UnaryOpType::CeilLFromS:
+            emit_l_from_s_func(do_ceil_l_s);
+            break;
+        case UnaryOpType::CeilLFromD:
+            emit_l_from_d_func(do_ceil_l_d);
+            break;
+        case UnaryOpType::FloorWFromS:
+            emit_w_from_s_func(do_floor_w_s);
+            break;
+        case UnaryOpType::FloorWFromD:
+            emit_w_from_d_func(do_floor_w_d);
+            break;
+        case UnaryOpType::FloorLFromS:
+            emit_l_from_s_func(do_floor_l_s);
+            break;
+        case UnaryOpType::FloorLFromD:
+            emit_l_from_d_func(do_floor_l_d);
+            break;
         case UnaryOpType::None:
             jit_op = SLJIT_MOV;
             break;
-        default:
-            assert(false);
+        case UnaryOpType::ToS32:
+        case UnaryOpType::ToInt32:
+            jit_op = SLJIT_MOV_S32;
+            break;
+        // Unary ops that can't be used as a standalone operation
+        case UnaryOpType::ToU32:
+        case UnaryOpType::ToS64:
+        case UnaryOpType::ToU64:
+        case UnaryOpType::Mask5:
+        case UnaryOpType::Mask6:
+            assert(false && "Unsupported unary op");
             return;
     }
 
-    if (float_op) {
+    if (func_float_op) {
+        // Already handled by the lambda.
+    }
+    else if (float_op) {
         sljit_emit_fop1(compiler, jit_op, dst, dstw, src, srcw);
     }
     else {
@@ -821,7 +1038,7 @@ void N64Recomp::LiveGenerator::process_store_op(const StoreOp& op, const Instruc
 void N64Recomp::LiveGenerator::emit_function_start(const std::string& function_name, size_t func_index) const {
     context->function_name = function_name;
     context->func_labels[func_index] = sljit_emit_label(compiler);
-    sljit_emit_enter(compiler, 0, SLJIT_ARGS2V(P, P), 4, 5, 0);
+    sljit_emit_enter(compiler, 0, SLJIT_ARGS2V(P, P), 4 | SLJIT_ENTER_FLOAT(1), 5 | SLJIT_ENTER_FLOAT(0), 0);
     sljit_emit_op2(compiler, SLJIT_SUB, Registers::rdram, 0, Registers::rdram, 0, SLJIT_IMM, rdram_offset);
 }
 
@@ -1083,14 +1300,15 @@ void N64Recomp::LiveGenerator::emit_cop0_status_write(int reg) const {
 void N64Recomp::LiveGenerator::emit_cop1_cs_read(int reg) const {
     // Skip the read if the target is the zero register.
     if (reg != 0) {
-        // Load ctx into R0.
-        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, Registers::ctx, 0);
+        sljit_sw dst;
+        sljit_sw dstw;
+        get_gpr_values(reg, dst, dstw);
 
-        // Call cop1_cs_read.
-        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS2V(P,32), SLJIT_IMM, sljit_sw(inputs.cop1_cs_read));
+        // Call get_cop1_cs.
+        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS0(32), SLJIT_IMM, sljit_sw(get_cop1_cs));
 
         // Store the result in the output register.
-        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(Registers::ctx), get_gpr_context_offset(reg), SLJIT_R0, 0);
+        sljit_emit_op1(compiler, SLJIT_MOV_S32, dst, dstw, SLJIT_RETURN_REG, 0);
     }
 }
 
@@ -1099,12 +1317,11 @@ void N64Recomp::LiveGenerator::emit_cop1_cs_write(int reg) const {
     sljit_sw srcw;
     get_gpr_values(reg, src, srcw);
 
-    // Load ctx and the input register value into R0 and R1
-    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, Registers::ctx, 0);
-    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, src, srcw);
+    // Load the input register value into R0.
+    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, src, srcw);
 
-    // Call cop1_cs_write.
-    sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS2V(P,32), SLJIT_IMM, sljit_sw(inputs.cop1_cs_write));
+    // Call set_cop1_cs.
+    sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS1V(32), SLJIT_IMM, sljit_sw(set_cop1_cs));
 }
 
 void N64Recomp::LiveGenerator::emit_muldiv(InstrId instr_id, int reg1, int reg2) const {

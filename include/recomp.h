@@ -4,21 +4,33 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
+#include <fenv.h>
 #include <assert.h>
 
 // Compiler definition to disable inter-procedural optimization, allowing multiple functions to be in a single file without breaking interposition.
-#if defined(_MSC_VER) && !defined(__clang__)
+#if defined(_MSC_VER) && !defined(__clang__) && !defined(__INTEL_COMPILER)
     // MSVC's __declspec(noinline) seems to disable inter-procedural optimization entirely, so it's all that's needed.
     #define RECOMP_FUNC __declspec(noinline)
+    
+    // Use MSVC's fenv_access pragma.
+    #define SET_FENV_ACCESS() _Pragma("fenv_access(on)")
 #elif defined(__clang__)
     // Clang has no dedicated IPO attribute, so we use a combination of other attributes to give the desired behavior.
     // The inline keyword allows multiple definitions during linking, and extern forces clang to emit an externally visible definition.
     // Weak forces Clang to not perform any IPO as the symbol can be interposed, which prevents actual inlining due to the inline keyword.
     // Add noinline on for good measure, which doesn't conflict with the inline keyword as they have different meanings.
     #define RECOMP_FUNC extern inline __attribute__((weak,noinline))
-#elif defined(__GNUC__)
-    // Use GCC's attribute for disabling inter-procedural optimizations.
-    #define RECOMP_FUNC __attribute__((noipa))
+
+    // Use the standard STDC FENV_ACCESS pragma.
+    #define SET_FENV_ACCESS() _Pragma("STDC FENV_ACCESS ON")
+#elif defined(__GNUC__) && !defined(__INTEL_COMPILER)
+    // Use GCC's attribute for disabling inter-procedural optimizations. Also enable the rounding-math compiler flag to disable
+    // constant folding so that arithmetic respects the floating point environment. This is needed because gcc doesn't implement
+    // any FENV_ACCESS pragma.
+    #define RECOMP_FUNC __attribute__((noipa, optimize("rounding-math")))
+
+    // There's no FENV_ACCESS pragma in gcc, so this can be empty.
+    #define SET_FENV_ACCESS()
 #else
     #error "No RECOMP_FUNC definition for this compiler"
 #endif
@@ -26,18 +38,15 @@
 // Implementation of 64-bit multiply and divide instructions
 #if defined(__SIZEOF_INT128__)
 
-typedef __int128 int128_t;
-typedef unsigned __int128 uint128_t;
-
 static inline void DMULT(int64_t a, int64_t b, int64_t* lo64, int64_t* hi64) {
-    int128_t full128 = ((int128_t)a) * ((int128_t)b);
+    __int128 full128 = ((__int128)a) * ((__int128)b);
 
     *hi64 = (int64_t)(full128 >> 64);
     *lo64 = (int64_t)(full128 >> 0);
 }
 
 static inline void DMULTU(uint64_t a, uint64_t b, uint64_t* lo64, uint64_t* hi64) {
-    uint128_t full128 = ((uint128_t)a) * ((uint128_t)b);
+    unsigned __int128 full128 = ((unsigned __int128)a) * ((unsigned __int128)b);
 
     *hi64 = (uint64_t)(full128 >> 64);
     *lo64 = (uint64_t)(full128 >> 0);
@@ -62,7 +71,7 @@ static inline void DMULTU(uint64_t a, uint64_t b, uint64_t* lo64, uint64_t* hi64
 #endif
 
 static inline void DDIV(int64_t a, int64_t b, int64_t* quot, int64_t* rem) {
-    bool overflow = ((uint64_t)a == 0x8000000000000000ull) && (b == -1ll);
+    int overflow = ((uint64_t)a == 0x8000000000000000ull) && (b == -1ll);
     *quot = overflow ? a : (a / b);
     *rem = overflow ? 0 : (a % b);
 }
@@ -178,6 +187,50 @@ static inline void do_swr(uint8_t* rdram, gpr offset, gpr reg, gpr val) {
     MEM_W(0, word_address) = masked_initial_value | shifted_input_value;
 }
 
+static inline uint32_t get_cop1_cs() {
+    uint32_t rounding_mode = 0;
+    switch (fegetround()) {
+        // round to nearest value
+        case FE_TONEAREST:
+        default:
+            rounding_mode = 0;
+            break;
+        // round to zero (truncate)
+        case FE_TOWARDZERO:
+            rounding_mode = 1;
+            break;
+        // round to positive infinity (ceil)
+        case FE_UPWARD:
+            rounding_mode = 2;
+            break;
+        // round to negative infinity (floor)
+        case FE_DOWNWARD:
+            rounding_mode = 3;
+            break;
+    }
+    return rounding_mode;
+}
+
+static inline void set_cop1_cs(uint32_t val) {
+    uint32_t rounding_mode = val & 0x3;
+    int round = FE_TONEAREST;
+    switch (rounding_mode) {
+        case 0: // round to nearest value
+            round = FE_TONEAREST;
+            break;
+        case 1: // round to zero (truncate)
+            round = FE_TOWARDZERO;
+            break;
+        case 2: // round to positive infinity (ceil)
+            round = FE_UPWARD;
+            break;
+        case 3: // round to negative infinity (floor)
+            round = FE_DOWNWARD;
+            break;
+    }
+    fesetround(round);
+}
+
 #define S32(val) \
     ((int32_t)(val))
     
@@ -234,77 +287,37 @@ static inline void do_swr(uint8_t* rdram, gpr offset, gpr reg, gpr val) {
 
 #define DEFAULT_ROUNDING_MODE 0
 
-static inline int32_t do_cvt_w_s(float val, unsigned int rounding_mode) {
-    switch (rounding_mode) {
-        case 0: // round to nearest value
-            return (int32_t)lroundf(val);
-        case 1: // round to zero (truncate)
-            return (int32_t)val;
-        case 2: // round to positive infinity (ceil)
-            return (int32_t)ceilf(val);
-        case 3: // round to negative infinity (floor)
-            return (int32_t)floorf(val);
-    }
-    assert(0);
-    return 0;
+static inline int32_t do_cvt_w_s(float val) {
+    // Rounding mode aware float to 32-bit int conversion.
+    return (int32_t)lrintf(val);
 }
 
 #define CVT_W_S(val) \
-    do_cvt_w_s(val, rounding_mode)
+    do_cvt_w_s(val)
 
-static inline int32_t do_cvt_w_d(double val, unsigned int rounding_mode) {
-    switch (rounding_mode) {
-        case 0: // round to nearest value
-            return (int32_t)lround(val);
-        case 1: // round to zero (truncate)
-            return (int32_t)val;
-        case 2: // round to positive infinity (ceil)
-            return (int32_t)ceil(val);
-        case 3: // round to negative infinity (floor)
-            return (int32_t)floor(val);
-    }
-    assert(0);
-    return 0;
-}
-
-#define CVT_W_D(val) \
-    do_cvt_w_d(val, rounding_mode)
-
-static inline int64_t do_cvt_l_s(float val, unsigned int rounding_mode) {
-    switch (rounding_mode) {
-        case 0: // round to nearest value
-            return (int64_t)llroundf(val);
-        case 1: // round to zero (truncate)
-            return (int64_t)val;
-        case 2: // round to positive infinity (ceil)
-            return (int64_t)ceilf(val);
-        case 3: // round to negative infinity (floor)
-            return (int64_t)floorf(val);
-    }
-    assert(0);
-    return 0;
+static inline int64_t do_cvt_l_s(float val) {
+    // Rounding mode aware float to 64-bit int conversion.
+    return (int64_t)llrintf(val);
 }
 
 #define CVT_L_S(val) \
-    do_cvt_l_s(val, rounding_mode)
+    do_cvt_l_s(val);
 
-static inline int64_t do_cvt_l_d(double val, unsigned int rounding_mode) {
-    switch (rounding_mode) {
-        case 0: // round to nearest value
-            return (int64_t)llround(val);
-        case 1: // round to zero (truncate)
-            return (int64_t)val;
-        case 2: // round to positive infinity (ceil)
-            return (int64_t)ceil(val);
-        case 3: // round to negative infinity (floor)
-            return (int64_t)floor(val);
-    }
-    assert(0);
-    return 0;
+static inline int32_t do_cvt_w_d(double val) {
+    // Rounding mode aware double to 32-bit int conversion.
+    return (int32_t)lrint(val);
+}
+
+#define CVT_W_D(val) \
+    do_cvt_w_d(val)
+
+static inline int64_t do_cvt_l_d(double val) {
+    // Rounding mode aware double to 64-bit int conversion.
+    return (int64_t)llrint(val);
 }
 
 #define CVT_L_D(val) \
-    do_cvt_l_d(val, rounding_mode)
+    do_cvt_l_d(val)
 
 #define NAN_CHECK(val) \
     assert(val == val)
