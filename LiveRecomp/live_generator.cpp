@@ -236,13 +236,9 @@ void get_gpr_values(int gpr, sljit_sw& out, sljit_sw& outw) {
     }
 }
 
-void get_operand_values(N64Recomp::Operand operand, const N64Recomp::InstructionContext& context, sljit_sw& out, sljit_sw& outw, bool& needs_relocation) {
+void get_operand_values(N64Recomp::Operand operand, const N64Recomp::InstructionContext& context, sljit_sw& out, sljit_sw& outw) {
     using namespace N64Recomp;
     bool relocation_valid = false;
-
-    // Relocations are only valid for ImmS16 and ImmU16 operands.
-    assert(context.reloc_type == RelocType::R_MIPS_NONE ||
-        (operand == Operand::ImmS16 || operand == Operand::ImmU16));
 
     switch (operand) {
         case Operand::Rd:
@@ -312,12 +308,10 @@ void get_operand_values(N64Recomp::Operand operand, const N64Recomp::Instruction
             outw = get_fpr_u64_context_offset(context.ft);
             break;
         case Operand::ImmU16:
-            relocation_valid = true;
             out = SLJIT_IMM;
             outw = (sljit_sw)(uint16_t)context.imm16;
             break;
         case Operand::ImmS16:
-            relocation_valid = true;
             out = SLJIT_IMM;
             outw = (sljit_sw)(int16_t)context.imm16;
             break;
@@ -346,13 +340,6 @@ void get_operand_values(N64Recomp::Operand operand, const N64Recomp::Instruction
             outw = 0;
             break;
     }
-    if (context.reloc_type != N64Recomp::RelocType::R_MIPS_NONE) {
-        assert(relocation_valid && "Relocation present but not valid on the given operand!");
-        needs_relocation = true;
-    }
-    else {
-        needs_relocation = false;
-    }
 }
 
 bool outputs_to_zero(N64Recomp::Operand output, const N64Recomp::InstructionContext& ctx) {
@@ -377,25 +364,48 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
     bool failed = false;    
     sljit_sw dst;
     sljit_sw dstw;
-    bool relocation_needed_dst;
     sljit_sw src1;
     sljit_sw src1w;
-    bool relocation_needed_src1;
     sljit_sw src2;
     sljit_sw src2w;
-    bool relocation_needed_src2;
-    get_operand_values(op.output, ctx, dst, dstw, relocation_needed_dst);
-    get_operand_values(op.operands.operands[0], ctx, src1, src1w, relocation_needed_src1);
-    get_operand_values(op.operands.operands[1], ctx, src2, src2w, relocation_needed_src2);
+    get_operand_values(op.output, ctx, dst, dstw);
+    get_operand_values(op.operands.operands[0], ctx, src1, src1w);
+    get_operand_values(op.operands.operands[1], ctx, src2, src2w);
 
-    // Relocations are only valid on the second operand.
-    assert(!relocation_needed_dst && !relocation_needed_src1);
-
-    // TODO perform relocation.
-    // If a relocation is needed for the second operand, perform the relocation and change src2/src2w to use the relocated value.
-    if (relocation_needed_src2) {
-        assert(false);
-    } 
+    // If a relocation is present, perform the relocation and change src1/src1w to use the relocated value.
+    if (ctx.reloc_type != RelocType::R_MIPS_NONE) {
+        // Only allow LO16 relocations.
+        assert(ctx.reloc_type == RelocType::R_MIPS_LO16);
+        // Only allow relocations on immediates.
+        assert(src2 == SLJIT_IMM);
+        // Only allow relocations on loads and adds.
+        switch (op.type) {
+            case BinaryOpType::LD:
+            case BinaryOpType::LW:
+            case BinaryOpType::LWU:
+            case BinaryOpType::LH:
+            case BinaryOpType::LHU:
+            case BinaryOpType::LB:
+            case BinaryOpType::LBU:
+            case BinaryOpType::LDL:
+            case BinaryOpType::LDR:
+            case BinaryOpType::LWL:
+            case BinaryOpType::LWR:
+            case BinaryOpType::Add64:
+            case BinaryOpType::Add32:
+                break;
+            default:
+                // Relocations aren't allowed on this instruction.
+                assert(false);
+        }
+        // Load the relocated address into temp2.
+        load_relocated_address(ctx, Registers::arithmetic_temp1);
+        // Extract the LO16 value from the full address (sign extended lower 16 bits).
+        sljit_emit_op1(compiler, SLJIT_MOV_S16, Registers::arithmetic_temp1, 0, Registers::arithmetic_temp1, 0);
+        // Replace the immediate input (src2) with the LO16 value.
+        src2 = Registers::arithmetic_temp1;
+        src2w = 0;
+    }
 
     // TODO validate that the unary ops are valid for the current binary op.
     assert(op.operands.operand_operations[0] == UnaryOpType::None ||
@@ -750,6 +760,20 @@ int64_t do_floor_l_d(double num) {
     return (int64_t)floor(num);
 }
 
+void N64Recomp::LiveGenerator::load_relocated_address(const InstructionContext& ctx, int reg) const {
+    // Get the pointer to the section address.
+    int32_t* section_addr_ptr = (ctx.reloc_tag_as_reference ? inputs.reference_section_addresses : inputs.local_section_addresses) + ctx.reloc_section_index;
+
+    // Load the section's address into R0.
+    sljit_emit_op1(compiler, SLJIT_MOV_S32, Registers::arithmetic_temp1, 0, SLJIT_MEM0(), sljit_sw(section_addr_ptr));
+
+    // Don't emit the add if the offset is zero (small optimization).
+    if (ctx.reloc_target_section_offset != 0) {
+        // Add the reloc section offset to the section's address and put the result in R0.
+        sljit_emit_op2(compiler, SLJIT_ADD, Registers::arithmetic_temp1, 0, Registers::arithmetic_temp1, 0, SLJIT_IMM, ctx.reloc_target_section_offset);
+    }
+}
+
 void N64Recomp::LiveGenerator::process_unary_op(const UnaryOp& op, const InstructionContext& ctx) const {
     // Skip instructions that output to $zero
     if (outputs_to_zero(op.output, ctx)) {
@@ -758,20 +782,37 @@ void N64Recomp::LiveGenerator::process_unary_op(const UnaryOp& op, const Instruc
 
     sljit_sw dst;
     sljit_sw dstw;
-    bool relocation_needed_dst;
     sljit_sw src;
     sljit_sw srcw;
-    bool relocation_needed_src;
-    get_operand_values(op.output, ctx, dst, dstw, relocation_needed_dst);
-    get_operand_values(op.input, ctx, src, srcw, relocation_needed_src);
+    get_operand_values(op.output, ctx, dst, dstw);
+    get_operand_values(op.input, ctx, src, srcw);
 
-    // Relocations aren't valid on the output operand.
-    assert(!relocation_needed_dst);
+    // If a relocation is needed for the input operand, perform the relocation and store the result directly.
+    if (ctx.reloc_type != RelocType::R_MIPS_NONE) {
+        // Only allow relocation of lui with an immediate.
+        if (op.operation != UnaryOpType::Lui || op.input != Operand::ImmU16) {
+            assert(false);
+            return;
+        }
+        // Only allow HI16 relocs.
+        if (ctx.reloc_type != RelocType::R_MIPS_HI16) {
+            assert(false);
+            return;
+        }
+        // Load the relocated address into temp1.
+        load_relocated_address(ctx, Registers::arithmetic_temp1);
 
-    // TODO perform relocation.
-    // If a relocation is needed for the input operand, perform the relocation and change src/srcw to use the relocated value.
-    if (relocation_needed_src) {
-        assert(false);
+        // HI16 reloc on a lui
+        // The 32-bit address (a) is equal to section address + section offset
+        // The 16-bit immediate is equal to (a - (int16_t)a) >> 16
+        // Therefore, the register should be set to (int32_t)(a - (int16_t)a) as the shifts cancel out and the lower 16 bits are zero.
+
+        // Extract a sign extended 16-bit value from the lower half of the relocated address and put it in temp2.
+        sljit_emit_op1(compiler, SLJIT_MOV_S16, Registers::arithmetic_temp2, 0, Registers::arithmetic_temp1, 0);
+
+        // Subtract the sign extended 16-bit value from the full address to get the HI16 value and place it in the destination.
+        sljit_emit_op2(compiler, SLJIT_SUB, dst, dstw, Registers::arithmetic_temp1, 0, Registers::arithmetic_temp2, 0);
+        return;
     }
 
     sljit_s32 jit_op = SLJIT_BREAKPOINT;
@@ -986,16 +1027,25 @@ void N64Recomp::LiveGenerator::process_unary_op(const UnaryOp& op, const Instruc
 void N64Recomp::LiveGenerator::process_store_op(const StoreOp& op, const InstructionContext& ctx) const {
     sljit_sw src;
     sljit_sw srcw;
-    bool relocation_needed_src;
     sljit_sw imm = (sljit_sw)(int16_t)ctx.imm16;
 
-    get_operand_values(op.value_input, ctx, src, srcw, relocation_needed_src);
+    get_operand_values(op.value_input, ctx, src, srcw);
 
-    // Relocations aren't valid on the input operand.
-    assert(!relocation_needed_src);
+    // Only LO16 relocs are valid on stores.
+    assert(ctx.reloc_type == RelocType::R_MIPS_NONE || ctx.reloc_type == RelocType::R_MIPS_LO16);
 
-    // Add the base register (rs) and the immediate to get the address and store it in the arithemtic temp.
-    sljit_emit_op2(compiler, SLJIT_ADD, Registers::arithmetic_temp1, 0, SLJIT_MEM1(Registers::ctx), get_gpr_context_offset(ctx.rs), SLJIT_IMM, imm);
+    if (ctx.reloc_type == RelocType::R_MIPS_LO16) {
+        // Load the relocated address into temp1.
+        load_relocated_address(ctx, Registers::arithmetic_temp1);
+        // Extract the LO16 value from the full address (sign extended lower 16 bits).
+        sljit_emit_op1(compiler, SLJIT_MOV_S16, Registers::arithmetic_temp1, 0, Registers::arithmetic_temp1, 0);
+        // Add the base register (rs) to the LO16 immediate.
+        sljit_emit_op2(compiler, SLJIT_ADD, Registers::arithmetic_temp1, 0, Registers::arithmetic_temp1, 0, SLJIT_MEM1(Registers::ctx), get_gpr_context_offset(ctx.rs));
+    }
+    else {
+        // Add the base register (rs) and the immediate to get the address and store it in the arithemtic temp.
+        sljit_emit_op2(compiler, SLJIT_ADD, Registers::arithmetic_temp1, 0, SLJIT_MEM1(Registers::ctx), get_gpr_context_offset(ctx.rs), SLJIT_IMM, imm);
+    }
 
     switch (op.type) {
         case StoreOpType::SD:
@@ -1186,16 +1236,14 @@ void N64Recomp::LiveGenerator::emit_branch_condition(const ConditionalBranchOp& 
     }
     sljit_sw src1;
     sljit_sw src1w;
-    bool relocation_needed_src1;
     sljit_sw src2;
     sljit_sw src2w;
-    bool relocation_needed_src2;
 
-    get_operand_values(op.operands.operands[0], ctx, src1, src1w, relocation_needed_src1);
-    get_operand_values(op.operands.operands[1], ctx, src2, src2w, relocation_needed_src2);
+    get_operand_values(op.operands.operands[0], ctx, src1, src1w);
+    get_operand_values(op.operands.operands[1], ctx, src2, src2w);
 
-    // Relocations aren't valid on the input operands.
-    assert(!relocation_needed_src1 && !relocation_needed_src2);
+    // Relocations aren't valid on conditional branches.
+    assert(ctx.reloc_type == RelocType::R_MIPS_NONE);
 
     // Create a compare jump and track it as the pending branch jump.
     context->cur_branch_jump = sljit_emit_cmp(compiler, condition_type, src1, src1w, src2, src2w);

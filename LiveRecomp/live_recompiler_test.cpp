@@ -115,17 +115,26 @@ TestStats run_test(const std::filesystem::path& tests_dir, const std::string& te
     // Move the file data into the context.
     context.rom = std::move(file_data);
 
+    context.sections.resize(2);
     // Create a section for the function to exist in.
-    context.sections.resize(1);
     context.sections[0].ram_addr = text_address;
     context.sections[0].rom_addr = text_offset;
     context.sections[0].size = text_length;
-    context.sections[0].name = "test_section";
+    context.sections[0].name = ".text";
     context.sections[0].executable = true;
+    context.sections[0].relocatable = true;
     context.section_functions.resize(context.sections.size());
+    // Create a section for .data (used for relocations)
+    context.sections[1].ram_addr = data_address;
+    context.sections[1].rom_addr = init_data_offset;
+    context.sections[1].size = data_length;
+    context.sections[1].name = ".data";
+    context.sections[1].executable = false;
+    context.sections[1].relocatable = true;
 
     size_t start_func_index;
     uint32_t function_desc_address = 0;
+    uint32_t reloc_desc_address = 0;
 
     // Read any extra structs.
     while (next_struct_address != 0) {
@@ -136,6 +145,9 @@ TestStats run_test(const std::filesystem::path& tests_dir, const std::string& te
         switch (struct_type) {
             case 1: // Function desc
                 function_desc_address = cur_struct_address;
+                break;
+            case 2: // Relocation
+                reloc_desc_address = cur_struct_address;
                 break;
             default:
                 printf("Unknown struct type %u\n", struct_type);
@@ -198,13 +210,39 @@ TestStats run_test(const std::filesystem::path& tests_dir, const std::string& te
         }
     }
 
+    // Check if a relocation description exists.
+    if (reloc_desc_address != 0) {
+        uint32_t num_relocs = read_u32_swap(context.rom, reloc_desc_address + 0x08);
+        for (uint32_t reloc_index = 0; reloc_index < num_relocs; reloc_index++) {
+            uint32_t cur_desc_address = reloc_desc_address + 0x0C + reloc_index * 4 * sizeof(uint32_t);
+            uint32_t reloc_type = read_u32_swap(context.rom, cur_desc_address + 0x00);
+            uint32_t reloc_section = read_u32_swap(context.rom, cur_desc_address + 0x04);
+            uint32_t reloc_address = read_u32_swap(context.rom, cur_desc_address + 0x08);
+            uint32_t reloc_target_offset = read_u32_swap(context.rom, cur_desc_address + 0x0C);
+
+            context.sections[0].relocs.emplace_back(N64Recomp::Reloc{
+                .address = reloc_address,
+                .target_section_offset = reloc_target_offset,
+                .symbol_index = 0,
+                .target_section = static_cast<uint16_t>(reloc_section),
+                .type = static_cast<N64Recomp::RelocType>(reloc_type),
+                .reference_symbol = false
+            });
+        }
+    }
+
     std::vector<std::vector<uint32_t>> dummy_static_funcs{};
+    std::vector<int32_t> section_addresses{};
+    section_addresses.emplace_back(text_address);
+    section_addresses.emplace_back(data_address);
 
     auto before_codegen = std::chrono::system_clock::now();
 
     N64Recomp::LiveGeneratorInputs generator_inputs {
         .switch_error = test_switch_error,
         .get_function = test_get_function,
+        .reference_section_addresses = nullptr,
+        .local_section_addresses = section_addresses.data()
     };
 
     // Create the sljit compiler and the generator.

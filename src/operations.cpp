@@ -127,19 +127,19 @@ namespace N64Recomp {
         /* TODO rename to c_seq_d when fixed in rabbitizer */
         { InstrId::cpu_c_deq_d, { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
         // Loads
-        { InstrId::cpu_ld,   { BinaryOpType::LD,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lw,   { BinaryOpType::LW,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lwu,  { BinaryOpType::LWU, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lh,   { BinaryOpType::LH,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lhu,  { BinaryOpType::LHU, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lb,   { BinaryOpType::LB,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lbu,  { BinaryOpType::LBU, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_ldl,  { BinaryOpType::LDL, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_ldr,  { BinaryOpType::LDR, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lwl,  { BinaryOpType::LWL, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lwr,  { BinaryOpType::LWR, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lwc1, { BinaryOpType::LW, Operand::FtU32L, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_ldc1, { BinaryOpType::LD, Operand::FtU64,  {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}, true } },
+        { InstrId::cpu_ld,   { BinaryOpType::LD,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lw,   { BinaryOpType::LW,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lwu,  { BinaryOpType::LWU, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lh,   { BinaryOpType::LH,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lhu,  { BinaryOpType::LHU, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lb,   { BinaryOpType::LB,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lbu,  { BinaryOpType::LBU, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_ldl,  { BinaryOpType::LDL, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_ldr,  { BinaryOpType::LDR, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lwl,  { BinaryOpType::LWL, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lwr,  { BinaryOpType::LWR, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lwc1, { BinaryOpType::LW, Operand::FtU32L, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_ldc1, { BinaryOpType::LD, Operand::FtU64,  {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}, true } },
     };
 
     const std::unordered_map<InstrId, ConditionalBranchOp> conditional_branch_ops {

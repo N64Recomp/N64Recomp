@@ -54,6 +54,8 @@ namespace N64Recomp {
         void (*syscall_handler)(uint8_t* rdram, recomp_context* ctx, int32_t instruction_vram);
         void (*pause_self)(uint8_t* rdram);
         void (*trigger_event)(uint8_t* rdram, recomp_context* ctx, uint32_t event_index);
+        int32_t *reference_section_addresses;
+        int32_t *local_section_addresses;
     };
     class LiveGenerator final : public Generator {
     public:
@@ -101,6 +103,8 @@ namespace N64Recomp {
         void get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string) const;
         void get_binary_expr_string(BinaryOpType type, const BinaryOperands& operands, const InstructionContext& ctx, const std::string& output, std::string& expr_string) const;
         void get_notation(BinaryOpType op_type, std::string& func_string, std::string& infix_string) const;
+        // Loads the relocated address specified by the instruction context into R0.
+        void load_relocated_address(const InstructionContext& ctx, int reg) const;
         sljit_compiler* compiler;
         LiveGeneratorInputs inputs;
         mutable std::unique_ptr<LiveGeneratorContext> context;
