@@ -66,6 +66,7 @@ N64Recomp::LiveGenerator::LiveGenerator(size_t num_funcs, const LiveGeneratorInp
     compiler = sljit_create_compiler(nullptr);
     context = std::make_unique<LiveGeneratorContext>();
     context->func_labels.resize(num_funcs);
+    errored = false;
 }
 
 N64Recomp::LiveGenerator::~LiveGenerator() {
@@ -177,6 +178,7 @@ N64Recomp::LiveGeneratorOutput N64Recomp::LiveGenerator::finish() {
 
     sljit_free_compiler(compiler);
     compiler = nullptr;
+    errored = false;
 
     return ret;
 }
@@ -212,6 +214,7 @@ constexpr int get_fpr_double_context_offset(int fpr_index) {
 
 constexpr int get_fpr_u32l_context_offset(int fpr_index) {
     if (fpr_index & 1) {
+        // TODO implement odd floats.
         assert(false);
         return -1;
         // return fmt::format("ctx->f_odd[({} - 1) * 2]", fpr_index);
@@ -236,7 +239,7 @@ void get_gpr_values(int gpr, sljit_sw& out, sljit_sw& outw) {
     }
 }
 
-void get_operand_values(N64Recomp::Operand operand, const N64Recomp::InstructionContext& context, sljit_sw& out, sljit_sw& outw) {
+bool get_operand_values(N64Recomp::Operand operand, const N64Recomp::InstructionContext& context, sljit_sw& out, sljit_sw& outw) {
     using namespace N64Recomp;
     bool relocation_valid = false;
 
@@ -288,13 +291,13 @@ void get_operand_values(N64Recomp::Operand operand, const N64Recomp::Instruction
             break;
         case Operand::FdU32H:
             assert(false);
-            break;
+            return false;
         case Operand::FsU32H:
             assert(false);
-            break;
+            return false;
         case Operand::FtU32H:
             assert(false);
-            break;
+            return false;
         case Operand::FdU64:
             out = SLJIT_MEM1(Registers::ctx);
             outw = get_fpr_u64_context_offset(context.fd);
@@ -340,6 +343,7 @@ void get_operand_values(N64Recomp::Operand operand, const N64Recomp::Instruction
             outw = 0;
             break;
     }
+    return true;
 }
 
 bool outputs_to_zero(N64Recomp::Operand output, const N64Recomp::InstructionContext& ctx) {
@@ -360,24 +364,37 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
     if (outputs_to_zero(op.output, ctx)) {
         return;
     }
-
-    bool failed = false;    
+ 
     sljit_sw dst;
     sljit_sw dstw;
     sljit_sw src1;
     sljit_sw src1w;
     sljit_sw src2;
     sljit_sw src2w;
-    get_operand_values(op.output, ctx, dst, dstw);
-    get_operand_values(op.operands.operands[0], ctx, src1, src1w);
-    get_operand_values(op.operands.operands[1], ctx, src2, src2w);
+    bool output_good = get_operand_values(op.output, ctx, dst, dstw);
+    bool input0_good = get_operand_values(op.operands.operands[0], ctx, src1, src1w);
+    bool input1_good = get_operand_values(op.operands.operands[1], ctx, src2, src2w);
+
+    if (!output_good || !input0_good || !input1_good) {
+        assert(false);
+        errored = true;
+        return;
+    }
 
     // If a relocation is present, perform the relocation and change src1/src1w to use the relocated value.
     if (ctx.reloc_type != RelocType::R_MIPS_NONE) {
         // Only allow LO16 relocations.
-        assert(ctx.reloc_type == RelocType::R_MIPS_LO16);
+        if (ctx.reloc_type != RelocType::R_MIPS_LO16) {
+            assert(false);
+            errored = true;
+            return;
+        }
         // Only allow relocations on immediates.
-        assert(src2 == SLJIT_IMM);
+        if (src2 != SLJIT_IMM) {
+            assert(false);
+            errored = true;
+            return;
+        }
         // Only allow relocations on loads and adds.
         switch (op.type) {
             case BinaryOpType::LD:
@@ -397,6 +414,8 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
             default:
                 // Relocations aren't allowed on this instruction.
                 assert(false);
+                errored = true;
+                return;
         }
         // Load the relocated address into temp2.
         load_relocated_address(ctx, Registers::arithmetic_temp1);
@@ -408,14 +427,24 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
     }
 
     // TODO validate that the unary ops are valid for the current binary op.
-    assert(op.operands.operand_operations[0] == UnaryOpType::None ||
-           op.operands.operand_operations[0] == UnaryOpType::ToU64 ||
-           op.operands.operand_operations[0] == UnaryOpType::ToS64 ||
-           op.operands.operand_operations[0] == UnaryOpType::ToU32);
+    if (op.operands.operand_operations[0] != UnaryOpType::None &&
+        op.operands.operand_operations[0] != UnaryOpType::ToU64 &&
+        op.operands.operand_operations[0] != UnaryOpType::ToS64 &&
+        op.operands.operand_operations[0] != UnaryOpType::ToU32)
+    {
+        assert(false);
+        errored = true;
+        return;
+    }
     
-    assert(op.operands.operand_operations[1] == UnaryOpType::None ||
-           op.operands.operand_operations[1] == UnaryOpType::Mask5 || // Only for 32-bit shifts
-           op.operands.operand_operations[1] == UnaryOpType::Mask6); // Only for 64-bit shifts
+    if (op.operands.operand_operations[1] != UnaryOpType::None &&
+        op.operands.operand_operations[1] != UnaryOpType::Mask5 && // Only for 32-bit shifts
+        op.operands.operand_operations[1] != UnaryOpType::Mask6) // Only for 64-bit shifts
+    {
+        assert(false);
+        errored = true;
+        return;
+    }
 
     bool cmp_unsigned = op.operands.operand_operations[0] != UnaryOpType::ToS64;
 
@@ -439,7 +468,7 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
         sljit_emit_fop2(this->compiler, op, dst, dstw, src1, src1w, src2, src2w);
     };
 
-    auto do_load_op = [dst, dstw, src1, src1w, src2, src2w, &ctx, &failed, this](sljit_s32 op, int address_xor) {
+    auto do_load_op = [dst, dstw, src1, src1w, src2, src2w, &ctx, this](sljit_s32 op, int address_xor) {
         // TODO 0 immediate optimization.
 
         // Add the base and immediate into the arithemtic temp.
@@ -457,7 +486,7 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
         sljit_emit_op1(compiler, SLJIT_MOV, dst, dstw, Registers::arithmetic_temp1, 0);
     };
 
-    auto do_compare_op = [cmp_unsigned, dst, dstw, src1, src1w, src2, src2w, &ctx, &failed, this](sljit_s32 op_unsigned, sljit_s32 op_signed) {
+    auto do_compare_op = [cmp_unsigned, dst, dstw, src1, src1w, src2, src2w, &ctx, this](sljit_s32 op_unsigned, sljit_s32 op_signed) {
         // Pick the operation based on the signedness of the comparison.
         sljit_s32 op = cmp_unsigned ? op_unsigned : op_signed;
 
@@ -706,10 +735,9 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
             break;
         default:
             assert(false);
-            break;
+            errored = true;
+            return;
     }
-
-    assert(!failed);
 }
 
 int32_t do_round_w_s(float num) {
@@ -784,19 +812,27 @@ void N64Recomp::LiveGenerator::process_unary_op(const UnaryOp& op, const Instruc
     sljit_sw dstw;
     sljit_sw src;
     sljit_sw srcw;
-    get_operand_values(op.output, ctx, dst, dstw);
-    get_operand_values(op.input, ctx, src, srcw);
+    bool output_good = get_operand_values(op.output, ctx, dst, dstw);
+    bool input_good = get_operand_values(op.input, ctx, src, srcw);
+
+    if (!output_good || !input_good) {
+        assert(false);
+        errored = true;
+        return;
+    }
 
     // If a relocation is needed for the input operand, perform the relocation and store the result directly.
     if (ctx.reloc_type != RelocType::R_MIPS_NONE) {
         // Only allow relocation of lui with an immediate.
         if (op.operation != UnaryOpType::Lui || op.input != Operand::ImmU16) {
             assert(false);
+            errored = true;
             return;
         }
         // Only allow HI16 relocs.
         if (ctx.reloc_type != RelocType::R_MIPS_HI16) {
             assert(false);
+            errored = true;
             return;
         }
         // Load the relocated address into temp1.
@@ -872,7 +908,8 @@ void N64Recomp::LiveGenerator::process_unary_op(const UnaryOp& op, const Instruc
     switch (op.operation) {
         case UnaryOpType::Lui:
             if (src != SLJIT_IMM) {
-                failed = true;
+                assert(false);
+                errored = true;
                 break;
             }
             src = SLJIT_IMM;
@@ -1008,6 +1045,7 @@ void N64Recomp::LiveGenerator::process_unary_op(const UnaryOp& op, const Instruc
         case UnaryOpType::Mask5:
         case UnaryOpType::Mask6:
             assert(false && "Unsupported unary op");
+            errored = true;
             return;
     }
 
@@ -1020,8 +1058,6 @@ void N64Recomp::LiveGenerator::process_unary_op(const UnaryOp& op, const Instruc
     else {
         sljit_emit_op1(compiler, jit_op, dst, dstw, src, srcw);
     }
-
-    assert(!failed);
 }
 
 void N64Recomp::LiveGenerator::process_store_op(const StoreOp& op, const InstructionContext& ctx) const {
@@ -1032,7 +1068,11 @@ void N64Recomp::LiveGenerator::process_store_op(const StoreOp& op, const Instruc
     get_operand_values(op.value_input, ctx, src, srcw);
 
     // Only LO16 relocs are valid on stores.
-    assert(ctx.reloc_type == RelocType::R_MIPS_NONE || ctx.reloc_type == RelocType::R_MIPS_LO16);
+    if (ctx.reloc_type != RelocType::R_MIPS_NONE && ctx.reloc_type != RelocType::R_MIPS_LO16) {
+        assert(false);
+        errored = true;
+        return;
+    }
 
     if (ctx.reloc_type == RelocType::R_MIPS_LO16) {
         // Load the relocated address into temp1.
@@ -1043,9 +1083,81 @@ void N64Recomp::LiveGenerator::process_store_op(const StoreOp& op, const Instruc
         sljit_emit_op2(compiler, SLJIT_ADD, Registers::arithmetic_temp1, 0, Registers::arithmetic_temp1, 0, SLJIT_MEM1(Registers::ctx), get_gpr_context_offset(ctx.rs));
     }
     else {
+        // TODO 0 immediate optimization.
+
         // Add the base register (rs) and the immediate to get the address and store it in the arithemtic temp.
         sljit_emit_op2(compiler, SLJIT_ADD, Registers::arithmetic_temp1, 0, SLJIT_MEM1(Registers::ctx), get_gpr_context_offset(ctx.rs), SLJIT_IMM, imm);
     }
+
+    auto do_unaligned_store_op = [src, srcw, this](bool left, bool doubleword) {
+        // Determine the shift direction to use for calculating the mask and shifting the loaded value.
+        sljit_sw shift_op = left ? SLJIT_LSHR : SLJIT_SHL;
+        // Determine the operation's word size.
+        sljit_sw word_size = doubleword ? 8 : 4;
+
+        // Mask the address with the alignment mask to get the misalignment and put it in temp2.
+        // misalignment = addr & (word_size - 1);
+        sljit_emit_op2(compiler, SLJIT_AND, Registers::arithmetic_temp2, 0, Registers::arithmetic_temp1, 0, SLJIT_IMM, word_size - 1);
+
+        // Mask the address with ~alignment_mask to get the aligned address and put it in temp1.
+        // addr = addr & ~(word_size - 1);
+        sljit_emit_op2(compiler, SLJIT_AND, Registers::arithmetic_temp1, 0, Registers::arithmetic_temp1, 0, SLJIT_IMM, ~(word_size - 1));
+
+        // Load the word at rdram + aligned address into the temp1 with sign-extension.
+        // loaded_value = *addr
+        if (doubleword) {
+            // Rotate the loaded doubleword by 32 bits to swap the two words into the right order.
+            sljit_emit_op2(compiler, SLJIT_ROTL, Registers::arithmetic_temp3, 0, SLJIT_MEM2(Registers::rdram, Registers::arithmetic_temp1), 0, SLJIT_IMM, 32);
+        }
+        else {
+            // Use MOV_S32 to sign-extend the loaded word.
+            sljit_emit_op1(compiler, SLJIT_MOV_S32, Registers::arithmetic_temp3, 0, SLJIT_MEM2(Registers::rdram, Registers::arithmetic_temp1), 0);
+        }
+
+        // Inverse the misalignment if this is a right load.
+        if (!left) {
+            // misalignment = (word_size - 1 - misalignment) * 8
+            sljit_emit_op2(compiler, SLJIT_SUB, Registers::arithmetic_temp2, 0, SLJIT_IMM, word_size - 1, Registers::arithmetic_temp2, 0);
+        }
+
+        // Calculate the misalignment shift and put it into temp2.
+        // misalignment_shift = misalignment * 8
+        sljit_emit_op2(compiler, SLJIT_SHL, Registers::arithmetic_temp2, 0, Registers::arithmetic_temp2, 0, SLJIT_IMM, 3);
+
+        // Shift the input value by the misalignment shift and put it into temp4.
+        // input_value SHIFT= misalignment_shift
+        sljit_emit_op2(compiler, shift_op, Registers::arithmetic_temp4, 0, src, srcw, Registers::arithmetic_temp2, 0);
+
+        // Calculate the misalignment mask and put it into temp2. Use a 32-bit shift if this is a 32-bit operation.
+        // misalignment_mask = word(-1) SHIFT misalignment_shift
+        sljit_emit_op2(compiler, doubleword ? shift_op : (shift_op | SLJIT_32),
+            Registers::arithmetic_temp2, 0,
+            SLJIT_IMM, doubleword ? uint64_t(-1) : uint32_t(-1),
+            Registers::arithmetic_temp2, 0);
+
+        // Mask the input value with the misalignment mask and place it into temp4.
+        // masked_value = shifted_value & misalignment_mask
+        sljit_emit_op2(compiler, SLJIT_AND, Registers::arithmetic_temp4, 0, Registers::arithmetic_temp4, 0, Registers::arithmetic_temp2, 0);
+
+        // Invert the misalignment mask and store it into temp2.
+        // misalignment_mask = ~misalignment_mask
+        sljit_emit_op2(compiler, SLJIT_XOR, Registers::arithmetic_temp2, 0, Registers::arithmetic_temp2, 0, SLJIT_IMM, sljit_sw(-1));
+
+        // Mask the loaded value by the misalignment mask.
+        // input_value &= misalignment_mask
+        sljit_emit_op2(compiler, SLJIT_AND, Registers::arithmetic_temp3, 0, Registers::arithmetic_temp3, 0, Registers::arithmetic_temp2, 0);
+
+        // Combine the masked initial value with the shifted loaded value and store it in the destination.
+        // out = masked_value | input_value
+        if (doubleword) {
+            // Combine the values into a temp so that it can be rotated to the correct word order.
+            sljit_emit_op2(compiler, SLJIT_OR, Registers::arithmetic_temp4, 0, Registers::arithmetic_temp4, 0, Registers::arithmetic_temp3, 0);
+            sljit_emit_op2(compiler, SLJIT_ROTL, SLJIT_MEM2(Registers::rdram, Registers::arithmetic_temp1), 0, Registers::arithmetic_temp4, 0, SLJIT_IMM, 32);
+        }
+        else {
+            sljit_emit_op2(compiler, SLJIT_OR32, SLJIT_MEM2(Registers::rdram, Registers::arithmetic_temp1), 0, Registers::arithmetic_temp4, 0, Registers::arithmetic_temp3, 0);
+        }
+    };
 
     switch (op.type) {
         case StoreOpType::SD:
@@ -1054,10 +1166,10 @@ void N64Recomp::LiveGenerator::process_store_op(const StoreOp& op, const Instruc
             sljit_emit_op2(compiler, SLJIT_ROTL, SLJIT_MEM2(Registers::rdram, Registers::arithmetic_temp1), 0, src, srcw, SLJIT_IMM, 32);
             break;
         case StoreOpType::SDL:
-            assert(false);
+            do_unaligned_store_op(true, true);
             break;
         case StoreOpType::SDR:
-            assert(false);
+            do_unaligned_store_op(false, true);
             break;
         case StoreOpType::SW:
         case StoreOpType::SWC1:
@@ -1065,10 +1177,10 @@ void N64Recomp::LiveGenerator::process_store_op(const StoreOp& op, const Instruc
             sljit_emit_op1(compiler, SLJIT_MOV_U32, SLJIT_MEM2(Registers::rdram, Registers::arithmetic_temp1), 0, src, srcw);
             break;
         case StoreOpType::SWL:
-            assert(false);
+            do_unaligned_store_op(true, false);
             break;
         case StoreOpType::SWR:
-            assert(false);
+            do_unaligned_store_op(false, false);
             break;
         case StoreOpType::SH:
             // xor the address with 2
@@ -1135,6 +1247,7 @@ void N64Recomp::LiveGenerator::emit_function_call_by_register(int reg) const {
 void N64Recomp::LiveGenerator::emit_function_call_reference_symbol(const Context& context, uint16_t section_index, size_t symbol_index) const {
     const N64Recomp::ReferenceSymbol& sym = context.get_reference_symbol(section_index, symbol_index);
     assert(false);
+    errored = true;
 }
 
 void N64Recomp::LiveGenerator::emit_function_call(const Context& recompiler_context, size_t function_index) const {
@@ -1182,11 +1295,24 @@ void N64Recomp::LiveGenerator::emit_jtbl_addend_declaration(const JumpTable& jtb
 
 void N64Recomp::LiveGenerator::emit_branch_condition(const ConditionalBranchOp& op, const InstructionContext& ctx) const {
     // Make sure there's no pending jump.
-    assert(context->cur_branch_jump == nullptr);
+    if(context->cur_branch_jump != nullptr) {
+        assert(false);
+        errored = true;
+        return;
+    }
 
     // Branch conditions do not allow unary ops, except for ToS64 on the first operand to indicate the branch comparison is signed.
-    assert(op.operands.operand_operations[0] == UnaryOpType::None || op.operands.operand_operations[0] == UnaryOpType::ToS64);
-    assert(op.operands.operand_operations[1] == UnaryOpType::None);
+    if(op.operands.operand_operations[0] != UnaryOpType::None && op.operands.operand_operations[0] != UnaryOpType::ToS64) {
+        assert(false);
+        errored = true;
+        return;
+    }
+
+    if (op.operands.operand_operations[1] != UnaryOpType::None) {
+        assert(false);
+        errored = true;
+        return;
+    }
 
     sljit_s32 condition_type;
     bool cmp_signed = op.operands.operand_operations[0] == UnaryOpType::ToS64;
@@ -1233,6 +1359,8 @@ void N64Recomp::LiveGenerator::emit_branch_condition(const ConditionalBranchOp& 
             break;
         default:
             assert(false && "Invalid branch condition comparison operation!");
+            errored = true;
+            return;
     }
     sljit_sw src1;
     sljit_sw src1w;
@@ -1243,7 +1371,11 @@ void N64Recomp::LiveGenerator::emit_branch_condition(const ConditionalBranchOp& 
     get_operand_values(op.operands.operands[1], ctx, src2, src2w);
 
     // Relocations aren't valid on conditional branches.
-    assert(ctx.reloc_type == RelocType::R_MIPS_NONE);
+    if(ctx.reloc_type != RelocType::R_MIPS_NONE) {
+        assert(false);
+        errored = true;
+        return;
+    }
 
     // Create a compare jump and track it as the pending branch jump.
     context->cur_branch_jump = sljit_emit_cmp(compiler, condition_type, src1, src1w, src2, src2w);
@@ -1251,7 +1383,11 @@ void N64Recomp::LiveGenerator::emit_branch_condition(const ConditionalBranchOp& 
 
 void N64Recomp::LiveGenerator::emit_branch_close() const {
     // Make sure there's a pending branch jump.
-    assert(context->cur_branch_jump != nullptr);
+    if(context->cur_branch_jump == nullptr) {
+        assert(false);
+        errored = true;
+        return;
+    }
 
     // Assign a label at this point to the pending branch jump and clear it.
     sljit_set_label(context->cur_branch_jump, sljit_emit_label(compiler));

@@ -108,6 +108,7 @@ namespace N64Recomp {
         sljit_compiler* compiler;
         LiveGeneratorInputs inputs;
         mutable std::unique_ptr<LiveGeneratorContext> context;
+        mutable bool errored;
     };
 
     void live_recompiler_init();
