@@ -35,6 +35,7 @@ struct ModManifest {
 
 struct ModInputs {
     std::filesystem::path elf_path;
+    std::string nrm_name;
     std::filesystem::path func_reference_syms_file_path;
     std::vector<std::filesystem::path> data_reference_syms_file_paths;
     std::vector<std::filesystem::path> additional_files;
@@ -314,6 +315,15 @@ ModInputs parse_mod_config_inputs(const std::filesystem::path& basedir, const to
     }
     else {
         throw toml::parse_error("Mod toml input section is missing elf file", inputs_table.source());
+    }
+
+    // Output NRM file
+    std::optional<std::string> nrm_name_opt = inputs_table["nrm_name"].value<std::string>();
+    if (nrm_name_opt.has_value()) {
+        ret.nrm_name = std::move(nrm_name_opt.value());
+    }
+    else {
+        throw toml::parse_error("Mod toml input section is missing the output NRM filename", inputs_table.source());
     }
 
     // Function reference symbols file
@@ -879,7 +889,7 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
 }
 
 bool create_mod_zip(const std::filesystem::path& output_dir, const ModConfig& config) {
-    std::filesystem::path output_path = output_dir / (config.manifest.mod_id + "-" + config.manifest.version_string + ".nrm");
+    std::filesystem::path output_path = output_dir / (config.inputs.nrm_name + ".nrm");
 
 #ifdef _WIN32
     std::filesystem::path temp_zip_path = output_path;
