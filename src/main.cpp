@@ -273,10 +273,10 @@ int main(int argc, char** argv) {
     };
 
     // TODO expose a way to dump the context from the command line.
-    bool dumping_context = false;
+    bool dumping_context = argc > 2;
 
-    if (argc != 2) {
-        fmt::print("Usage: {} [config file]\n", argv[0]);
+    if (argc > 3) {
+        fmt::print("Usage: {} [config file] (should-dump)\n", argv[0]);
         std::exit(EXIT_SUCCESS);
     }
 
@@ -485,9 +485,26 @@ int main(int argc, char** argv) {
             // This helps prevent typos in the config file or functions renamed between versions from causing issues.
             exit_failure(fmt::format("Function {} is set as ignored in the config file but does not exist!", ignored_func));
         }
-        // Mark the function as .
+        // Mark the function as ignored.
         context.functions[func_find->second].ignored = true;
     }
+
+    // Rename any functions specified in the config file.
+    for (const std::string& renamed_func : config.renamed_funcs) {
+        // Check if the specified function exists.
+        auto func_find = context.functions_by_name.find(renamed_func);
+        if (func_find == context.functions_by_name.end()) {
+            // Function doesn't exist, present an error to the user instead of silently failing to mark it as ignored.
+            // This helps prevent typos in the config file or functions renamed between versions from causing issues.
+            exit_failure(fmt::format("Function {} is set as renamed in the config file but does not exist!", renamed_func));
+        }
+        // Rename the function.
+        N64Recomp::Function* func = &context.functions[func_find->second];
+        func->name = func->name + "_recomp";
+    }
+
+    // Propogate the re_mode parameter.
+    context.re_mode = config.re_mode;
 
     // Apply any single-instruction patches.
     for (const N64Recomp::InstructionPatch& patch : config.instruction_patches) {

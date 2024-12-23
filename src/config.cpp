@@ -93,7 +93,7 @@ std::vector<std::string> get_ignored_funcs(const toml::table* patches_data) {
         // Make room for all the ignored funcs in the array.
         ignored_funcs.reserve(ignored_funcs_array->size());
 
-        // Gather the stubs and place them into the array.
+        // Gather the ignored and place them into the array.
         ignored_funcs_array->for_each([&ignored_funcs](auto&& el) {
             if constexpr (toml::is_string<decltype(el)>) {
                 ignored_funcs.push_back(*el);
@@ -102,6 +102,29 @@ std::vector<std::string> get_ignored_funcs(const toml::table* patches_data) {
     }
 
     return ignored_funcs;
+}
+
+std::vector<std::string> get_renamed_funcs(const toml::table* patches_data) {
+    std::vector<std::string> renamed_funcs{};
+
+    // Check if the renamed funcs array exists.
+    const toml::node_view renamed_funcs_data = (*patches_data)["renamed"];
+
+    if (renamed_funcs_data.is_array()) {
+        const toml::array* renamed_funcs_array = renamed_funcs_data.as_array();
+
+        // Make room for all the renamed funcs in the array.
+        renamed_funcs.reserve(renamed_funcs_array->size());
+
+        // Gather the renamed and place them into the array.
+        renamed_funcs_array->for_each([&renamed_funcs](auto&& el) {
+            if constexpr (toml::is_string<decltype(el)>) {
+                renamed_funcs.push_back(*el);
+            }
+        });
+    }
+
+    return renamed_funcs;
 }
 
 std::vector<N64Recomp::FunctionSize> get_func_sizes(const toml::table* patches_data) {
@@ -377,6 +400,9 @@ N64Recomp::Config::Config(const char* path) {
             // Ignored funcs array (optional)
             ignored_funcs = get_ignored_funcs(table);
 
+            // Renamed funcs array (optional)
+            renamed_funcs = get_renamed_funcs(table);
+
             // Single-instruction patches (optional)
             instruction_patches = get_instruction_patches(table);
 
@@ -385,6 +411,18 @@ N64Recomp::Config::Config(const char* path) {
 
             // Function hooks (optional)
             function_hooks = get_function_hooks(table);
+        }
+
+        // Use RE mode if enabled (optional)
+        std::optional<bool> re_mode_opt = input_data["re_mode"].value<bool>();
+        if (re_mode_opt.has_value()) {
+            re_mode = re_mode_opt.value();
+            if (re_mode) {
+                recomp_include += "\n#include <stdio.h>\n#include <stdlib.h>";
+            }
+        }
+        else {
+            re_mode = false;
         }
 
         // Function reference symbols file (optional)

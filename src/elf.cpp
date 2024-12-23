@@ -60,7 +60,7 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
 
         if (section_index < context.sections.size()) {        
             // Check if this symbol is the entrypoint
-            if (elf_config.has_entrypoint && value == elf_config.entrypoint_address && type == ELFIO::STT_FUNC) {
+            if (elf_config.has_entrypoint && (uint32_t) value == (uint32_t) elf_config.entrypoint_address && (type == ELFIO::STT_FUNC || type == ELFIO::STT_NOTYPE)) {
                 if (found_entrypoint_func) {
                     fmt::print(stderr, "Ambiguous entrypoint: {}\n", name);
                     return false;
@@ -105,7 +105,7 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
                     auto section_offset = value - elf_file.sections[section_index]->get_address();
                     const uint32_t* words = reinterpret_cast<const uint32_t*>(elf_file.sections[section_index]->get_data() + section_offset);
                     uint32_t vram = static_cast<uint32_t>(value);
-                    uint32_t num_instructions = type == ELFIO::STT_FUNC ? size / 4 : 0;
+                    uint32_t num_instructions = (type == ELFIO::STT_FUNC || type == ELFIO::STT_NOTYPE) ? size / 4 : 0;
                     uint32_t rom_address = static_cast<uint32_t>(section_offset + section.rom_addr);
 
                     section.function_addrs.push_back(vram);
