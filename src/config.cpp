@@ -414,15 +414,15 @@ N64Recomp::Config::Config(const char* path) {
         }
 
         // Use RE mode if enabled (optional)
-        std::optional<bool> function_trace_mode_opt = input_data["function_trace_mode"].value<bool>();
-        if (function_trace_mode_opt.has_value()) {
-            function_trace_mode = function_trace_mode_opt.value();
-            if (function_trace_mode) {
-                recomp_include += "\n#include <stdio.h>\n#include <stdlib.h>";
+        std::optional<bool> trace_mode_opt = input_data["trace_mode"].value<bool>();
+        if (trace_mode_opt.has_value()) {
+            trace_mode = trace_mode_opt.value();
+            if (trace_mode) {
+                recomp_include += "\n#include \"trace.h\"";
             }
         }
         else {
-            function_trace_mode = false;
+            trace_mode = false;
         }
 
         // Function reference symbols file (optional)
