@@ -499,7 +499,7 @@ int main(int argc, char** argv) {
         // Check if the specified function exists.
         auto func_find = context.functions_by_name.find(renamed_func);
         if (func_find == context.functions_by_name.end()) {
-            // Function doesn't exist, present an error to the user instead of silently failing to mark it as ignored.
+            // Function doesn't exist, present an error to the user instead of silently failing to rename it.
             // This helps prevent typos in the config file or functions renamed between versions from causing issues.
             exit_failure(fmt::format("Function {} is set as renamed in the config file but does not exist!", renamed_func));
         }
@@ -508,7 +508,7 @@ int main(int argc, char** argv) {
         func->name = func->name + "_recomp";
     }
 
-    // Propogate the re_mode parameter.
+    // Propogate the trace mode parameter.
     context.trace_mode = config.trace_mode;
 
     // Apply any single-instruction patches.

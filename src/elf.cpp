@@ -58,7 +58,20 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
             continue;
         }
 
-        if (section_index < context.sections.size()) {        
+        if (section_index < context.sections.size()) {
+            // Check if this symbol is the entrypoint
+            // TODO this never fires, the check is broken due to signedness
+            if (elf_config.has_entrypoint && value == elf_config.entrypoint_address && type == ELFIO::STT_FUNC) {
+                if (found_entrypoint_func) {
+                    fmt::print(stderr, "Ambiguous entrypoint: {}\n", name);
+                    return false;
+                }
+                found_entrypoint_func = true;
+                fmt::print("Found entrypoint, original name: {}\n", name);
+                size = 0x50; // dummy size for entrypoints, should cover them all
+                name = "recomp_entrypoint";
+            }
+
             // Check if this symbol has a size override
             auto size_find = elf_config.manually_sized_funcs.find(name);
             if (size_find != elf_config.manually_sized_funcs.end()) {
@@ -100,10 +113,8 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
                     context.functions_by_vram[vram].push_back(context.functions.size());
 
                     // Find the entrypoint by rom address in case it doesn't have vram as its value
-                    if (rom_address == 0x1000 && type == ELFIO::STT_FUNC) {
-                        if (elf_config.has_entrypoint) {
-                            vram = elf_config.entrypoint_address;
-                        }
+                    if (elf_config.has_entrypoint && rom_address == 0x1000 && type == ELFIO::STT_FUNC) {
+                        vram = elf_config.entrypoint_address;
                         found_entrypoint_func = true;
                         name = "recomp_entrypoint";
                         if (size == 0) {

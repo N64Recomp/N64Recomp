@@ -413,7 +413,7 @@ N64Recomp::Config::Config(const char* path) {
             function_hooks = get_function_hooks(table);
         }
 
-        // Use RE mode if enabled (optional)
+        // Use trace mode if enabled (optional)
         std::optional<bool> trace_mode_opt = input_data["trace_mode"].value<bool>();
         if (trace_mode_opt.has_value()) {
             trace_mode = trace_mode_opt.value();
