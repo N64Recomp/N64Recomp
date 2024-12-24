@@ -275,10 +275,11 @@ int main(int argc, char** argv) {
     bool dumping_context;
 
     if (argc >= 3) {
-        if (strncmp(argv[2], "--dump-context", 14) == 0) {
+        std::string arg2 = argv[2];
+        if (arg2 == "--dump-context") {
             dumping_context = true;
         } else {
-            fmt::print("Usage: {} [config file] (should-dump)\n", argv[0]);
+            fmt::print("Usage: {} <config file> [--dump-context]\n", argv[0]);
             std::exit(EXIT_SUCCESS);
         }
     } else {
