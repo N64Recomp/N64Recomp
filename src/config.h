@@ -42,7 +42,7 @@ namespace N64Recomp {
         bool single_file_output;
         bool use_absolute_symbols;
         bool unpaired_lo16_warnings;
-        bool re_mode;
+        bool function_trace_mode;
         bool allow_exports;
         bool strict_patch_mode;
         std::filesystem::path elf_path;

@@ -509,7 +509,7 @@ int main(int argc, char** argv) {
     }
 
     // Propogate the re_mode parameter.
-    context.re_mode = config.re_mode;
+    context.function_trace_mode = config.function_trace_mode;
 
     // Apply any single-instruction patches.
     for (const N64Recomp::InstructionPatch& patch : config.instruction_patches) {

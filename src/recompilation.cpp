@@ -745,7 +745,7 @@ bool N64Recomp::recompile_function(const N64Recomp::Context& context, const N64R
         "    int c1cs = 0;\n", // cop1 conditional signal
         func.name);
 
-    if (context.re_mode) {
+    if (context.function_trace_mode) {
         fmt::print(output_file,
             "    static int {0}_was_called = 0;\n"
             "    if ({0}_was_called == 0) {{\n"
