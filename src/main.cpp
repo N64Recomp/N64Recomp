@@ -272,12 +272,17 @@ int main(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     };
 
-    // TODO expose a way to dump the context from the command line.
-    bool dumping_context = argc > 2;
+    bool dumping_context;
 
-    if (argc > 3) {
-        fmt::print("Usage: {} [config file] (should-dump)\n", argv[0]);
-        std::exit(EXIT_SUCCESS);
+    if (argc >= 3) {
+        if (strncmp(argv[2], "--dump-context", 14) == 0) {
+            dumping_context = true;
+        } else {
+            fmt::print("Usage: {} [config file] (should-dump)\n", argv[0]);
+            std::exit(EXIT_SUCCESS);
+        }
+    } else {
+        dumping_context = false;
     }
 
     const char* config_path = argv[1];
