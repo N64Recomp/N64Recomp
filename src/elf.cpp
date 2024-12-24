@@ -58,8 +58,9 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
             continue;
         }
 
-        if (section_index < context.sections.size()) {        
+        if (section_index < context.sections.size()) {
             // Check if this symbol is the entrypoint
+            // TODO this never fires, the check is broken due to signedness
             if (elf_config.has_entrypoint && value == elf_config.entrypoint_address && type == ELFIO::STT_FUNC) {
                 if (found_entrypoint_func) {
                     fmt::print(stderr, "Ambiguous entrypoint: {}\n", name);

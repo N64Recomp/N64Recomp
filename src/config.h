@@ -42,6 +42,7 @@ namespace N64Recomp {
         bool single_file_output;
         bool use_absolute_symbols;
         bool unpaired_lo16_warnings;
+        bool trace_mode;
         bool allow_exports;
         bool strict_patch_mode;
         std::filesystem::path elf_path;
@@ -54,6 +55,7 @@ namespace N64Recomp {
         std::filesystem::path output_binary_path;
         std::vector<std::string> stubbed_funcs;
         std::vector<std::string> ignored_funcs;
+        std::vector<std::string> renamed_funcs;
         std::vector<InstructionPatch> instruction_patches;
         std::vector<FunctionHook> function_hooks;
         std::vector<FunctionSize> manual_func_sizes;

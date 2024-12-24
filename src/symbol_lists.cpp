@@ -1,6 +1,6 @@
 #include "n64recomp.h"
 
-const std::unordered_set<std::string> N64Recomp::reimplemented_funcs{
+const std::unordered_set<std::string> N64Recomp::reimplemented_funcs {
     // OS initialize functions
     "__osInitialize_common",
     "osInitialize",
@@ -557,7 +557,7 @@ const std::unordered_set<std::string> N64Recomp::ignored_funcs {
     "kdebugserver",
 };
 
-const std::unordered_set<std::string> N64Recomp::renamed_funcs{
+const std::unordered_set<std::string> N64Recomp::renamed_funcs {
     // Math
     "sincosf",
     "sinf",

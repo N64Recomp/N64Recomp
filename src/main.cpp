@@ -272,12 +272,18 @@ int main(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     };
 
-    // TODO expose a way to dump the context from the command line.
-    bool dumping_context = false;
+    bool dumping_context;
 
-    if (argc != 2) {
-        fmt::print("Usage: {} [config file]\n", argv[0]);
-        std::exit(EXIT_SUCCESS);
+    if (argc >= 3) {
+        std::string arg2 = argv[2];
+        if (arg2 == "--dump-context") {
+            dumping_context = true;
+        } else {
+            fmt::print("Usage: {} <config file> [--dump-context]\n", argv[0]);
+            std::exit(EXIT_SUCCESS);
+        }
+    } else {
+        dumping_context = false;
     }
 
     const char* config_path = argv[1];
@@ -485,9 +491,26 @@ int main(int argc, char** argv) {
             // This helps prevent typos in the config file or functions renamed between versions from causing issues.
             exit_failure(fmt::format("Function {} is set as ignored in the config file but does not exist!", ignored_func));
         }
-        // Mark the function as .
+        // Mark the function as ignored.
         context.functions[func_find->second].ignored = true;
     }
+
+    // Rename any functions specified in the config file.
+    for (const std::string& renamed_func : config.renamed_funcs) {
+        // Check if the specified function exists.
+        auto func_find = context.functions_by_name.find(renamed_func);
+        if (func_find == context.functions_by_name.end()) {
+            // Function doesn't exist, present an error to the user instead of silently failing to rename it.
+            // This helps prevent typos in the config file or functions renamed between versions from causing issues.
+            exit_failure(fmt::format("Function {} is set as renamed in the config file but does not exist!", renamed_func));
+        }
+        // Rename the function.
+        N64Recomp::Function* func = &context.functions[func_find->second];
+        func->name = func->name + "_recomp";
+    }
+
+    // Propogate the trace mode parameter.
+    context.trace_mode = config.trace_mode;
 
     // Apply any single-instruction patches.
     for (const N64Recomp::InstructionPatch& patch : config.instruction_patches) {
