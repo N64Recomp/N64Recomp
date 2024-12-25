@@ -747,7 +747,7 @@ bool N64Recomp::recompile_function(const N64Recomp::Context& context, const N64R
 
     if (context.trace_mode) {
         fmt::print(output_file,
-            "    TRACE_ENTRY();",
+            "    TRACE_ENTRY()\n",
             func.name);
     }
 
