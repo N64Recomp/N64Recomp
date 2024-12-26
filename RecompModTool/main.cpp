@@ -1087,6 +1087,11 @@ int main(int argc, const char** argv) {
 
     bool mod_context_good;
     N64Recomp::Context mod_context = build_mod_context(context, mod_context_good);
+    if (!mod_context_good) {
+        fmt::print(stderr, "Failed to create mod context\n");
+        return EXIT_FAILURE;
+    }
+
     std::vector<uint8_t> symbols_bin = N64Recomp::symbols_to_bin_v1(mod_context);
     if (symbols_bin.empty()) {
         fmt::print(stderr, "Failed to create symbol file\n");
