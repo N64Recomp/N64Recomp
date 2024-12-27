@@ -144,7 +144,8 @@ std::vector<N64Recomp::FunctionSize> get_func_sizes(const toml::array* func_size
                     throw toml::parse_error("Function size is not divisible by 4", el.source());
                 }
                 func_sizes.emplace_back(func_name.value(), func_size.value());
-            } else {
+            }
+            else {
                 throw toml::parse_error("Manually sized function is missing required value(s)", el.source());
             }
         }
