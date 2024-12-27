@@ -135,12 +135,17 @@ std::vector<N64Recomp::FunctionSize> get_func_sizes(const toml::array* func_size
     func_sizes_array->for_each([&func_sizes](auto&& el) {
         if constexpr (toml::is_table<decltype(el)>) {
             std::optional<std::string> func_name = el["name"].template value<std::string>();
-            std::optional<uint32_t> size = el["size"].template value<uint32_t>();
+            std::optional<uint32_t> func_size = el["size"].template value<uint32_t>();
 
-            if (func_name.has_value() && size.has_value()) {
-                func_sizes.emplace_back(func_name.value(), size.value());
+            if (func_name.has_value() && func_size.has_value()) {
+                // Make sure the size is divisible by 4
+                if (func_size.value() & (4 - 1)) {
+                    // It's not, so throw an error (and make it look like a normal toml one).
+                    throw toml::parse_error("Function size is not divisible by 4", el.source());
+                }
+                func_sizes.emplace_back(func_name.value(), func_size.value());
             } else {
-                throw toml::parse_error("Missing required value in function_sizes array", el.source());
+                throw toml::parse_error("Manually size function is missing required value(s)", el.source());
             }
         }
         else {
