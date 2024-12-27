@@ -145,7 +145,7 @@ std::vector<N64Recomp::FunctionSize> get_func_sizes(const toml::array* func_size
                 }
                 func_sizes.emplace_back(func_name.value(), func_size.value());
             } else {
-                throw toml::parse_error("Manually size function is missing required value(s)", el.source());
+                throw toml::parse_error("Manually sized function is missing required value(s)", el.source());
             }
         }
         else {
