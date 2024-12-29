@@ -99,6 +99,12 @@ namespace N64Recomp {
         LessEq,
         Greater,
         GreaterEq,
+        EqualF32,
+        LessF32,
+        LessEqF32,
+        EqualF64,
+        LessF64,
+        LessEqF64,
         // Loads
         LD,
         LW,

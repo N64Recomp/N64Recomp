@@ -188,6 +188,8 @@ namespace N64Recomp {
         std::vector<ReferenceSymbol> reference_symbols;
         // Mapping of symbol name to reference symbol index.
         std::unordered_map<std::string, SymbolReference> reference_symbols_by_name;
+        // Whether all reference sections should be treated as relocatable (used in live recompilation).
+        bool all_reference_sections_relocatable = false;
     public:
         std::vector<Section> sections;
         std::vector<Function> functions;
@@ -200,6 +202,8 @@ namespace N64Recomp {
         // The target ROM being recompiled, TODO move this outside of the context to avoid making a copy for mod contexts.
         // Used for reading relocations and for the output binary feature.
         std::vector<uint8_t> rom;
+        // Whether reference symbols should be validated when emitting function calls during recompilation.
+        bool skip_validating_reference_symbols = true;
 
         //// Only used by the CLI, TODO move this to a struct in the internal headers.
         // A mapping of function name to index in the functions vector
@@ -372,6 +376,9 @@ namespace N64Recomp {
         }
 
         bool is_reference_section_relocatable(uint16_t section_index) const {
+            if (all_reference_sections_relocatable) {
+                return true;
+            }
             if (section_index == SectionAbsolute) {
                 return false;
             }
@@ -530,6 +537,10 @@ namespace N64Recomp {
 
         void copy_reference_sections_from(const Context& rhs) {
             reference_sections = rhs.reference_sections;
+        }
+
+        void set_all_reference_sections_relocatable() {
+            all_reference_sections_relocatable = true;
         }
     };
 

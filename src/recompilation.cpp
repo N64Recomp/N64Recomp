@@ -28,7 +28,6 @@ JalResolutionResult resolve_jal(const N64Recomp::Context& context, size_t cur_se
     uint32_t section_vram_start = cur_section.ram_addr;
     uint32_t section_vram_end = cur_section.ram_addr + cur_section.size;
     bool in_current_section = target_func_vram >= section_vram_start && target_func_vram < section_vram_end;
-    bool needs_static = false;
     bool exact_match_found = false;
 
     // Use a thread local to prevent reallocation across runs and to allow multi-threading in the future.
@@ -183,9 +182,9 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                     // Don't try to relocate special section symbols.
                     if (context.is_regular_reference_section(reloc.target_section) || reloc_section == N64Recomp::SectionAbsolute) {
                         bool ref_section_relocatable = context.is_reference_section_relocatable(reloc.target_section);
-                        uint32_t ref_section_vram = context.get_reference_section_vram(reloc.target_section);
                         // Resolve HI16 and LO16 reference symbol relocs to non-relocatable sections by patching the instruction immediate.
                         if (!ref_section_relocatable && (reloc_type == N64Recomp::RelocType::R_MIPS_HI16 || reloc_type == N64Recomp::RelocType::R_MIPS_LO16)) {
+                            uint32_t ref_section_vram = context.get_reference_section_vram(reloc.target_section);
                             uint32_t full_immediate = reloc.target_section_offset + ref_section_vram;
 
                             if (reloc_type == N64Recomp::RelocType::R_MIPS_HI16) {
@@ -264,7 +263,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         return true;
     };
 
-    auto print_func_call_by_address = [&generator, reloc_target_section_offset, reloc_section, reloc_reference_symbol, reloc_type, &context, &section, &func, &static_funcs_out, &needs_link_branch, &print_indent, &process_delay_slot, &output_file, &print_link_branch]
+    auto print_func_call_by_address = [&generator, reloc_target_section_offset, reloc_section, reloc_reference_symbol, reloc_type, &context, &func, &static_funcs_out, &needs_link_branch, &print_indent, &process_delay_slot, &print_link_branch]
         (uint32_t target_func_vram, bool tail_call = false, bool indent = false)
     {
         bool call_by_lookup = false;
@@ -286,16 +285,17 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             std::string jal_target_name{};
             size_t matched_func_index = (size_t)-1;
             if (reloc_reference_symbol != (size_t)-1) {
-                const auto& ref_symbol = context.get_reference_symbol(reloc_section, reloc_reference_symbol);
-
                 if (reloc_type != N64Recomp::RelocType::R_MIPS_26) {
                     fmt::print(stderr, "Unsupported reloc type {} on jal instruction in {}\n", (int)reloc_type, func.name);
                     return false;
                 }
 
-                if (ref_symbol.section_offset != reloc_target_section_offset) {
-                    fmt::print(stderr, "Function {} uses a MIPS_R_26 addend, which is not supported yet\n", func.name);
-                    return false;
+                if (!context.skip_validating_reference_symbols) {
+                    const auto& ref_symbol = context.get_reference_symbol(reloc_section, reloc_reference_symbol);
+                    if (ref_symbol.section_offset != reloc_target_section_offset) {
+                        fmt::print(stderr, "Function {} uses a MIPS_R_26 addend, which is not supported yet\n", func.name);
+                        return false;
+                    }
                 }
             }
             else {
@@ -336,7 +336,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             }
             print_indent();
             if (reloc_reference_symbol != (size_t)-1) {
-                generator.emit_function_call_reference_symbol(context, reloc_section, reloc_reference_symbol);
+                generator.emit_function_call_reference_symbol(context, reloc_section, reloc_reference_symbol, reloc_target_section_offset);
             }
             else if (call_by_lookup) {
                 generator.emit_function_call_lookup(target_func_vram);
@@ -392,7 +392,6 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
 
     int rd = (int)instr.GetO32_rd();
     int rs = (int)instr.GetO32_rs();
-    int base = rs;
     int rt = (int)instr.GetO32_rt();
     int sa = (int)instr.Get_sa();
 

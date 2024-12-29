@@ -1,6 +1,7 @@
 #ifndef __LIVE_RECOMPILER_H__
 #define __LIVE_RECOMPILER_H__
 
+#include <unordered_map>
 #include "recompiler/generator.h"
 #include "recomp.h"
 
@@ -8,6 +9,10 @@ struct sljit_compiler;
 
 namespace N64Recomp {
     struct LiveGeneratorContext;
+    struct ReferenceJumpDetails {
+        uint16_t section;
+        uint32_t section_offset;
+    };
     struct LiveGeneratorOutput {
         LiveGeneratorOutput() = default;
         LiveGeneratorOutput(const LiveGeneratorOutput& rhs) = delete;
@@ -20,29 +25,46 @@ namespace N64Recomp {
             code = rhs.code;
             code_size = rhs.code_size;
             functions = std::move(rhs.functions);
+            reference_symbol_jumps = std::move(rhs.reference_symbol_jumps);
+            import_jumps_by_index = std::move(rhs.import_jumps_by_index);
+            executable_offset = rhs.executable_offset;
 
             rhs.good = false;
-            rhs.string_literals.clear();
-            rhs.jump_tables.clear();
             rhs.code = nullptr;
             rhs.code_size = 0;
+            rhs.reference_symbol_jumps.clear();
+            rhs.executable_offset = 0;
 
             return *this;
         }
         ~LiveGeneratorOutput();
+        size_t num_reference_symbol_jumps() const;
+        void set_reference_symbol_jump(size_t jump_index, recomp_func_t* func);
+        ReferenceJumpDetails get_reference_symbol_jump_details(size_t jump_index);
+        void populate_import_symbol_jumps(size_t import_index, recomp_func_t* func);
         bool good = false;
-        // Storage for string literals referenced by recompiled code. These must be manually allocated to prevent
-        // them from moving, as the referenced address is baked into the recompiled code.
-        std::vector<const char*> string_literals;
-        // Storage for jump tables referenced by recompiled code (vector of arrays of pointers). These must also be manually allocated
-        // for the same reason as strings.
-        std::vector<void**> jump_tables;
+        // Storage for string literals referenced by recompiled code. These are allocated as unique_ptr arrays
+        // to prevent them from moving, as the referenced address is baked into the recompiled code.
+        std::vector<std::unique_ptr<char[]>> string_literals;
+        // Storage for jump tables referenced by recompiled code (vector of arrays of pointers). These are also
+        // allocated as unique_ptr arrays for the same reason as strings.
+        std::vector<std::unique_ptr<void*[]>> jump_tables;
         // Recompiled code.
         void* code;
         // Size of the recompiled code.
         size_t code_size;
         // Pointers to each individual function within the recompiled code.
         std::vector<recomp_func_t*> functions;
+    private:
+        // List of jump details and the corresponding jump instruction address. These jumps get populated after recompilation is complete
+        // during dependency resolution.
+        std::vector<std::pair<ReferenceJumpDetails, void*>> reference_symbol_jumps;
+        // Mapping of import symbol index to any jumps to that import symbol.
+        std::unordered_multimap<size_t, void*> import_jumps_by_index;
+        // sljit executable offset.
+        int64_t executable_offset;
+
+        friend class LiveGenerator;
     };
     struct LiveGeneratorInputs {
         uint32_t base_event_index;
@@ -75,7 +97,7 @@ namespace N64Recomp {
         void emit_function_end() const final;
         void emit_function_call_lookup(uint32_t addr) const final;
         void emit_function_call_by_register(int reg) const final;
-        void emit_function_call_reference_symbol(const Context& context, uint16_t section_index, size_t symbol_index) const final;
+        void emit_function_call_reference_symbol(const Context& context, uint16_t section_index, size_t symbol_index, uint32_t target_section_offset) const final;
         void emit_function_call(const Context& context, size_t function_index) const final;
         void emit_goto(const std::string& target) const final;
         void emit_label(const std::string& label_name) const final;
@@ -103,7 +125,7 @@ namespace N64Recomp {
         void get_operand_string(Operand operand, UnaryOpType operation, const InstructionContext& context, std::string& operand_string) const;
         void get_binary_expr_string(BinaryOpType type, const BinaryOperands& operands, const InstructionContext& ctx, const std::string& output, std::string& expr_string) const;
         void get_notation(BinaryOpType op_type, std::string& func_string, std::string& infix_string) const;
-        // Loads the relocated address specified by the instruction context into R0.
+        // Loads the relocated address specified by the instruction context into the target register.
         void load_relocated_address(const InstructionContext& ctx, int reg) const;
         sljit_compiler* compiler;
         LiveGeneratorInputs inputs;

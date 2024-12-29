@@ -45,9 +45,15 @@ static std::vector<BinaryOpFields> c_op_fields = []() {
     setup_op(N64Recomp::BinaryOpType::Sra32,     "S32",    ">>"); // Arithmetic aspect will be taken care of by unary op for first operand.
     setup_op(N64Recomp::BinaryOpType::Sra64,     "",       ">>"); // Arithmetic aspect will be taken care of by unary op for first operand.
     setup_op(N64Recomp::BinaryOpType::Equal,     "",       "==");
+    setup_op(N64Recomp::BinaryOpType::EqualF32,  "",       "==");
+    setup_op(N64Recomp::BinaryOpType::EqualF64,  "",       "==");
     setup_op(N64Recomp::BinaryOpType::NotEqual,  "",       "!=");
     setup_op(N64Recomp::BinaryOpType::Less,      "",       "<");
+    setup_op(N64Recomp::BinaryOpType::LessF32,   "",       "<");
+    setup_op(N64Recomp::BinaryOpType::LessF64,   "",       "<");
     setup_op(N64Recomp::BinaryOpType::LessEq,    "",       "<=");
+    setup_op(N64Recomp::BinaryOpType::LessEqF32, "",       "<=");
+    setup_op(N64Recomp::BinaryOpType::LessEqF64, "",       "<=");
     setup_op(N64Recomp::BinaryOpType::Greater,   "",       ">");
     setup_op(N64Recomp::BinaryOpType::GreaterEq, "",       ">=");
     setup_op(N64Recomp::BinaryOpType::LD,        "LD",     "");
@@ -407,7 +413,8 @@ void N64Recomp::CGenerator::emit_function_call_by_register(int reg) const {
     fmt::print(output_file, "LOOKUP_FUNC({})(rdram, ctx);\n", gpr_to_string(reg));
 }
 
-void N64Recomp::CGenerator::emit_function_call_reference_symbol(const Context& context, uint16_t section_index, size_t symbol_index) const {
+void N64Recomp::CGenerator::emit_function_call_reference_symbol(const Context& context, uint16_t section_index, size_t symbol_index, uint32_t target_section_offset) const {
+    (void)target_section_offset;
     const N64Recomp::ReferenceSymbol& sym = context.get_reference_symbol(section_index, symbol_index);
     fmt::print(output_file, "{}(rdram, ctx);\n", sym.name);
 }

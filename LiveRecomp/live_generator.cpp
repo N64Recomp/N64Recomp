@@ -11,6 +11,8 @@
 
 #include "sljitLir.h"
 
+static_assert(sizeof(void*) >= sizeof(sljit_uw), "`void*` must be able to hold a `sljit_uw` value for rewritable jumps!");
+
 constexpr uint64_t rdram_offset = 0xFFFFFFFF80000000ULL;
 
 void N64Recomp::live_recompiler_init() {
@@ -31,7 +33,6 @@ namespace Registers {
     constexpr int arithmetic_temp2 = SLJIT_R1;
     constexpr int arithmetic_temp3 = SLJIT_R2;
     constexpr int arithmetic_temp4 = SLJIT_R3;
-    constexpr int float_temp = SLJIT_FR0;
 }
 
 struct InnerCall {
@@ -40,7 +41,8 @@ struct InnerCall {
 };
 
 struct ReferenceSymbolCall {
-    uint16_t reference;
+    N64Recomp::SymbolReference reference;
+    sljit_jump* jump;
 };
 
 struct SwitchErrorJump {
@@ -56,8 +58,14 @@ struct N64Recomp::LiveGeneratorContext {
     std::vector<sljit_label*> func_labels;
     std::vector<InnerCall> inner_calls;
     std::vector<std::vector<std::string>> switch_jump_labels;
-    // See LiveGeneratorOutput::jump_tables for info.
-    std::vector<void**> jump_tables;
+    // See LiveGeneratorOutput::jump_tables for info. Contains sljit labels so they can be linked after recompilation.
+    std::vector<std::pair<std::vector<sljit_label*>, std::unique_ptr<void*[]>>> unlinked_jump_tables;
+    // Jump tables for the current function being recompiled.
+    std::vector<std::unique_ptr<void*[]>> pending_jump_tables;
+    // See LiveGeneratorOutput::reference_symbol_jumps for info.
+    std::vector<std::pair<ReferenceJumpDetails, sljit_jump*>> reference_symbol_jumps;
+    // See LiveGeneratorOutput::import_jumps_by_index for info.
+    std::unordered_multimap<size_t, sljit_jump*> import_jumps_by_index;
     std::vector<SwitchErrorJump> switch_error_jumps;
     sljit_jump* cur_branch_jump;
 };
@@ -78,6 +86,11 @@ N64Recomp::LiveGenerator::~LiveGenerator() {
 
 N64Recomp::LiveGeneratorOutput N64Recomp::LiveGenerator::finish() {
     LiveGeneratorOutput ret{};
+    if (errored) {
+        ret.good = false;
+        return ret;
+    }
+    
     ret.good = true;
 
     // Populate all the pending inner function calls.
@@ -147,34 +160,37 @@ N64Recomp::LiveGeneratorOutput N64Recomp::LiveGenerator::finish() {
             ret.functions[func_index] = reinterpret_cast<recomp_func_t*>(sljit_get_label_addr(func_label));
         }
     }
+    context->func_labels.clear();
 
-    // Populate all the switch case addresses.
-    bool invalid_switch = false;
-    for (size_t switch_index = 0; switch_index < context->switch_jump_labels.size(); switch_index++) {
-        const std::vector<std::string>& cur_labels = context->switch_jump_labels[switch_index];
-        void** cur_jump_table = context->jump_tables[switch_index];
-        for (size_t case_index = 0; case_index < cur_labels.size(); case_index++) {
-            // Find the label.
-            auto find_it = context->labels.find(cur_labels[case_index]);
-            if (find_it == context->labels.end()) {
-                // Label not found, invalid switch.
-                // Don't return immediately, as we need to ensure that all the jump tables end up in ret
-                // so that it cleans them up in its destructor.
-                invalid_switch = true;
-                break;
-            }
+    // Get the reference symbol jump instruction addresses.
+    ret.reference_symbol_jumps.resize(context->reference_symbol_jumps.size());
+    for (size_t jump_index = 0; jump_index < context->reference_symbol_jumps.size(); jump_index++) {
+        ReferenceJumpDetails& details = context->reference_symbol_jumps[jump_index].first;
+        sljit_jump* jump = context->reference_symbol_jumps[jump_index].second;
 
-            // Get the label's address and place it in the jump table.
-            cur_jump_table[case_index] = reinterpret_cast<void*>(sljit_get_label_addr(find_it->second));
+        ret.reference_symbol_jumps[jump_index].first = details;
+        ret.reference_symbol_jumps[jump_index].second = reinterpret_cast<void*>(jump->addr);
+    }
+    context->reference_symbol_jumps.clear();
+    
+    // Get the import jump instruction addresses.
+    ret.import_jumps_by_index.reserve(context->import_jumps_by_index.size());
+    for (auto& [jump_index, jump] : context->import_jumps_by_index) {
+        ret.import_jumps_by_index.emplace(jump_index, reinterpret_cast<void*>(jump->addr));
+    }
+    context->import_jumps_by_index.clear();
+
+    // Populate label addresses for the jump tables and place them in the output.
+    for (auto& [labels, jump_table] : context->unlinked_jump_tables) {
+        for (size_t entry_index = 0; entry_index < labels.size(); entry_index++) {
+            sljit_label* cur_label = labels[entry_index];
+            jump_table[entry_index] = reinterpret_cast<void*>(sljit_get_label_addr(cur_label));
         }
-        ret.jump_tables.emplace_back(cur_jump_table);
+        ret.jump_tables.emplace_back(std::move(jump_table));
     }
-    context->switch_jump_labels.clear();
-    context->jump_tables.clear();
+    context->unlinked_jump_tables.clear();
 
-    if (invalid_switch) {
-        return { };
-    }
+    ret.executable_offset = sljit_get_executable_offset(compiler);
 
     sljit_free_compiler(compiler);
     compiler = nullptr;
@@ -188,16 +204,26 @@ N64Recomp::LiveGeneratorOutput::~LiveGeneratorOutput() {
         sljit_free_code(code, nullptr);
         code = nullptr;
     }
-    
-    for (const char* literal : string_literals) {
-        delete[] literal;
-    }
-    string_literals.clear();
+}
 
-    for (void** jump_table : jump_tables) {
-        delete[] jump_table;
+size_t N64Recomp::LiveGeneratorOutput::num_reference_symbol_jumps() const {
+    return reference_symbol_jumps.size();
+}
+
+void N64Recomp::LiveGeneratorOutput::set_reference_symbol_jump(size_t jump_index, recomp_func_t* func) {
+    const auto& jump_entry = reference_symbol_jumps[jump_index];
+    sljit_set_jump_addr(reinterpret_cast<sljit_uw>(jump_entry.second), reinterpret_cast<sljit_uw>(func), executable_offset);
+}
+
+N64Recomp::ReferenceJumpDetails N64Recomp::LiveGeneratorOutput::get_reference_symbol_jump_details(size_t jump_index) {
+    return reference_symbol_jumps[jump_index].first;
+}
+
+void N64Recomp::LiveGeneratorOutput::populate_import_symbol_jumps(size_t import_index, recomp_func_t* func) {
+    auto find_range = import_jumps_by_index.equal_range(import_index);
+    for (auto it = find_range.first; it != find_range.second; ++it) {
+        sljit_set_jump_addr(reinterpret_cast<sljit_uw>(it->second), reinterpret_cast<sljit_uw>(func), executable_offset);
     }
-    jump_tables.clear();
 }
 
 constexpr int get_gpr_context_offset(int gpr_index) {
@@ -241,7 +267,6 @@ void get_gpr_values(int gpr, sljit_sw& out, sljit_sw& outw) {
 
 bool get_operand_values(N64Recomp::Operand operand, const N64Recomp::InstructionContext& context, sljit_sw& out, sljit_sw& outw) {
     using namespace N64Recomp;
-    bool relocation_valid = false;
 
     switch (operand) {
         case Operand::Rd:
@@ -438,6 +463,8 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
     }
     
     if (op.operands.operand_operations[1] != UnaryOpType::None &&
+        op.operands.operand_operations[1] != UnaryOpType::ToU64 &&
+        op.operands.operand_operations[1] != UnaryOpType::ToS64 &&
         op.operands.operand_operations[1] != UnaryOpType::Mask5 && // Only for 32-bit shifts
         op.operands.operand_operations[1] != UnaryOpType::Mask6) // Only for 64-bit shifts
     {
@@ -455,7 +482,7 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
         sljit_emit_op1(this->compiler, SLJIT_MOV_P, dst, dstw, Registers::arithmetic_temp1, 0);
     };
 
-    auto do_op32 = [dst, dstw, src1, src1w, src2, src2w, this, &sign_extend_and_store](sljit_s32 op) {
+    auto do_op32 = [src1, src1w, src2, src2w, this, &sign_extend_and_store](sljit_s32 op) {
         sljit_emit_op2(this->compiler, op, Registers::arithmetic_temp1, 0, src1, src1w, src2, src2w);
         sign_extend_and_store();
     };
@@ -468,7 +495,7 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
         sljit_emit_fop2(this->compiler, op, dst, dstw, src1, src1w, src2, src2w);
     };
 
-    auto do_load_op = [dst, dstw, src1, src1w, src2, src2w, &ctx, this](sljit_s32 op, int address_xor) {
+    auto do_load_op = [dst, dstw, src1, src1w, src2, src2w, this](sljit_s32 op, int address_xor) {
         // TODO 0 immediate optimization.
 
         // Add the base and immediate into the arithemtic temp.
@@ -486,7 +513,7 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
         sljit_emit_op1(compiler, SLJIT_MOV, dst, dstw, Registers::arithmetic_temp1, 0);
     };
 
-    auto do_compare_op = [cmp_unsigned, dst, dstw, src1, src1w, src2, src2w, &ctx, this](sljit_s32 op_unsigned, sljit_s32 op_signed) {
+    auto do_compare_op = [cmp_unsigned, dst, dstw, src1, src1w, src2, src2w, this](sljit_s32 op_unsigned, sljit_s32 op_signed) {
         // Pick the operation based on the signedness of the comparison.
         sljit_s32 op = cmp_unsigned ? op_unsigned : op_signed;
 
@@ -504,6 +531,18 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
         
         // Move the operation's flag into the destination.
         sljit_emit_op_flags(compiler, SLJIT_MOV, dst, dstw, op);
+    };
+
+    auto do_float_compare_op = [dst, dstw, src1, src1w, src2, src2w, this](sljit_s32 flag_op, sljit_s32 set_op, bool double_precision) {
+        // Pick the operation based on the signedness of the comparison.
+        sljit_s32 compare_op = set_op | (double_precision ? SLJIT_CMP_F64 : SLJIT_CMP_F32);
+
+        // Perform the comparison with the determined operation.
+        // Float comparisons use fop1 and put the left hand side in dst.
+        sljit_emit_fop1(compiler, compare_op, src1, src1w, src2, src2w);
+        
+        // Move the operation's flag into the destination.
+        sljit_emit_op_flags(compiler, SLJIT_MOV, dst, dstw, flag_op);
     };
 
     auto do_unaligned_load_op = [dst, dstw, src1, src1w, src2, src2w, this](bool left, bool doubleword) {
@@ -691,6 +730,24 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
         case BinaryOpType::GreaterEq:
             do_compare_op(SLJIT_GREATER_EQUAL, SLJIT_SIG_GREATER_EQUAL);
             break;
+        case BinaryOpType::EqualF32:
+            do_float_compare_op(SLJIT_F_EQUAL, SLJIT_SET_F_EQUAL, false);
+            break;
+        case BinaryOpType::LessF32:
+            do_float_compare_op(SLJIT_F_LESS, SLJIT_SET_F_LESS, false);
+            break;
+        case BinaryOpType::LessEqF32:
+            do_float_compare_op(SLJIT_F_LESS_EQUAL, SLJIT_SET_F_LESS_EQUAL, false);
+            break;
+        case BinaryOpType::EqualF64:
+            do_float_compare_op(SLJIT_F_EQUAL, SLJIT_SET_F_EQUAL, true);
+            break;
+        case BinaryOpType::LessF64:
+            do_float_compare_op(SLJIT_F_LESS, SLJIT_SET_F_LESS, true);
+            break;
+        case BinaryOpType::LessEqF64:
+            do_float_compare_op(SLJIT_F_LESS_EQUAL, SLJIT_SET_F_LESS_EQUAL, true);
+            break;
 
         // Loads
         case BinaryOpType::LD:
@@ -792,13 +849,13 @@ void N64Recomp::LiveGenerator::load_relocated_address(const InstructionContext& 
     // Get the pointer to the section address.
     int32_t* section_addr_ptr = (ctx.reloc_tag_as_reference ? inputs.reference_section_addresses : inputs.local_section_addresses) + ctx.reloc_section_index;
 
-    // Load the section's address into R0.
-    sljit_emit_op1(compiler, SLJIT_MOV_S32, Registers::arithmetic_temp1, 0, SLJIT_MEM0(), sljit_sw(section_addr_ptr));
+    // Load the section's address into the target register.
+    sljit_emit_op1(compiler, SLJIT_MOV_S32, reg, 0, SLJIT_MEM0(), sljit_sw(section_addr_ptr));
 
     // Don't emit the add if the offset is zero (small optimization).
     if (ctx.reloc_target_section_offset != 0) {
         // Add the reloc section offset to the section's address and put the result in R0.
-        sljit_emit_op2(compiler, SLJIT_ADD, Registers::arithmetic_temp1, 0, Registers::arithmetic_temp1, 0, SLJIT_IMM, ctx.reloc_target_section_offset);
+        sljit_emit_op2(compiler, SLJIT_ADD, reg, 0, reg, 0, SLJIT_IMM, ctx.reloc_target_section_offset);
     }
 }
 
@@ -853,7 +910,6 @@ void N64Recomp::LiveGenerator::process_unary_op(const UnaryOp& op, const Instruc
 
     sljit_s32 jit_op = SLJIT_BREAKPOINT;
 
-    bool failed = false;
     bool float_op = false;
     bool func_float_op = false;
 
@@ -1200,12 +1256,52 @@ void N64Recomp::LiveGenerator::process_store_op(const StoreOp& op, const Instruc
 void N64Recomp::LiveGenerator::emit_function_start(const std::string& function_name, size_t func_index) const {
     context->function_name = function_name;
     context->func_labels[func_index] = sljit_emit_label(compiler);
+    // sljit_emit_op0(compiler, SLJIT_BREAKPOINT);
     sljit_emit_enter(compiler, 0, SLJIT_ARGS2V(P, P), 4 | SLJIT_ENTER_FLOAT(1), 5 | SLJIT_ENTER_FLOAT(0), 0);
     sljit_emit_op2(compiler, SLJIT_SUB, Registers::rdram, 0, Registers::rdram, 0, SLJIT_IMM, rdram_offset);
 }
 
 void N64Recomp::LiveGenerator::emit_function_end() const {
-    // Nothing to do here.
+    // Check that all jumps have been paired to a label.
+    if (!context->pending_jumps.empty()) {
+        assert(false);
+        errored = true;
+    }
+    
+    // Populate the labels for pending switches and move them into the unlinked jump tables.
+    bool invalid_switch = false;
+    for (size_t switch_index = 0; switch_index < context->switch_jump_labels.size(); switch_index++) {
+        const std::vector<std::string>& cur_labels = context->switch_jump_labels[switch_index];
+        std::vector<sljit_label*> cur_label_addrs{};
+        cur_label_addrs.resize(cur_labels.size());
+        for (size_t case_index = 0; case_index < cur_labels.size(); case_index++) {
+            // Find the label.
+            auto find_it = context->labels.find(cur_labels[case_index]);
+            if (find_it == context->labels.end()) {
+                // Label not found, invalid switch.
+                // Track this in a variable instead of returning immediately so that the pending labels are still cleared.
+                invalid_switch = true;
+                break;
+            }
+            cur_label_addrs[case_index] = find_it->second;
+        }
+        context->unlinked_jump_tables.emplace_back(
+            std::make_pair<std::vector<sljit_label*>, std::unique_ptr<void*[]>>(
+                std::move(cur_label_addrs),
+                std::move(context->pending_jump_tables[switch_index])
+            )
+        );
+    }
+    context->switch_jump_labels.clear();
+    context->pending_jump_tables.clear();
+
+    // Clear the labels to prevent labels from one function being jumped to by another.
+    context->labels.clear();
+
+    if (invalid_switch) {
+        assert(false);
+        errored = true;
+    }
 }
 
 void N64Recomp::LiveGenerator::emit_function_call_lookup(uint32_t addr) const {
@@ -1244,13 +1340,33 @@ void N64Recomp::LiveGenerator::emit_function_call_by_register(int reg) const {
     sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS2V(P, P), SLJIT_R2, 0);
 }
 
-void N64Recomp::LiveGenerator::emit_function_call_reference_symbol(const Context& context, uint16_t section_index, size_t symbol_index) const {
-    const N64Recomp::ReferenceSymbol& sym = context.get_reference_symbol(section_index, symbol_index);
-    assert(false);
-    errored = true;
+void N64Recomp::LiveGenerator::emit_function_call_reference_symbol(const Context&, uint16_t section_index, size_t symbol_index, uint32_t target_section_offset) const {
+    (void)symbol_index;
+
+    // Load rdram and ctx into R0 and R1.
+    sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, Registers::rdram, 0, SLJIT_IMM, rdram_offset);
+    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, Registers::ctx, 0);
+    // sljit_emit_op0(compiler, SLJIT_BREAKPOINT);
+    // Call the function and save the jump to set its label later on.
+    sljit_jump* call_jump = sljit_emit_call(compiler, SLJIT_CALL | SLJIT_REWRITABLE_JUMP, SLJIT_ARGS2V(P, P));
+    // Set a dummy jump value, this will get replaced during reference/import symbol jump population.
+    if (section_index == N64Recomp::SectionImport) {
+        sljit_set_target(call_jump, sljit_uw(-1));
+        context->import_jumps_by_index.emplace(symbol_index, call_jump);
+    }
+    else {
+        sljit_set_target(call_jump, sljit_uw(-2));
+        context->reference_symbol_jumps.emplace_back(std::make_pair(
+            ReferenceJumpDetails{
+                .section = section_index,
+                .section_offset = target_section_offset
+            },
+            call_jump
+        ));
+    }
 }
 
-void N64Recomp::LiveGenerator::emit_function_call(const Context& recompiler_context, size_t function_index) const {
+void N64Recomp::LiveGenerator::emit_function_call(const Context&, size_t function_index) const {
     // Load rdram and ctx into R0 and R1.
     sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, Registers::rdram, 0, SLJIT_IMM, rdram_offset);
     sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, Registers::ctx, 0);
@@ -1290,6 +1406,8 @@ void N64Recomp::LiveGenerator::emit_label(const std::string& label_name) const {
 }
 
 void N64Recomp::LiveGenerator::emit_jtbl_addend_declaration(const JumpTable& jtbl, int reg) const {
+    (void)jtbl;
+    (void)reg;
     // Nothing to do here, the live recompiler performs a subtraction to get the switch's case.
 }
 
@@ -1403,9 +1521,8 @@ void N64Recomp::LiveGenerator::emit_switch(const JumpTable& jtbl, int reg) const
     }
     context->switch_jump_labels.emplace_back(std::move(cur_labels));
 
-    // Allocate the jump table. Must be manually allocated to prevent the address from changing.
-    void** cur_jump_table = new void*[jtbl.entries.size()];
-    context->jump_tables.emplace_back(cur_jump_table);
+    // Allocate the jump table.
+    std::unique_ptr<void* []> cur_jump_table = std::make_unique<void* []>(jtbl.entries.size());
 
     /// Codegen
 
@@ -1423,18 +1540,25 @@ void N64Recomp::LiveGenerator::emit_switch(const JumpTable& jtbl, int reg) const
     // Multiply the jump table addend by 2 to get the addend for the real jump table. (4 bytes per entry to 8 bytes per entry).
     sljit_emit_op2(compiler, SLJIT_ADD, Registers::arithmetic_temp1, 0, Registers::arithmetic_temp1, 0, Registers::arithmetic_temp1, 0);
     // Load the real jump table address.
-    sljit_emit_op1(compiler, SLJIT_MOV, Registers::arithmetic_temp2, 0, SLJIT_IMM, (sljit_sw)cur_jump_table);
+    sljit_emit_op1(compiler, SLJIT_MOV, Registers::arithmetic_temp2, 0, SLJIT_IMM, (sljit_sw)cur_jump_table.get());
     // Load the real jump entry.
     sljit_emit_op1(compiler, SLJIT_MOV, Registers::arithmetic_temp1, 0, SLJIT_MEM2(Registers::arithmetic_temp1, Registers::arithmetic_temp2), 0);
     // Jump to the loaded entry.
     sljit_emit_ijump(compiler, SLJIT_JUMP, Registers::arithmetic_temp1, 0);
+
+    // Move the jump table into the pending jump tables.
+    context->pending_jump_tables.emplace_back(std::move(cur_jump_table));
 }
 
 void N64Recomp::LiveGenerator::emit_case(int case_index, const std::string& target_label) const {
+    (void)case_index;
+    (void)target_label;
     // Nothing to do here, the jump table is built in emit_switch.
 }
 
 void N64Recomp::LiveGenerator::emit_switch_error(uint32_t instr_vram, uint32_t jtbl_vram) const {
+    (void)instr_vram;
+    (void)jtbl_vram;
     // Nothing to do here, the jump table is built in emit_switch.
 }
 
@@ -1447,10 +1571,13 @@ void N64Recomp::LiveGenerator::emit_return() const {
 }
 
 void N64Recomp::LiveGenerator::emit_check_fr(int fpr) const {
+    (void)fpr;
     // Nothing to do here.
 }
 
 void N64Recomp::LiveGenerator::emit_check_nan(int fpr, bool is_double) const {
+    (void)fpr;
+    (void)is_double;
     // Nothing to do here.
 }
 
@@ -1704,6 +1831,7 @@ void N64Recomp::LiveGenerator::emit_trigger_event(uint32_t event_index) const {
 }
 
 void N64Recomp::LiveGenerator::emit_comment(const std::string& comment) const {
+    (void)comment;
     // Nothing to do here.
 }
 
