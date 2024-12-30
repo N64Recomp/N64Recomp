@@ -38,6 +38,7 @@ namespace N64Recomp {
         // but for live recompilation the reference symbol list is unavailable so it's still provided.
         virtual void emit_function_call_reference_symbol(const Context& context, uint16_t section_index, size_t symbol_index, uint32_t target_section_offset) const = 0;
         virtual void emit_function_call(const Context& context, size_t function_index) const = 0;
+        virtual void emit_named_function_call(const std::string& function_name) const = 0;
         virtual void emit_goto(const std::string& target) const = 0;
         virtual void emit_label(const std::string& label_name) const = 0;
         virtual void emit_jtbl_addend_declaration(const JumpTable& jtbl, int reg) const = 0;
@@ -74,6 +75,7 @@ namespace N64Recomp {
         void emit_function_call_by_register(int reg) const final;
         void emit_function_call_reference_symbol(const Context& context, uint16_t section_index, size_t symbol_index, uint32_t target_section_offset) const final;
         void emit_function_call(const Context& context, size_t function_index) const final;
+        void emit_named_function_call(const std::string& function_name) const final;
         void emit_goto(const std::string& target) const final;
         void emit_label(const std::string& label_name) const final;
         void emit_jtbl_addend_declaration(const JumpTable& jtbl, int reg) const final;

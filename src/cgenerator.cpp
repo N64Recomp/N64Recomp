@@ -423,6 +423,10 @@ void N64Recomp::CGenerator::emit_function_call(const Context& context, size_t fu
     fmt::print(output_file, "{}(rdram, ctx);\n", context.functions[function_index].name);
 }
 
+void N64Recomp::CGenerator::emit_named_function_call(const std::string& function_name) const {
+    fmt::print(output_file, "{}(rdram, ctx);\n", function_name);
+}
+
 void N64Recomp::CGenerator::emit_goto(const std::string& target) const {
     fmt::print(output_file,
         "    goto {};\n", target);
@@ -489,7 +493,7 @@ void N64Recomp::CGenerator::emit_cop0_status_read(int reg) const {
 }
 
 void N64Recomp::CGenerator::emit_cop0_status_write(int reg) const {
-    fmt::print(output_file, "cop0_status_write(ctx, {})", gpr_to_string(reg));
+    fmt::print(output_file, "cop0_status_write(ctx, {});", gpr_to_string(reg));
 }
 
 void N64Recomp::CGenerator::emit_cop1_cs_read(int reg) const {

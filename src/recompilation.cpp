@@ -267,6 +267,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         (uint32_t target_func_vram, bool tail_call = false, bool indent = false)
     {
         bool call_by_lookup = false;
+        bool call_by_name = false;
         // Event symbol, emit a call to the runtime to trigger this event.
         if (reloc_section == N64Recomp::SectionEvent) {
             needs_link_branch = !tail_call;
@@ -312,8 +313,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                         // Create a static function add it to the static function list for this section.
                         jal_target_name = fmt::format("static_{}_{:08X}", func.section_index, target_func_vram);
                         static_funcs_out[func.section_index].push_back(target_func_vram);
-                        // TODO skip lookup for static functions.
-                        call_by_lookup = true;
+                        call_by_name = true;
                         break;
                     case JalResolutionResult::Ambiguous:
                         fmt::print(stderr, "[Info] Ambiguous jal target 0x{:08X} in function {}, falling back to function lookup\n", target_func_vram, func.name);
@@ -340,6 +340,9 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             }
             else if (call_by_lookup) {
                 generator.emit_function_call_lookup(target_func_vram);
+            }
+            else if (call_by_name) {
+                generator.emit_named_function_call(jal_target_name);
             }
             else {
                 generator.emit_function_call(context, matched_func_index);

@@ -1375,6 +1375,12 @@ void N64Recomp::LiveGenerator::emit_function_call(const Context&, size_t functio
     context->inner_calls.emplace_back(InnerCall{ .target_func_index = function_index, .jump = call_jump });
 }
 
+void N64Recomp::LiveGenerator::emit_named_function_call(const std::string& function_name) const {
+    // The live recompiler can't call functions by name. This is only used for statics, so it's not an issue.
+    assert(false);
+    errored = true;
+}
+
 void N64Recomp::LiveGenerator::emit_goto(const std::string& target) const {
     sljit_jump* jump = sljit_emit_jump(compiler, SLJIT_JUMP);
     // Check if the label already exists.
