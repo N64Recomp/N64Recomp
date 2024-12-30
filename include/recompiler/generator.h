@@ -43,7 +43,7 @@ namespace N64Recomp {
         virtual void emit_jtbl_addend_declaration(const JumpTable& jtbl, int reg) const = 0;
         virtual void emit_branch_condition(const ConditionalBranchOp& op, const InstructionContext& ctx) const = 0;
         virtual void emit_branch_close() const = 0;
-        virtual void emit_switch(const JumpTable& jtbl, int reg) const = 0;
+        virtual void emit_switch(const Context& recompiler_context, const JumpTable& jtbl, int reg) const = 0;
         virtual void emit_case(int case_index, const std::string& target_label) const = 0;
         virtual void emit_switch_error(uint32_t instr_vram, uint32_t jtbl_vram) const = 0;
         virtual void emit_switch_close() const = 0;
@@ -79,7 +79,7 @@ namespace N64Recomp {
         void emit_jtbl_addend_declaration(const JumpTable& jtbl, int reg) const final;
         void emit_branch_condition(const ConditionalBranchOp& op, const InstructionContext& ctx) const final;
         void emit_branch_close() const final;
-        void emit_switch(const JumpTable& jtbl, int reg) const final;
+        void emit_switch(const Context& recompiler_context, const JumpTable& jtbl, int reg) const final;
         void emit_case(int case_index, const std::string& target_label) const final;
         void emit_switch_error(uint32_t instr_vram, uint32_t jtbl_vram) const final;
         void emit_switch_close() const final;

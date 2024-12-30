@@ -454,7 +454,9 @@ void N64Recomp::CGenerator::emit_switch_close() const {
     fmt::print(output_file, "}}\n");
 }
 
-void N64Recomp::CGenerator::emit_switch(const JumpTable& jtbl, int reg) const {
+void N64Recomp::CGenerator::emit_switch(const Context& recompiler_context, const JumpTable& jtbl, int reg) const {
+    (void)recompiler_context;
+    (void)reg;
     // TODO generate code to subtract the jump table address from the register's value instead.
     // Once that's done, the addend temp can be deleted to simplify the generator interface.
     std::string jump_variable = fmt::format("jr_addend_{:08X}", jtbl.jr_vram);

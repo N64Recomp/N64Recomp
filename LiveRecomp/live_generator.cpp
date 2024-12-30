@@ -1512,7 +1512,7 @@ void N64Recomp::LiveGenerator::emit_branch_close() const {
     context->cur_branch_jump = nullptr;
 }
 
-void N64Recomp::LiveGenerator::emit_switch(const JumpTable& jtbl, int reg) const {
+void N64Recomp::LiveGenerator::emit_switch(const Context& recompiler_context, const JumpTable& jtbl, int reg) const {
     // Populate the switch's labels.
     std::vector<std::string> cur_labels{};
     cur_labels.resize(jtbl.entries.size());
@@ -1531,7 +1531,25 @@ void N64Recomp::LiveGenerator::emit_switch(const JumpTable& jtbl, int reg) const
     sljit_emit_op1(compiler, SLJIT_MOV, Registers::arithmetic_temp1, 0, SLJIT_MEM1(Registers::ctx), get_gpr_context_offset(reg));
     // Subtract the jump table's address from the jump target to get the jump table addend.
     // Sign extend the jump table address to 64 bits so that the entire register's contents are used instead of just the lower 32 bits.
-    sljit_emit_op2(compiler, SLJIT_SUB, Registers::arithmetic_temp1, 0, Registers::arithmetic_temp1, 0, SLJIT_IMM, (sljit_sw)((int32_t)jtbl.vram));
+    const auto& jtbl_section = recompiler_context.sections[jtbl.section_index];
+    if (jtbl_section.relocatable) {
+        // Make a dummy instruction context to pass to `load_relocated_address`.
+        InstructionContext dummy_context{};
+        
+        // Get the relocated address of the jump table.
+        uint32_t section_offset = jtbl.vram - jtbl_section.ram_addr;
+
+        // Populate the necessary fields of the dummy context and load the relocated address into temp2.
+        dummy_context.reloc_section_index = jtbl.section_index;
+        dummy_context.reloc_target_section_offset = section_offset;
+        load_relocated_address(dummy_context, Registers::arithmetic_temp2);
+
+        // Subtract the relocated jump table start address from the loaded address. 
+        sljit_emit_op2(compiler, SLJIT_SUB, Registers::arithmetic_temp1, 0, Registers::arithmetic_temp1, 0, Registers::arithmetic_temp2, 0);
+    }
+    else {
+        sljit_emit_op2(compiler, SLJIT_SUB, Registers::arithmetic_temp1, 0, Registers::arithmetic_temp1, 0, SLJIT_IMM, (sljit_sw)((int32_t)jtbl.vram));
+    }
     
     // Bounds check the addend. If it's greater than or equal to the jump table size (entries * sizeof(u32)) then jump to the switch error.
     sljit_jump* switch_error_jump = sljit_emit_cmp(compiler, SLJIT_GREATER_EQUAL, Registers::arithmetic_temp1, 0, SLJIT_IMM, jtbl.entries.size() * sizeof(uint32_t));

@@ -194,6 +194,7 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const N64Recom
                 reg_states[rs].loaded_lw_vram,
                 reg_states[rs].loaded_addu_vram,
                 instr.getVram(),
+                0, // section index gets filled in later
                 std::vector<uint32_t>{}
             );
         }
@@ -245,6 +246,7 @@ bool N64Recomp::analyze_function(const N64Recomp::Context& context, const N64Rec
 
         // TODO this assumes that the jump table is in the same section as the function itself
         cur_jtbl.rom = cur_jtbl.vram + func.rom - func.vram;
+        cur_jtbl.section_index = func.section_index;
 
         while (vram < end_address) {
             // Retrieve the current entry of the jump table

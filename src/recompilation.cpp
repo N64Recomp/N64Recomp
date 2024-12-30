@@ -532,7 +532,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                     return false;
                 }
                 print_indent();
-                generator.emit_switch(cur_jtbl, rs);
+                generator.emit_switch(context, cur_jtbl, rs);
                 for (size_t entry_index = 0; entry_index < cur_jtbl.entries.size(); entry_index++) {
                     print_indent();
                     print_indent();
