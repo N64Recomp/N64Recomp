@@ -730,22 +730,22 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
         case BinaryOpType::GreaterEq:
             do_compare_op(SLJIT_GREATER_EQUAL, SLJIT_SIG_GREATER_EQUAL);
             break;
-        case BinaryOpType::EqualF32:
+        case BinaryOpType::EqualFloat:
             do_float_compare_op(SLJIT_F_EQUAL, SLJIT_SET_F_EQUAL, false);
             break;
-        case BinaryOpType::LessF32:
+        case BinaryOpType::LessFloat:
             do_float_compare_op(SLJIT_F_LESS, SLJIT_SET_F_LESS, false);
             break;
-        case BinaryOpType::LessEqF32:
+        case BinaryOpType::LessEqFloat:
             do_float_compare_op(SLJIT_F_LESS_EQUAL, SLJIT_SET_F_LESS_EQUAL, false);
             break;
-        case BinaryOpType::EqualF64:
+        case BinaryOpType::EqualDouble:
             do_float_compare_op(SLJIT_F_EQUAL, SLJIT_SET_F_EQUAL, true);
             break;
-        case BinaryOpType::LessF64:
+        case BinaryOpType::LessDouble:
             do_float_compare_op(SLJIT_F_LESS, SLJIT_SET_F_LESS, true);
             break;
-        case BinaryOpType::LessEqF64:
+        case BinaryOpType::LessEqDouble:
             do_float_compare_op(SLJIT_F_LESS_EQUAL, SLJIT_SET_F_LESS_EQUAL, true);
             break;
 

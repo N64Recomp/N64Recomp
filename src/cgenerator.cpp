@@ -45,15 +45,15 @@ static std::vector<BinaryOpFields> c_op_fields = []() {
     setup_op(N64Recomp::BinaryOpType::Sra32,     "S32",    ">>"); // Arithmetic aspect will be taken care of by unary op for first operand.
     setup_op(N64Recomp::BinaryOpType::Sra64,     "",       ">>"); // Arithmetic aspect will be taken care of by unary op for first operand.
     setup_op(N64Recomp::BinaryOpType::Equal,     "",       "==");
-    setup_op(N64Recomp::BinaryOpType::EqualF32,  "",       "==");
-    setup_op(N64Recomp::BinaryOpType::EqualF64,  "",       "==");
+    setup_op(N64Recomp::BinaryOpType::EqualFloat,"",       "==");
+    setup_op(N64Recomp::BinaryOpType::EqualDouble,"",      "==");
     setup_op(N64Recomp::BinaryOpType::NotEqual,  "",       "!=");
     setup_op(N64Recomp::BinaryOpType::Less,      "",       "<");
-    setup_op(N64Recomp::BinaryOpType::LessF32,   "",       "<");
-    setup_op(N64Recomp::BinaryOpType::LessF64,   "",       "<");
+    setup_op(N64Recomp::BinaryOpType::LessFloat, "",       "<");
+    setup_op(N64Recomp::BinaryOpType::LessDouble,"",       "<");
     setup_op(N64Recomp::BinaryOpType::LessEq,    "",       "<=");
-    setup_op(N64Recomp::BinaryOpType::LessEqF32, "",       "<=");
-    setup_op(N64Recomp::BinaryOpType::LessEqF64, "",       "<=");
+    setup_op(N64Recomp::BinaryOpType::LessEqFloat,"",      "<=");
+    setup_op(N64Recomp::BinaryOpType::LessEqDouble,"",     "<=");
     setup_op(N64Recomp::BinaryOpType::Greater,   "",       ">");
     setup_op(N64Recomp::BinaryOpType::GreaterEq, "",       ">=");
     setup_op(N64Recomp::BinaryOpType::LD,        "LD",     "");
