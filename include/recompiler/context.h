@@ -36,6 +36,20 @@ namespace N64Recomp {
                 : vram(vram), rom(rom), words(std::move(words)), name(std::move(name)), section_index(section_index), ignored(ignored), reimplemented(reimplemented), stubbed(stubbed) {}
         Function() = default;
     };
+    
+    struct JumpTable {
+        uint32_t vram;
+        uint32_t addend_reg;
+        uint32_t rom;
+        uint32_t lw_vram;
+        uint32_t addu_vram;
+        uint32_t jr_vram;
+        uint16_t section_index;
+        std::vector<uint32_t> entries;
+
+        JumpTable(uint32_t vram, uint32_t addend_reg, uint32_t rom, uint32_t lw_vram, uint32_t addu_vram, uint32_t jr_vram, uint16_t section_index, std::vector<uint32_t>&& entries)
+                : vram(vram), addend_reg(addend_reg), rom(rom), lw_vram(lw_vram), addu_vram(addu_vram), jr_vram(jr_vram), section_index(section_index), entries(std::move(entries)) {}
+    };
 
     enum class RelocType : uint8_t {
         R_MIPS_NONE = 0,
@@ -175,6 +189,8 @@ namespace N64Recomp {
         std::vector<ReferenceSymbol> reference_symbols;
         // Mapping of symbol name to reference symbol index.
         std::unordered_map<std::string, SymbolReference> reference_symbols_by_name;
+        // Whether all reference sections should be treated as relocatable (used in live recompilation).
+        bool all_reference_sections_relocatable = false;
     public:
         std::vector<Section> sections;
         std::vector<Function> functions;
@@ -187,6 +203,8 @@ namespace N64Recomp {
         // The target ROM being recompiled, TODO move this outside of the context to avoid making a copy for mod contexts.
         // Used for reading relocations and for the output binary feature.
         std::vector<uint8_t> rom;
+        // Whether reference symbols should be validated when emitting function calls during recompilation.
+        bool skip_validating_reference_symbols = true;
 
         //// Only used by the CLI, TODO move this to a struct in the internal headers.
         // A mapping of function name to index in the functions vector
@@ -359,6 +377,9 @@ namespace N64Recomp {
         }
 
         bool is_reference_section_relocatable(uint16_t section_index) const {
+            if (all_reference_sections_relocatable) {
+                return true;
+            }
             if (section_index == SectionAbsolute) {
                 return false;
             }
@@ -518,9 +539,15 @@ namespace N64Recomp {
         void copy_reference_sections_from(const Context& rhs) {
             reference_sections = rhs.reference_sections;
         }
+
+        void set_all_reference_sections_relocatable() {
+            all_reference_sections_relocatable = true;
+        }
     };
 
-    bool recompile_function(const Context& context, const Function& func, std::ofstream& output_file, std::span<std::vector<uint32_t>> static_funcs, bool tag_reference_relocs);
+    class Generator;
+    bool recompile_function(const Context& context, size_t function_index, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs, bool tag_reference_relocs);
+    bool recompile_function_custom(Generator& generator, const Context& context, size_t function_index, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs);
 
     enum class ModSymbolsError {
         Good,

@@ -1,4 +1,4 @@
-#include "n64recomp.h"
+#include "recompiler/context.h"
 
 const std::unordered_set<std::string> N64Recomp::reimplemented_funcs {
     // OS initialize functions

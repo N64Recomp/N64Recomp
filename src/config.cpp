@@ -3,7 +3,7 @@
 #include <toml++/toml.hpp>
 #include "fmt/format.h"
 #include "config.h"
-#include "n64recomp.h"
+#include "recompiler/context.h"
 
 std::filesystem::path concat_if_not_empty(const std::filesystem::path& parent, const std::filesystem::path& child) {
     if (!child.empty()) {
@@ -375,7 +375,7 @@ N64Recomp::Config::Config(const char* path) {
             recomp_include = recomp_include_opt.value();
         }
         else {
-            recomp_include = "#include \"librecomp/recomp.h\"";
+            recomp_include = "#include \"recomp.h\"";
         }
 
         std::optional<int32_t> funcs_per_file_opt = input_data["functions_per_output_file"].value<int32_t>();
