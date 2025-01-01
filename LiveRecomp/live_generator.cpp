@@ -1311,15 +1311,15 @@ void N64Recomp::LiveGenerator::emit_function_call_lookup(uint32_t addr) const {
     // Call get_function.
     sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS1(P, 32), SLJIT_IMM, sljit_sw(inputs.get_function));
     
-    // Copy the return value into R2 so that it can be used for icall
-    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_R0, 0);
+    // Copy the return value into R3 so that it can be used for icall
+    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R3, 0, SLJIT_RETURN_REG, 0);
     
     // Load rdram and ctx into R0 and R1.
     sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, Registers::rdram, 0, SLJIT_IMM, rdram_offset);
     sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, Registers::ctx, 0);
 
     // Call the function.
-    sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS2V(P, P), SLJIT_R2, 0);
+    sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS2V(P, P), SLJIT_R3, 0);
 }
 
 void N64Recomp::LiveGenerator::emit_function_call_by_register(int reg) const {
@@ -1329,15 +1329,15 @@ void N64Recomp::LiveGenerator::emit_function_call_by_register(int reg) const {
     // Call get_function.
     sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS1(P, 32), SLJIT_IMM, sljit_sw(inputs.get_function));
 
-    // Copy the return value into R2 so that it can be used for icall
-    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_R0, 0);
+    // Copy the return value into R3 so that it can be used for icall
+    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R3, 0, SLJIT_RETURN_REG, 0);
 
     // Load rdram and ctx into R0 and R1.
     sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, Registers::rdram, 0, SLJIT_IMM, rdram_offset);
     sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, Registers::ctx, 0);
 
     // Call the function.
-    sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS2V(P, P), SLJIT_R2, 0);
+    sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS2V(P, P), SLJIT_R3, 0);
 }
 
 void N64Recomp::LiveGenerator::emit_function_call_reference_symbol(const Context&, uint16_t section_index, size_t symbol_index, uint32_t target_section_offset) const {
@@ -1612,7 +1612,7 @@ void N64Recomp::LiveGenerator::emit_cop0_status_read(int reg) const {
         sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, Registers::ctx, 0);
 
         // Call cop0_status_read.
-        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS2V(P,32), SLJIT_IMM, sljit_sw(inputs.cop0_status_read));
+        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS1V(P), SLJIT_IMM, sljit_sw(inputs.cop0_status_read));
 
         // Store the result in the output register.
         sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(Registers::ctx), get_gpr_context_offset(reg), SLJIT_R0, 0);
@@ -1851,7 +1851,7 @@ void N64Recomp::LiveGenerator::emit_trigger_event(uint32_t event_index) const {
     // Load the global event index into R2.
     sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R2, 0, SLJIT_IMM, event_index + inputs.base_event_index);
     // Call trigger_event.
-    sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS1V(P), SLJIT_IMM, sljit_sw(inputs.trigger_event));
+    sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS3V(P,P,32), SLJIT_IMM, sljit_sw(inputs.trigger_event));
 }
 
 void N64Recomp::LiveGenerator::emit_comment(const std::string& comment) const {
