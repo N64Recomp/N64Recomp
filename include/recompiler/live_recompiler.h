@@ -78,6 +78,11 @@ namespace N64Recomp {
         void (*trigger_event)(uint8_t* rdram, recomp_context* ctx, uint32_t event_index);
         int32_t *reference_section_addresses;
         int32_t *local_section_addresses;
+        void (*run_hook)(uint8_t* rdram, recomp_context* ctx, size_t hook_table_index);
+        // Maps function index in recompiler context to function's entry hook slot.
+        std::unordered_map<size_t, size_t> entry_func_hooks;
+        // Maps function index in recompiler context to function's return hook slot.
+        std::unordered_map<size_t, size_t> return_func_hooks;
     };
     class LiveGenerator final : public Generator {
     public:
@@ -109,7 +114,7 @@ namespace N64Recomp {
         void emit_case(int case_index, const std::string& target_label) const final;
         void emit_switch_error(uint32_t instr_vram, uint32_t jtbl_vram) const final;
         void emit_switch_close() const final;
-        void emit_return(const Context& context) const final;
+        void emit_return(const Context& context, size_t func_index) const final;
         void emit_check_fr(int fpr) const final;
         void emit_check_nan(int fpr, bool is_double) const final;
         void emit_cop0_status_read(int reg) const final;
