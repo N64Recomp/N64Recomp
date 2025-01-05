@@ -12,7 +12,7 @@ namespace N64Recomp {
         uint32_t value;
     };
 
-    struct FunctionHook {
+    struct FunctionTextHook {
         std::string func_name;
         int32_t before_vram;
         std::string text;
@@ -57,7 +57,7 @@ namespace N64Recomp {
         std::vector<std::string> ignored_funcs;
         std::vector<std::string> renamed_funcs;
         std::vector<InstructionPatch> instruction_patches;
-        std::vector<FunctionHook> function_hooks;
+        std::vector<FunctionTextHook> function_hooks;
         std::vector<FunctionSize> manual_func_sizes;
         std::vector<ManualFunction> manual_functions;
         std::string bss_section_suffix;

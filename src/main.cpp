@@ -536,7 +536,7 @@ int main(int argc, char** argv) {
     }
 
     // Apply any function hooks.
-    for (const N64Recomp::FunctionHook& patch : config.function_hooks) {
+    for (const N64Recomp::FunctionTextHook& patch : config.function_hooks) {
         // Check if the specified function exists.
         auto func_find = context.functions_by_name.find(patch.func_name);
         if (func_find == context.functions_by_name.end()) {
