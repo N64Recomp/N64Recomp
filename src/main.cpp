@@ -912,9 +912,11 @@ int main(int argc, char** argv) {
 
                 for (size_t func_index : section_funcs) {
                     const auto& func = context.functions[func_index];
+                    size_t func_size = func.reimplemented ? 0 : func.words.size() * sizeof(func.words[0]);
 
                     if (func.reimplemented || (!func.name.empty() && !func.ignored && func.words.size() != 0)) {
-                        fmt::print(overlay_file, "    {{ .func = {}, .offset = 0x{:08x} }},\n", func.name, func.rom - section.rom_addr);
+                        fmt::print(overlay_file, "    {{ .func = {}, .offset = 0x{:08X}, .rom_size = 0x{:08X} }},\n",
+                            func.name, func.rom - section.rom_addr, func_size);
                     }
                 }
 
