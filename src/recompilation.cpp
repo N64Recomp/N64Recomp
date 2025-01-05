@@ -238,7 +238,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             return false;
         }
         print_indent();
-        generator.emit_return();
+        generator.emit_return(context);
         print_link_branch();
         return true;
     };
@@ -363,7 +363,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                     return false;
                 }
                 print_indent();
-                generator.emit_return();
+                generator.emit_return(context);
                 // TODO check if this branch close should exist.
                 // print_indent();
                 // generator.emit_branch_close();
@@ -512,7 +512,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                     return false;
                 }
                 print_indent();
-                generator.emit_return();
+                generator.emit_return(context);
             }
             else {
                 fmt::print(stderr, "Unhandled branch in {} at 0x{:08X} to 0x{:08X}\n", func.name, instr_vram, branch_target);
@@ -552,7 +552,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             fmt::print("[Info] Indirect tail call in {}\n", func.name);
             print_func_call_by_register(rs);
             print_indent();
-            generator.emit_return();
+            generator.emit_return(context);
             break;
         }
         break;
@@ -561,7 +561,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         generator.emit_syscall(instr_vram);
         // syscalls don't link, so treat it like a tail call
         print_indent();
-        generator.emit_return();
+        generator.emit_return(context);
         break;
     case InstrId::cpu_break:
         print_indent();

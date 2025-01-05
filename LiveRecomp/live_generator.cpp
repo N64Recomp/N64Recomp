@@ -1590,7 +1590,7 @@ void N64Recomp::LiveGenerator::emit_switch_close() const {
     // Nothing to do here, the jump table is built in emit_switch.
 }
 
-void N64Recomp::LiveGenerator::emit_return() const {
+void N64Recomp::LiveGenerator::emit_return(const Context& context) const {
     sljit_emit_return_void(compiler);
 }
 
