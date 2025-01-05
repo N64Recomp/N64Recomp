@@ -127,41 +127,32 @@ std::vector<std::string> get_renamed_funcs(const toml::table* patches_data) {
     return renamed_funcs;
 }
 
-std::vector<N64Recomp::FunctionSize> get_func_sizes(const toml::table* patches_data) {
+std::vector<N64Recomp::FunctionSize> get_func_sizes(const toml::array* func_sizes_array) {
     std::vector<N64Recomp::FunctionSize> func_sizes{};
 
-    // Check if the func size array exists.
-    const toml::node_view funcs_data = (*patches_data)["function_sizes"];
-    if (funcs_data.is_array()) {
-        const toml::array* sizes_array = funcs_data.as_array();
+    // Reserve room for all the funcs in the map.
+    func_sizes.reserve(func_sizes_array->size());
+    func_sizes_array->for_each([&func_sizes](auto&& el) {
+        if constexpr (toml::is_table<decltype(el)>) {
+            std::optional<std::string> func_name = el["name"].template value<std::string>();
+            std::optional<uint32_t> func_size = el["size"].template value<uint32_t>();
 
-        // Copy all the sizes into the output vector.
-        sizes_array->for_each([&func_sizes](auto&& el) {
-            if constexpr (toml::is_table<decltype(el)>) {
-                const toml::table& cur_size = *el.as_table();
-
-                // Get the function name and size.
-                std::optional<std::string> func_name = cur_size["name"].value<std::string>();
-                std::optional<uint32_t> func_size = cur_size["size"].value<uint32_t>();
-
-                if (func_name.has_value() && func_size.has_value()) {
-                    // Make sure the size is divisible by 4
-                    if (func_size.value() & (4 - 1)) {
-                        // It's not, so throw an error (and make it look like a normal toml one).
-                        throw toml::parse_error("Function size is not divisible by 4", el.source());
-                    }
+            if (func_name.has_value() && func_size.has_value()) {
+                // Make sure the size is divisible by 4
+                if (func_size.value() & (4 - 1)) {
+                    // It's not, so throw an error (and make it look like a normal toml one).
+                    throw toml::parse_error("Function size is not divisible by 4", el.source());
                 }
-                else {
-                    throw toml::parse_error("Manually size function is missing required value(s)", el.source());
-                }
-
                 func_sizes.emplace_back(func_name.value(), func_size.value());
             }
             else {
-                throw toml::parse_error("Invalid manually sized function entry", el.source());
+                throw toml::parse_error("Manually sized function is missing required value(s)", el.source());
             }
-        });
-    }
+        }
+        else {
+            throw toml::parse_error("Missing required value in function_sizes array", el.source());
+        }
+    });
 
     return func_sizes;
 }
@@ -352,6 +343,13 @@ N64Recomp::Config::Config(const char* path) {
             manual_functions = get_manual_funcs(array);
         }
 
+        // Manual function sizes (optional)
+        toml::node_view function_sizes_data = input_data["function_sizes"];
+        if (function_sizes_data.is_array()) {
+            const toml::array* array = function_sizes_data.as_array();
+            manual_func_sizes = get_func_sizes(array);
+        }
+
         // Output binary path when using an elf file input, includes patching reference symbol MIPS32 relocs (optional)
         std::optional<std::string> output_binary_path_opt = input_data["output_binary_path"].value<std::string>();
         if (output_binary_path_opt.has_value()) {
@@ -405,9 +403,6 @@ N64Recomp::Config::Config(const char* path) {
 
             // Single-instruction patches (optional)
             instruction_patches = get_instruction_patches(table);
-
-            // Manual function sizes (optional)
-            manual_func_sizes = get_func_sizes(table);
 
             // Function hooks (optional)
             function_hooks = get_function_hooks(table);

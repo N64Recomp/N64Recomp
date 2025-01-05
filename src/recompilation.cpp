@@ -765,7 +765,7 @@ bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context&
 
     if (context.trace_mode) {
         fmt::print(output_file,
-            "    TRACE_ENTRY();",
+            "    TRACE_ENTRY()\n",
             func.name);
     }
 
