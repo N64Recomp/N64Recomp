@@ -1259,6 +1259,17 @@ void N64Recomp::LiveGenerator::emit_function_start(const std::string& function_n
     // sljit_emit_op0(compiler, SLJIT_BREAKPOINT);
     sljit_emit_enter(compiler, 0, SLJIT_ARGS2V(P, P), 4 | SLJIT_ENTER_FLOAT(1), 5 | SLJIT_ENTER_FLOAT(0), 0);
     sljit_emit_op2(compiler, SLJIT_SUB, Registers::rdram, 0, Registers::rdram, 0, SLJIT_IMM, rdram_offset);
+    
+    // Check if this function's entry is hooked and emit the hook call if so.
+    auto find_hook_it = inputs.entry_func_hooks.find(func_index);
+    if (find_hook_it != inputs.entry_func_hooks.end()) {
+        // Load rdram and ctx into R0 and R1.
+        sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, Registers::rdram, 0, SLJIT_IMM, rdram_offset);
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, Registers::ctx, 0);
+        // Load the hook's index into R2.
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, find_hook_it->second);
+        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS3V(P, P, W), SLJIT_IMM, sljit_sw(inputs.run_hook));
+    }
 }
 
 void N64Recomp::LiveGenerator::emit_function_end() const {
@@ -1590,7 +1601,19 @@ void N64Recomp::LiveGenerator::emit_switch_close() const {
     // Nothing to do here, the jump table is built in emit_switch.
 }
 
-void N64Recomp::LiveGenerator::emit_return(const Context& context) const {
+void N64Recomp::LiveGenerator::emit_return(const Context& context, size_t func_index) const {
+    (void)context;
+    
+    // Check if this function's return is hooked and emit the hook call if so.
+    auto find_hook_it = inputs.return_func_hooks.find(func_index);
+    if (find_hook_it != inputs.return_func_hooks.end()) {
+        // Load rdram and ctx into R0 and R1.
+        sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, Registers::rdram, 0, SLJIT_IMM, rdram_offset);
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, Registers::ctx, 0);
+        // Load the return hook's index into R2.
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, find_hook_it->second);
+        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS3V(P, P, W), SLJIT_IMM, sljit_sw(inputs.run_hook));
+    }
     sljit_emit_return_void(compiler);
 }
 

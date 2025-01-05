@@ -350,7 +350,6 @@ void N64Recomp::CGenerator::get_binary_expr_string(BinaryOpType type, const Bina
     thread_local std::string input_b{};
     thread_local std::string func_string{};
     thread_local std::string infix_string{};
-    bool is_infix;
     get_operand_string(operands.operands[0], operands.operand_operations[0], ctx, input_a);
     get_operand_string(operands.operands[1], operands.operand_operations[1], ctx, input_b);
     get_notation(type, func_string, infix_string);
@@ -393,6 +392,7 @@ void N64Recomp::CGenerator::get_binary_expr_string(BinaryOpType type, const Bina
 }
 
 void N64Recomp::CGenerator::emit_function_start(const std::string& function_name, size_t func_index) const {
+    (void)func_index;
     fmt::print(output_file,
         "RECOMP_FUNC void {}(uint8_t* rdram, recomp_context* ctx) {{\n"
         // these variables shouldn't need to be preserved across function boundaries, so make them local for more efficient output
@@ -476,7 +476,8 @@ void N64Recomp::CGenerator::emit_switch_error(uint32_t instr_vram, uint32_t jtbl
     fmt::print(output_file, "default: switch_error(__func__, 0x{:08X}, 0x{:08X});\n", instr_vram, jtbl_vram);
 }
 
-void N64Recomp::CGenerator::emit_return(const Context& context) const {
+void N64Recomp::CGenerator::emit_return(const Context& context, size_t func_index) const {
+    (void)func_index;
     if (context.trace_mode) {
         fmt::print(output_file, "TRACE_RETURN()\n    ");
     }
@@ -575,7 +576,6 @@ void N64Recomp::CGenerator::process_unary_op(const UnaryOp& op, const Instructio
     // TODO these thread locals probably don't actually help right now, so figure out a better way to prevent allocations.
     thread_local std::string output{};
     thread_local std::string input{};
-    bool is_infix;
     get_operand_string(op.output, UnaryOpType::None, ctx, output);
     get_operand_string(op.input, op.operation, ctx, input);
     fmt::print(output_file, "{} = {};\n", output, input);
@@ -587,7 +587,6 @@ void N64Recomp::CGenerator::process_store_op(const StoreOp& op, const Instructio
     thread_local std::string base_str{};
     thread_local std::string imm_str{};
     thread_local std::string value_input{};
-    bool is_infix;
     get_operand_string(Operand::Base, UnaryOpType::None, ctx, base_str);
     get_operand_string(Operand::ImmS16, UnaryOpType::None, ctx, imm_str);
     get_operand_string(op.value_input, UnaryOpType::None, ctx, value_input);
