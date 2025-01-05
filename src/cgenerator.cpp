@@ -476,7 +476,10 @@ void N64Recomp::CGenerator::emit_switch_error(uint32_t instr_vram, uint32_t jtbl
     fmt::print(output_file, "default: switch_error(__func__, 0x{:08X}, 0x{:08X});\n", instr_vram, jtbl_vram);
 }
 
-void N64Recomp::CGenerator::emit_return() const {
+void N64Recomp::CGenerator::emit_return(const Context& context) const {
+    if (context.trace_mode) {
+        fmt::print(output_file, "TRACE_RETURN()\n    ");
+    }
     fmt::print(output_file, "return;\n");
 }
 
