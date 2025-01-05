@@ -16,6 +16,7 @@ struct FileSubHeaderV1 {
     uint32_t num_exports;
     uint32_t num_callbacks;
     uint32_t num_provided_events;
+    uint32_t num_hooks;
     uint32_t string_data_size;
 };
 
@@ -89,6 +90,13 @@ struct EventV1 {
     uint32_t name_size;
 };
 
+struct HookV1 {
+    uint32_t func_index;
+    uint32_t original_section_vrom;
+    uint32_t original_vram;
+    uint32_t flags; // end
+};
+
 template <typename T>
 const T* reinterpret_data(std::span<const char> data, size_t& offset, size_t count = 1) {
     if (offset + (sizeof(T) * count) > data.size()) {
@@ -126,6 +134,7 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
     size_t num_exports = subheader->num_exports;
     size_t num_callbacks = subheader->num_callbacks;
     size_t num_provided_events = subheader->num_provided_events;
+    size_t num_hooks = subheader->num_hooks;
     size_t string_data_size = subheader->string_data_size;
 
     if (string_data_size & 0b11) {
@@ -147,6 +156,7 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
     mod_context.exported_funcs.resize(num_exports); // Add method
     mod_context.callbacks.reserve(num_callbacks);
     mod_context.event_symbols.reserve(num_provided_events);
+    mod_context.hooks.reserve(num_provided_events);
 
     for (size_t section_index = 0; section_index < num_sections; section_index++) {
         const SectionHeaderV1* section_header = reinterpret_data<SectionHeaderV1>(data, offset);
@@ -434,6 +444,22 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
         mod_context.add_event_symbol(std::string{import_name});
     }
 
+    const HookV1* hooks = reinterpret_data<HookV1>(data, offset, num_hooks);
+    if (hooks == nullptr) {
+        printf("Failed to read hooks (count: %zu)\n", num_hooks);
+        return false;
+    }
+
+    for (size_t hook_index = 0; hook_index < num_hooks; hook_index++) {
+        const HookV1& hook_in = hooks[hook_index];
+        N64Recomp::FunctionHook& hook_out = mod_context.hooks.emplace_back();
+
+        hook_out.func_index = hook_in.func_index;
+        hook_out.original_section_vrom = hook_in.original_section_vrom;
+        hook_out.original_vram = hook_in.original_vram;
+        hook_out.flags = static_cast<N64Recomp::HookFlags>(hook_in.flags);
+    }
+
     return offset == data.size();
 }
 
@@ -512,6 +538,7 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
     size_t num_events = context.event_symbols.size();
     size_t num_callbacks = context.callbacks.size();
     size_t num_provided_events = context.event_symbols.size();
+    size_t num_hooks = context.hooks.size();
 
     FileSubHeaderV1 sub_header {
         .num_sections = static_cast<uint32_t>(context.sections.size()),
@@ -522,6 +549,7 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
         .num_exports = static_cast<uint32_t>(num_exported_funcs),
         .num_callbacks = static_cast<uint32_t>(num_callbacks),
         .num_provided_events = static_cast<uint32_t>(num_provided_events),
+        .num_hooks = static_cast<uint32_t>(num_hooks),
         .string_data_size = 0,
     };
 
@@ -755,6 +783,23 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
         };
 
         vec_put(ret, &event_out);
+    }
+
+    // Write the hooks.
+    for (const FunctionHook& cur_hook : context.hooks) {
+        uint32_t flags = 0;
+        if ((cur_hook.flags & HookFlags::AtReturn) == HookFlags::AtReturn) {
+            flags |= 0x1;
+        }
+
+        HookV1 hook_out {
+            .func_index = cur_hook.func_index,
+            .original_section_vrom = cur_hook.original_section_vrom,
+            .original_vram = cur_hook.original_vram,
+            .flags = flags
+        };
+
+        vec_put(ret, &hook_out);
     }
 
     return ret;

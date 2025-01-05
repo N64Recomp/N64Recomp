@@ -85,6 +85,8 @@ namespace N64Recomp {
     constexpr std::string_view EventSectionName = ".recomp_event";
     constexpr std::string_view ImportSectionPrefix = ".recomp_import.";
     constexpr std::string_view CallbackSectionPrefix = ".recomp_callback.";
+    constexpr std::string_view HookSectionPrefix = ".recomp_hook.";
+    constexpr std::string_view HookReturnSectionPrefix = ".recomp_hook_return.";
 
     // Special dependency names.
     constexpr std::string_view DependencySelf = ".";
@@ -183,6 +185,19 @@ namespace N64Recomp {
         ReplacementFlags flags;
     };
 
+    enum class HookFlags : uint32_t {
+        AtReturn = 1 << 0,
+    };
+    inline HookFlags operator&(HookFlags lhs, HookFlags rhs) { return HookFlags(uint32_t(lhs) & uint32_t(rhs)); }
+    inline HookFlags operator|(HookFlags lhs, HookFlags rhs) { return HookFlags(uint32_t(lhs) | uint32_t(rhs)); }
+
+    struct FunctionHook {
+        uint32_t func_index;
+        uint32_t original_section_vrom;
+        uint32_t original_vram;
+        HookFlags flags;
+    };
+
     class Context {
     private:
         //// Reference symbols (used for populating relocations for patches)
@@ -236,6 +251,8 @@ namespace N64Recomp {
         std::vector<Callback> callbacks;
         // List of symbols from events, which contains the names of events that this context provides.
         std::vector<EventSymbol> event_symbols;
+        // List of hooks, which contains the original function to hook and the function index to call at the hook.
+        std::vector<FunctionHook> hooks;
 
         // Causes functions to print their name to the console the first time they're called.
         bool trace_mode;
