@@ -22,6 +22,11 @@ enum class JalResolutionResult {
 };
 
 JalResolutionResult resolve_jal(const N64Recomp::Context& context, size_t cur_section_index, uint32_t target_func_vram, size_t& matched_function_index) {
+    // Skip resolution if all function calls should use lookup and just return Ambiguous.
+    if (context.use_lookup_for_all_function_calls) {
+        return JalResolutionResult::Ambiguous;
+    }
+
     // Look for symbols with the target vram address
     const N64Recomp::Section& cur_section = context.sections[cur_section_index];
     const auto matching_funcs_find = context.functions_by_vram.find(target_func_vram);
@@ -316,7 +321,10 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                         call_by_name = true;
                         break;
                     case JalResolutionResult::Ambiguous:
-                        fmt::print(stderr, "[Info] Ambiguous jal target 0x{:08X} in function {}, falling back to function lookup\n", target_func_vram, func.name);
+                        // Print a warning if lookup isn't forced for all non-reloc function calls.
+                        if (!context.use_lookup_for_all_function_calls) {
+                            fmt::print(stderr, "[Info] Ambiguous jal target 0x{:08X} in function {}, falling back to function lookup\n", target_func_vram, func.name);
+                        }
                         // Relocation isn't necessary for jumps inside a relocatable section, as this code path will never run if the target vram
                         // is in the current function's section (see the branch for `in_current_section` above).
                         // If a game ever needs to jump between multiple relocatable sections, relocation will be necessary here.
