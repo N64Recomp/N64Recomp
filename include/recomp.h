@@ -187,6 +187,80 @@ static inline void do_swr(uint8_t* rdram, gpr offset, gpr reg, gpr val) {
     MEM_W(0, word_address) = masked_initial_value | shifted_input_value;
 }
 
+static inline gpr do_ldl(uint8_t* rdram, gpr initial_value, gpr offset, gpr reg) {
+    // Calculate the overall address
+    gpr address = (offset + reg);
+
+    // Load the aligned dword
+    gpr dword_address = address & ~0x7;
+    uint64_t loaded_value = load_doubleword(rdram, 0, dword_address);
+
+    // Mask the existing value and shift the loaded value appropriately
+    gpr misalignment = address & 0x7;
+    gpr masked_value = initial_value & ~(0xFFFFFFFFFFFFFFFFu << (misalignment * 8));
+    loaded_value <<= (misalignment * 8);
+
+    return masked_value | loaded_value;
+}
+
+static inline gpr do_ldr(uint8_t* rdram, gpr initial_value, gpr offset, gpr reg) {
+    // Calculate the overall address
+    gpr address = (offset + reg);
+    
+    // Load the aligned dword
+    gpr dword_address = address & ~0x7;
+    uint64_t loaded_value = load_doubleword(rdram, 0, dword_address);
+
+    // Mask the existing value and shift the loaded value appropriately
+    gpr misalignment = address & 0x7;
+    gpr masked_value = initial_value & ~(0xFFFFFFFFFFFFFFFFu >> (56 - misalignment * 8));
+    loaded_value >>= (56 - misalignment * 8);
+
+    return masked_value | loaded_value;
+}
+
+static inline void do_sdl(uint8_t* rdram, gpr offset, gpr reg, gpr val) {
+    // Calculate the overall address
+    gpr address = (offset + reg);
+
+    // Get the initial value of the aligned dword
+    gpr dword_address = address & ~0x7;
+    uint64_t initial_value = load_doubleword(rdram, 0, dword_address);
+
+    // Mask the initial value and shift the input value appropriately
+    gpr misalignment = address & 0x7;
+    uint64_t masked_initial_value = initial_value & ~(0xFFFFFFFFFFFFFFFFu >> (misalignment * 8));
+    uint64_t shifted_input_value = val >> (misalignment * 8);
+
+    uint64_t ret = masked_initial_value | shifted_input_value;
+    uint32_t lo = (uint32_t)ret;
+    uint32_t hi = (uint32_t)(ret >> 32);
+
+    MEM_W(0, dword_address + 4) = lo;
+    MEM_W(0, dword_address + 0) = hi;
+}
+
+static inline void do_sdr(uint8_t* rdram, gpr offset, gpr reg, gpr val) {
+    // Calculate the overall address
+    gpr address = (offset + reg);
+
+    // Get the initial value of the aligned dword
+    gpr dword_address = address & ~0x7;
+    uint64_t initial_value = load_doubleword(rdram, 0, dword_address);
+
+    // Mask the initial value and shift the input value appropriately
+    gpr misalignment = address & 0x7;
+    uint64_t masked_initial_value = initial_value & ~(0xFFFFFFFFFFFFFFFFu << (56 - misalignment * 8));
+    uint64_t shifted_input_value = val << (56 - misalignment * 8);
+    
+    uint64_t ret = masked_initial_value | shifted_input_value;
+    uint32_t lo = (uint32_t)ret;
+    uint32_t hi = (uint32_t)(ret >> 32);
+
+    MEM_W(0, dword_address + 4) = lo;
+    MEM_W(0, dword_address + 0) = hi;
+}
+
 static inline uint32_t get_cop1_cs() {
     uint32_t rounding_mode = 0;
     switch (fegetround()) {
