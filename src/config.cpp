@@ -509,7 +509,7 @@ bool N64Recomp::Context::from_symbol_file(const std::filesystem::path& symbol_fi
                 std::optional<uint32_t> vram_addr = el["vram"].template value<uint32_t>();
                 std::optional<uint32_t> size = el["size"].template value<uint32_t>();
                 std::optional<std::string> name = el["name"].template value<std::string>();
-                std::optional<uint32_t> gp_ram_addr = el["gp"].template value<uint32_t>();
+                std::optional<uint32_t> got_ram_addr = el["got_address"].template value<uint32_t>();
 
                 if (!rom_addr.has_value() || !vram_addr.has_value() || !size.has_value() || !name.has_value()) {
                     throw toml::parse_error("Section entry missing required field(s)", el.source());
@@ -522,7 +522,7 @@ bool N64Recomp::Context::from_symbol_file(const std::filesystem::path& symbol_fi
                 section.ram_addr = vram_addr.value();
                 section.size = size.value();
                 section.name = name.value();
-                section.gp_ram_addr = gp_ram_addr;
+                section.got_ram_addr = got_ram_addr;
                 section.executable = true;
 
                 // Read functions for the section.

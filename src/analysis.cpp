@@ -57,7 +57,7 @@ using InstrId = rabbitizer::InstrId::UniqueId;
 using RegId = rabbitizer::Registers::Cpu::GprO32;
 
 bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const N64Recomp::Function& func, N64Recomp::FunctionStats& stats,
-    RegState reg_states[32], std::vector<RegState>& stack_states, bool is_gp_reg_defined) {
+    RegState reg_states[32], std::vector<RegState>& stack_states, bool is_got_addr_defined) {
     // Temporary register state for tracking the register being operated on
     RegState temp{};
 
@@ -118,9 +118,9 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const N64Recom
                 && reg_states[rs].valid_got_loaded != reg_states[rt].valid_got_loaded) {
             // `addu rd, rs, $gp` or `addu rd, $gp, rt` after valid GOT load, this is the last part of a position independent
             // jump table call. Keep the register state intact.
-            int valid_gp_loaded_reg = reg_states[rs].valid_got_loaded ? rs : rt;
+            int valid_got_loaded_reg = reg_states[rs].valid_got_loaded ? rs : rt;
 
-            temp = reg_states[valid_gp_loaded_reg];
+            temp = reg_states[valid_got_loaded_reg];
         }
         // Exactly one of the two addend register states should have a valid lui at this time
         else if (reg_states[rs].valid_lui != reg_states[rt].valid_lui) {
@@ -212,13 +212,8 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const N64Recom
             temp.loaded_addend_reg = reg_states[base].prev_addend_reg;
             temp.loaded_addu_vram = reg_states[base].prev_addu_vram;
             temp.prev_got_offset = reg_states[base].prev_got_offset;
-        } else if (base == (int)RegId::GPR_O32_gp) {
+        } else if (base == (int)RegId::GPR_O32_gp && is_got_addr_defined) {
             // lw from the $gp register implies a read from the global offset table
-            if (!is_gp_reg_defined) {
-                fmt::print(stderr, "Found $gp register usage in section without a defined $gp value at 0x{:08X} in {}\n", 
-                    instr.getVram(), func.name);
-                return false;
-            }
             temp.prev_got_offset = imm;
             temp.valid_got_offset = true;
         }
@@ -272,7 +267,7 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const N64Recom
 bool N64Recomp::analyze_function(const N64Recomp::Context& context, const N64Recomp::Function& func,
     const std::vector<rabbitizer::InstructionCpu>& instructions, N64Recomp::FunctionStats& stats) {
     const Section* section = &context.sections[func.section_index];
-    std::optional<uint32_t> gp_ram_addr = section->gp_ram_addr;
+    std::optional<uint32_t> got_ram_addr = section->got_ram_addr;
 
     // Create a state to track each register (r0 won't be used)
     RegState reg_states[32] {};
@@ -281,20 +276,20 @@ bool N64Recomp::analyze_function(const N64Recomp::Context& context, const N64Rec
     // Look for jump tables
     // A linear search through the func won't be accurate due to not taking control flow into account, but it'll work for finding jtables
     for (const auto& instr : instructions) {
-        if (!analyze_instruction(instr, func, stats, reg_states, stack_states, gp_ram_addr.has_value())) {
+        if (!analyze_instruction(instr, func, stats, reg_states, stack_states, got_ram_addr.has_value())) {
             return false;
         }
     }
 
     // Calculate absolute addresses for position-independent jump tables
-    if (gp_ram_addr.has_value()) {
-        uint32_t gp_rom_addr = gp_ram_addr.value() + func.rom - func.vram;
+    if (got_ram_addr.has_value()) {
+        uint32_t got_rom_addr = got_ram_addr.value() + func.rom - func.vram;
 
         for (size_t i = 0; i < stats.jump_tables.size(); i++) {
             JumpTable& cur_jtbl = stats.jump_tables[i];
 
             if (cur_jtbl.got_offset.has_value()) {
-                uint32_t got_word = byteswap(*reinterpret_cast<const uint32_t*>(&context.rom[gp_rom_addr + cur_jtbl.got_offset.value()]));
+                uint32_t got_word = byteswap(*reinterpret_cast<const uint32_t*>(&context.rom[got_rom_addr + cur_jtbl.got_offset.value()]));
 
                 cur_jtbl.vram += (section->ram_addr + got_word);
             }
@@ -329,10 +324,10 @@ bool N64Recomp::analyze_function(const N64Recomp::Context& context, const N64Rec
             uint32_t rom_addr = vram + func.rom - func.vram;
             uint32_t jtbl_word = byteswap(*reinterpret_cast<const uint32_t*>(&context.rom[rom_addr]));
 
-            if (cur_jtbl.got_offset.has_value() && gp_ram_addr.has_value()) {
-                // Position independent jump tables have values that are offsets from $gp,
+            if (cur_jtbl.got_offset.has_value() && got_ram_addr.has_value()) {
+                // Position independent jump tables have values that are offsets from the GOT,
                 // convert those to absolute addresses
-                jtbl_word += gp_ram_addr.value();
+                jtbl_word += got_ram_addr.value();
             }
 
             // Check if the entry is a valid address in the current function

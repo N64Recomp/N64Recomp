@@ -102,7 +102,7 @@ namespace N64Recomp {
         bool executable = false;
         bool relocatable = false; // TODO is this needed? relocs being non-empty should be an equivalent check.
         bool has_mips32_relocs = false;
-        std::optional<uint32_t> gp_ram_addr = std::nullopt;
+        std::optional<uint32_t> got_ram_addr = std::nullopt;
     };
 
     struct ReferenceSection {
