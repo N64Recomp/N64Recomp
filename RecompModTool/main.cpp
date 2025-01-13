@@ -7,7 +7,7 @@
 #include <cstdlib>
 #include "fmt/format.h"
 #include "fmt/ostream.h"
-#include "n64recomp.h"
+#include "recompiler/context.h"
 #include <toml++/toml.hpp>
 
 #ifdef _WIN32
@@ -35,6 +35,7 @@ struct ModManifest {
 
 struct ModInputs {
     std::filesystem::path elf_path;
+    std::string mod_filename;
     std::filesystem::path func_reference_syms_file_path;
     std::vector<std::filesystem::path> data_reference_syms_file_paths;
     std::vector<std::filesystem::path> additional_files;
@@ -314,6 +315,15 @@ ModInputs parse_mod_config_inputs(const std::filesystem::path& basedir, const to
     }
     else {
         throw toml::parse_error("Mod toml input section is missing elf file", inputs_table.source());
+    }
+
+    // Output NRM file
+    std::optional<std::string> mod_filename_opt = inputs_table["mod_filename"].value<std::string>();
+    if (mod_filename_opt.has_value()) {
+        ret.mod_filename = std::move(mod_filename_opt.value());
+    }
+    else {
+        throw toml::parse_error("Mod toml input section is missing the output mod filename", inputs_table.source());
     }
 
     // Function reference symbols file
@@ -879,7 +889,7 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
 }
 
 bool create_mod_zip(const std::filesystem::path& output_dir, const ModConfig& config) {
-    std::filesystem::path output_path = output_dir / (config.manifest.mod_id + "-" + config.manifest.version_string + ".nrm");
+    std::filesystem::path output_path = output_dir / (config.inputs.mod_filename + ".nrm");
 
 #ifdef _WIN32
     std::filesystem::path temp_zip_path = output_path;
@@ -1077,6 +1087,11 @@ int main(int argc, const char** argv) {
 
     bool mod_context_good;
     N64Recomp::Context mod_context = build_mod_context(context, mod_context_good);
+    if (!mod_context_good) {
+        fmt::print(stderr, "Failed to create mod context\n");
+        return EXIT_FAILURE;
+    }
+
     std::vector<uint8_t> symbols_bin = N64Recomp::symbols_to_bin_v1(mod_context);
     if (symbols_bin.empty()) {
         fmt::print(stderr, "Failed to create symbol file\n");

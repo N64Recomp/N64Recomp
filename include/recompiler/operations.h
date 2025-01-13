@@ -28,13 +28,12 @@ namespace N64Recomp {
         ToU32,
         ToS64,
         ToU64,
-        NegateS32,
-        NegateS64,
         Lui,
         Mask5, // Mask to 5 bits
         Mask6, // Mask to 5 bits
         ToInt32, // Functionally equivalent to ToS32, only exists for parity with old codegen
-        Negate,
+        NegateFloat,
+        NegateDouble,
         AbsFloat,
         AbsDouble,
         SqrtFloat,
@@ -51,12 +50,20 @@ namespace N64Recomp {
         ConvertLFromS,
         TruncateWFromS,
         TruncateWFromD,
+        TruncateLFromS,
+        TruncateLFromD,
         RoundWFromS,
         RoundWFromD,
+        RoundLFromS,
+        RoundLFromD,
         CeilWFromS,
         CeilWFromD,
+        CeilLFromS,
+        CeilLFromD,
         FloorWFromS,
-        FloorWFromD
+        FloorWFromD,
+        FloorLFromS,
+        FloorLFromD
     };
 
     enum class BinaryOpType {
@@ -92,6 +99,12 @@ namespace N64Recomp {
         LessEq,
         Greater,
         GreaterEq,
+        EqualFloat,
+        LessFloat,
+        LessEqFloat,
+        EqualDouble,
+        LessDouble,
+        LessEqDouble,
         // Loads
         LD,
         LW,

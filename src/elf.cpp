@@ -3,7 +3,7 @@
 #include "fmt/format.h"
 // #include "fmt/ostream.h"
 
-#include "n64recomp.h"
+#include "recompiler/context.h"
 #include "elfio/elfio.hpp"
 
 bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELFIO::section* symtab_section, const N64Recomp::ElfParsingConfig& elf_config, bool dumping_context, std::unordered_map<uint16_t, std::vector<N64Recomp::DataSymbol>>& data_syms) {
@@ -58,8 +58,9 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
             continue;
         }
 
-        if (section_index < context.sections.size()) {        
+        if (section_index < context.sections.size()) {
             // Check if this symbol is the entrypoint
+            // TODO this never fires, the check is broken due to signedness
             if (elf_config.has_entrypoint && value == elf_config.entrypoint_address && type == ELFIO::STT_FUNC) {
                 if (found_entrypoint_func) {
                     fmt::print(stderr, "Ambiguous entrypoint: {}\n", name);
@@ -164,27 +165,30 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
 
         // The symbol wasn't detected as a function, so add it to the data symbols if the context is being dumped.
         if (!recorded_symbol && dumping_context && !name.empty()) {
-            uint32_t vram = static_cast<uint32_t>(value);
+            // Skip internal symbols.
+            if (ELF_ST_VISIBILITY(other) != ELFIO::STV_INTERNAL) {
+                uint32_t vram = static_cast<uint32_t>(value);
 
-            // Place this symbol in the absolute symbol list if it's in the absolute section.
-            uint16_t target_section_index = section_index;
-            if (section_index == ELFIO::SHN_ABS) {
-                target_section_index = N64Recomp::SectionAbsolute;
-            }
-            else if (section_index >= context.sections.size()) {
-                fmt::print("Symbol \"{}\" not in a valid section ({})\n", name, section_index);
-            }
+                // Place this symbol in the absolute symbol list if it's in the absolute section.
+                uint16_t target_section_index = section_index;
+                if (section_index == ELFIO::SHN_ABS) {
+                    target_section_index = N64Recomp::SectionAbsolute;
+                }
+                else if (section_index >= context.sections.size()) {
+                    fmt::print("Symbol \"{}\" not in a valid section ({})\n", name, section_index);
+                }
 
-            // Move this symbol into the corresponding non-bss section if it's in a bss section.
-            auto find_bss_it = bss_section_to_target_section.find(target_section_index);
-            if (find_bss_it != bss_section_to_target_section.end()) {
-                target_section_index = find_bss_it->second;
-            }
+                // Move this symbol into the corresponding non-bss section if it's in a bss section.
+                auto find_bss_it = bss_section_to_target_section.find(target_section_index);
+                if (find_bss_it != bss_section_to_target_section.end()) {
+                    target_section_index = find_bss_it->second;
+                }
 
-            data_syms[target_section_index].emplace_back(
-                vram,
-                std::move(name)
-            );
+                data_syms[target_section_index].emplace_back(
+                    vram,
+                    std::move(name)
+                );
+            }
         }
     }
 

@@ -1,6 +1,6 @@
 #include <cstring>
 
-#include "n64recomp.h"
+#include "recompiler/context.h"
 
 struct FileHeader {
     char magic[8]; // N64RSYMS
