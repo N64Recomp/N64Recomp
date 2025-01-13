@@ -3,7 +3,7 @@
 #include <vector>
 #include <span>
 
-#include "n64recomp.h"
+#include "recompiler/context.h"
 #include "rabbitizer.hpp"
 
 static std::vector<uint8_t> read_file(const std::filesystem::path& path, bool& found) {
@@ -221,8 +221,7 @@ int main(int argc, const char** argv) {
 
     // Perform a second pass for recompiling all the functions.
     for (size_t func_index = 0; func_index < mod_context.functions.size(); func_index++) {
-        auto& func = mod_context.functions[func_index];
-        if (!N64Recomp::recompile_function(mod_context, func, output_file, static_funcs_by_section, true)) {
+        if (!N64Recomp::recompile_function(mod_context, func_index, output_file, static_funcs_by_section, true)) {
             output_file.close();
             std::error_code ec;
             std::filesystem::remove(output_file_path, ec);

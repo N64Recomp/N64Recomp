@@ -1,4 +1,4 @@
-#include "operations.h"
+#include "recompiler/operations.h"
 
 namespace N64Recomp {
     const std::unordered_map<InstrId, UnaryOp> unary_ops {
@@ -12,8 +12,8 @@ namespace N64Recomp {
         // Float operations
         { InstrId::cpu_mov_s,     { UnaryOpType::None,           Operand::Fd,       Operand::Fs,       true } },
         { InstrId::cpu_mov_d,     { UnaryOpType::None,           Operand::FdDouble, Operand::FsDouble, true } },
-        { InstrId::cpu_neg_s,     { UnaryOpType::Negate,         Operand::Fd,       Operand::Fs,       true, true } },
-        { InstrId::cpu_neg_d,     { UnaryOpType::Negate,         Operand::FdDouble, Operand::FsDouble, true, true } },
+        { InstrId::cpu_neg_s,     { UnaryOpType::NegateFloat,    Operand::Fd,       Operand::Fs,       true, true } },
+        { InstrId::cpu_neg_d,     { UnaryOpType::NegateDouble,   Operand::FdDouble, Operand::FsDouble, true, true } },
         { InstrId::cpu_abs_s,     { UnaryOpType::AbsFloat,       Operand::Fd,       Operand::Fs,       true, true } },
         { InstrId::cpu_abs_d,     { UnaryOpType::AbsDouble,      Operand::FdDouble, Operand::FsDouble, true, true } },
         { InstrId::cpu_sqrt_s,    { UnaryOpType::SqrtFloat,      Operand::Fd,       Operand::Fs,       true, true } },
@@ -65,24 +65,22 @@ namespace N64Recomp {
         { InstrId::cpu_ori,    { BinaryOpType::Or64,  Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::ImmU16 }}} },
         { InstrId::cpu_xori,   { BinaryOpType::Xor64, Operand::Rt, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Rs, Operand::ImmU16 }}} },
         // Shifts
-        /* BUG Should mask after (change op to Sll32 and input op to ToU32) */
-        { InstrId::cpu_sllv,   { BinaryOpType::Sll64, Operand::Rd, {{ UnaryOpType::ToS32, UnaryOpType::Mask5 }, { Operand::Rt, Operand::Rs }}} },
+        { InstrId::cpu_sllv,   { BinaryOpType::Sll32, Operand::Rd, {{ UnaryOpType::None,  UnaryOpType::Mask5 }, { Operand::Rt, Operand::Rs }}} },
         { InstrId::cpu_dsllv,  { BinaryOpType::Sll64, Operand::Rd, {{ UnaryOpType::None,  UnaryOpType::Mask6 }, { Operand::Rt, Operand::Rs }}} },
         { InstrId::cpu_srlv,   { BinaryOpType::Srl32, Operand::Rd, {{ UnaryOpType::ToU32, UnaryOpType::Mask5 }, { Operand::Rt, Operand::Rs }}} },
         { InstrId::cpu_dsrlv,  { BinaryOpType::Srl64, Operand::Rd, {{ UnaryOpType::ToU64, UnaryOpType::Mask6 }, { Operand::Rt, Operand::Rs }}} },
-        /* BUG Should mask after (change op to Sra32 and input op to ToS64) */
-        { InstrId::cpu_srav,   { BinaryOpType::Sra64, Operand::Rd, {{ UnaryOpType::ToS32, UnaryOpType::Mask5 }, { Operand::Rt, Operand::Rs }}} },
+        // Hardware bug: The input is not masked to 32 bits before right shifting, so bits from the upper half of the register will bleed into the lower half.
+        { InstrId::cpu_srav,   { BinaryOpType::Sra32, Operand::Rd, {{ UnaryOpType::ToS64, UnaryOpType::Mask5 }, { Operand::Rt, Operand::Rs }}} },
         { InstrId::cpu_dsrav,  { BinaryOpType::Sra64, Operand::Rd, {{ UnaryOpType::ToS64, UnaryOpType::Mask6 }, { Operand::Rt, Operand::Rs }}} },
         // Shifts (immediate)
-        /* BUG Should mask after (change op to Sll32 and input op to ToU32) */
-        { InstrId::cpu_sll,    { BinaryOpType::Sll64, Operand::Rd, {{ UnaryOpType::ToS32, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
+        { InstrId::cpu_sll,    { BinaryOpType::Sll32, Operand::Rd, {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
         { InstrId::cpu_dsll,   { BinaryOpType::Sll64, Operand::Rd, {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
         { InstrId::cpu_dsll32, { BinaryOpType::Sll64, Operand::Rd, {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Rt, Operand::Sa32 }}} },
         { InstrId::cpu_srl,    { BinaryOpType::Srl32, Operand::Rd, {{ UnaryOpType::ToU32, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
         { InstrId::cpu_dsrl,   { BinaryOpType::Srl64, Operand::Rd, {{ UnaryOpType::ToU64, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
         { InstrId::cpu_dsrl32, { BinaryOpType::Srl64, Operand::Rd, {{ UnaryOpType::ToU64, UnaryOpType::None }, { Operand::Rt, Operand::Sa32 }}} },
-        /* BUG should cast after (change op to Sra32 and input op to ToS64) */
-        { InstrId::cpu_sra,    { BinaryOpType::Sra64, Operand::Rd, {{ UnaryOpType::ToS32, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
+        // Hardware bug: The input is not masked to 32 bits before right shifting, so bits from the upper half of the register will bleed into the lower half.
+        { InstrId::cpu_sra,    { BinaryOpType::Sra32, Operand::Rd, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
         { InstrId::cpu_dsra,   { BinaryOpType::Sra64, Operand::Rd, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rt, Operand::Sa }}} },
         { InstrId::cpu_dsra32, { BinaryOpType::Sra64, Operand::Rd, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rt, Operand::Sa32 }}} },
         // Comparisons
@@ -101,47 +99,47 @@ namespace N64Recomp {
         { InstrId::cpu_div_s, { BinaryOpType::DivFloat,  Operand::Fd,       {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true, true } },
         { InstrId::cpu_div_d, { BinaryOpType::DivDouble, Operand::FdDouble, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true, true } },
         // Float comparisons TODO remaining operations and investigate ordered/unordered and default values
-        { InstrId::cpu_c_lt_s,  { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
-        { InstrId::cpu_c_nge_s, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
-        { InstrId::cpu_c_olt_s, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
-        { InstrId::cpu_c_ult_s, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
-        { InstrId::cpu_c_lt_d,  { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
-        { InstrId::cpu_c_nge_d, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
-        { InstrId::cpu_c_olt_d, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
-        { InstrId::cpu_c_ult_d, { BinaryOpType::Less,   Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+        { InstrId::cpu_c_lt_s,  { BinaryOpType::LessFloat,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+        { InstrId::cpu_c_nge_s, { BinaryOpType::LessFloat,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+        { InstrId::cpu_c_olt_s, { BinaryOpType::LessFloat,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+        { InstrId::cpu_c_ult_s, { BinaryOpType::LessFloat,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+        { InstrId::cpu_c_lt_d,  { BinaryOpType::LessDouble, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+        { InstrId::cpu_c_nge_d, { BinaryOpType::LessDouble, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+        { InstrId::cpu_c_olt_d, { BinaryOpType::LessDouble, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+        { InstrId::cpu_c_ult_d, { BinaryOpType::LessDouble, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
 
-        { InstrId::cpu_c_le_s,  { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
-        { InstrId::cpu_c_ngt_s, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
-        { InstrId::cpu_c_ole_s, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
-        { InstrId::cpu_c_ule_s, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
-        { InstrId::cpu_c_le_d,  { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
-        { InstrId::cpu_c_ngt_d, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
-        { InstrId::cpu_c_ole_d, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
-        { InstrId::cpu_c_ule_d, { BinaryOpType::LessEq, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+        { InstrId::cpu_c_le_s,  { BinaryOpType::LessEqFloat,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+        { InstrId::cpu_c_ngt_s, { BinaryOpType::LessEqFloat,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+        { InstrId::cpu_c_ole_s, { BinaryOpType::LessEqFloat,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+        { InstrId::cpu_c_ule_s, { BinaryOpType::LessEqFloat,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+        { InstrId::cpu_c_le_d,  { BinaryOpType::LessEqDouble, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+        { InstrId::cpu_c_ngt_d, { BinaryOpType::LessEqDouble, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+        { InstrId::cpu_c_ole_d, { BinaryOpType::LessEqDouble, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+        { InstrId::cpu_c_ule_d, { BinaryOpType::LessEqDouble, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
 
-        { InstrId::cpu_c_eq_s,  { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
-        { InstrId::cpu_c_ueq_s, { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
-        { InstrId::cpu_c_ngl_s, { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
-        { InstrId::cpu_c_seq_s, { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
-        { InstrId::cpu_c_eq_d,  { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
-        { InstrId::cpu_c_ueq_d, { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
-        { InstrId::cpu_c_ngl_d, { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+        { InstrId::cpu_c_eq_s,  { BinaryOpType::EqualFloat,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+        { InstrId::cpu_c_ueq_s, { BinaryOpType::EqualFloat,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+        { InstrId::cpu_c_ngl_s, { BinaryOpType::EqualFloat,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+        { InstrId::cpu_c_seq_s, { BinaryOpType::EqualFloat,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Fs, Operand::Ft }}, true } },
+        { InstrId::cpu_c_eq_d,  { BinaryOpType::EqualDouble, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+        { InstrId::cpu_c_ueq_d, { BinaryOpType::EqualDouble, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+        { InstrId::cpu_c_ngl_d, { BinaryOpType::EqualDouble, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
         /* TODO rename to c_seq_d when fixed in rabbitizer */
-        { InstrId::cpu_c_deq_d, { BinaryOpType::Equal,  Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
+        { InstrId::cpu_c_deq_d, { BinaryOpType::EqualDouble, Operand::Cop1cs, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::FsDouble, Operand::FtDouble }}, true } },
         // Loads
-        { InstrId::cpu_ld,   { BinaryOpType::LD,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lw,   { BinaryOpType::LW,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lwu,  { BinaryOpType::LWU, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lh,   { BinaryOpType::LH,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lhu,  { BinaryOpType::LHU, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lb,   { BinaryOpType::LB,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lbu,  { BinaryOpType::LBU, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_ldl,  { BinaryOpType::LDL, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_ldr,  { BinaryOpType::LDR, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lwl,  { BinaryOpType::LWL, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lwr,  { BinaryOpType::LWR, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_lwc1, { BinaryOpType::LW, Operand::FtU32L, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}} },
-        { InstrId::cpu_ldc1, { BinaryOpType::LD, Operand::FtU64,  {{ UnaryOpType::None, UnaryOpType::None }, { Operand::ImmS16, Operand::Base }}, true } },
+        { InstrId::cpu_ld,   { BinaryOpType::LD,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lw,   { BinaryOpType::LW,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lwu,  { BinaryOpType::LWU, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lh,   { BinaryOpType::LH,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lhu,  { BinaryOpType::LHU, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lb,   { BinaryOpType::LB,  Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lbu,  { BinaryOpType::LBU, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_ldl,  { BinaryOpType::LDL, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_ldr,  { BinaryOpType::LDR, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lwl,  { BinaryOpType::LWL, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lwr,  { BinaryOpType::LWR, Operand::Rt,    {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_lwc1, { BinaryOpType::LW, Operand::FtU32L, {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}} },
+        { InstrId::cpu_ldc1, { BinaryOpType::LD, Operand::FtU64,  {{ UnaryOpType::None, UnaryOpType::None }, { Operand::Base, Operand::ImmS16 }}, true } },
     };
 
     const std::unordered_map<InstrId, ConditionalBranchOp> conditional_branch_ops {
@@ -159,10 +157,12 @@ namespace N64Recomp {
         { InstrId::cpu_bltzl,   { BinaryOpType::Less,      {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, false, true }},
         { InstrId::cpu_bgezal,  { BinaryOpType::GreaterEq, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, true, false }},
         { InstrId::cpu_bgezall, { BinaryOpType::GreaterEq, {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, true, true }},
-        { InstrId::cpu_bc1f,    { BinaryOpType::NotEqual,  {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Cop1cs, Operand::Zero }}, false, false }},
-        { InstrId::cpu_bc1fl,   { BinaryOpType::NotEqual,  {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Cop1cs, Operand::Zero }}, false, true }},
-        { InstrId::cpu_bc1t,    { BinaryOpType::Equal,     {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Cop1cs, Operand::Zero }}, false, false }},
-        { InstrId::cpu_bc1tl,   { BinaryOpType::Equal,     {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Cop1cs, Operand::Zero }}, false, true }},
+        { InstrId::cpu_bltzal,  { BinaryOpType::Less,      {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, true, false }},
+        { InstrId::cpu_bltzall, { BinaryOpType::Less,      {{ UnaryOpType::ToS64, UnaryOpType::None }, { Operand::Rs, Operand::Zero }}, true, true }},
+        { InstrId::cpu_bc1f,    { BinaryOpType::Equal,     {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Cop1cs, Operand::Zero }}, false, false }},
+        { InstrId::cpu_bc1fl,   { BinaryOpType::Equal,     {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Cop1cs, Operand::Zero }}, false, true }},
+        { InstrId::cpu_bc1t,    { BinaryOpType::NotEqual,  {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Cop1cs, Operand::Zero }}, false, false }},
+        { InstrId::cpu_bc1tl,   { BinaryOpType::NotEqual,  {{ UnaryOpType::None,  UnaryOpType::None }, { Operand::Cop1cs, Operand::Zero }}, false, true }},
     };
 
     const std::unordered_map<InstrId, StoreOp> store_ops {

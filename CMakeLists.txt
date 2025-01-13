@@ -164,3 +164,32 @@ target_sources(OfflineModRecomp PRIVATE
 )
 
 target_link_libraries(OfflineModRecomp fmt rabbitizer tomlplusplus::tomlplusplus N64Recomp)
+
+# Live recompiler
+project(LiveRecomp)
+add_library(LiveRecomp)
+
+target_sources(LiveRecomp PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/LiveRecomp/live_generator.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/sljit/sljit_src/sljitLir.c
+)
+
+target_include_directories(LiveRecomp PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/sljit/sljit_src
+)
+
+target_link_libraries(LiveRecomp N64Recomp)
+
+# Live recompiler test
+project(LiveRecompTest)
+add_executable(LiveRecompTest)
+
+target_sources(LiveRecompTest PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/LiveRecomp/live_recompiler_test.cpp
+)
+
+target_include_directories(LiveRecompTest PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/sljit/sljit_src
+)
+
+target_link_libraries(LiveRecompTest LiveRecomp)

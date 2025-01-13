@@ -4,7 +4,7 @@
 #include "rabbitizer.hpp"
 #include "fmt/format.h"
 
-#include "n64recomp.h"
+#include "recompiler/context.h"
 #include "analysis.h"
 
 extern "C" const char* RabbitizerRegister_getNameGpr(uint8_t regValue);
@@ -194,21 +194,11 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const N64Recom
                 reg_states[rs].loaded_lw_vram,
                 reg_states[rs].loaded_addu_vram,
                 instr.getVram(),
+                0, // section index gets filled in later
                 std::vector<uint32_t>{}
             );
-        } else if (reg_states[rs].valid_lui && reg_states[rs].valid_addiu && !reg_states[rs].valid_addend && !reg_states[rs].valid_loaded) {
-            uint32_t address = reg_states[rs].prev_addiu_vram + reg_states[rs].prev_lui;
-            stats.absolute_jumps.emplace_back(
-                address,
-                instr.getVram()
-            );
         }
-        // Allow tail calls (TODO account for trailing nops due to bad function splits)
-        else if (instr.getVram() != func.vram + (func.words.size() - 2) * sizeof(func.words[0])) {
-            // Inconclusive analysis
-            fmt::print(stderr, "Failed to to find jump table for `jr {}` at 0x{:08X} in {}\n", RabbitizerRegister_getNameGpr(rs), instr.getVram(), func.name);
-            return false;
-        }
+        // TODO stricter validation on tail calls, since not all indirect jumps can be treated as one.
         break;
     default:
         if (instr.modifiesRd()) {
@@ -256,6 +246,7 @@ bool N64Recomp::analyze_function(const N64Recomp::Context& context, const N64Rec
 
         // TODO this assumes that the jump table is in the same section as the function itself
         cur_jtbl.rom = cur_jtbl.vram + func.rom - func.vram;
+        cur_jtbl.section_index = func.section_index;
 
         while (vram < end_address) {
             // Retrieve the current entry of the jump table
