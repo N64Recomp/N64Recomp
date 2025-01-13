@@ -622,7 +622,7 @@ struct RSPRecompilerOverlayConfig {
 };
 
 struct RSPRecompilerOverlaySlotConfig {
-    size_t offset;
+    size_t text_address;
     std::vector<RSPRecompilerOverlayConfig> overlays;
 };
 
@@ -751,13 +751,13 @@ bool read_config(const std::filesystem::path& config_path, RSPRecompilerConfig& 
             overlay_slots_array->for_each([&](toml::table slot){
                 RSPRecompilerOverlaySlotConfig slot_config;
 
-                std::optional<uint32_t> offset = slot["offset"].value<uint32_t>();
-                if (offset.has_value()) {
-                    slot_config.offset = offset.value();
+                std::optional<uint32_t> text_address = slot["text_address"].value<uint32_t>();
+                if (text_address.has_value()) {
+                    slot_config.text_address = text_address.value();
                 }
                 else {
                     throw toml::parse_error(
-                        fmt::format("Missing offset in config file at overlay slot {}", slot_idx).c_str(), 
+                        fmt::format("Missing text_address in config file at overlay slot {}", slot_idx).c_str(), 
                         config_data.source());
                 }
 
@@ -920,7 +920,7 @@ void create_overlay_swap_function(const std::string& function_name, std::ofstrea
     for (size_t i = 0; i < config.overlay_slots.size(); i++) {
         const RSPRecompilerOverlaySlotConfig& slot = config.overlay_slots[i];
 
-        uint32_t imemAddress = (config.text_address & rsp_mem_mask) + slot.offset;
+        uint32_t imemAddress = slot.text_address & rsp_mem_mask;
         fmt::print(output_file, "    {{ 0x{:04X}, {} }},\n",
             imemAddress, i);
     }
@@ -1112,7 +1112,7 @@ int main(int argc, const char** argv) {
 
         for (const RSPRecompilerOverlaySlotConfig &slot_config : config.overlay_slots) {
             OverlaySlot slot{};
-            slot.offset = slot_config.offset;
+            slot.offset = (slot_config.text_address - config.text_address) & rsp_mem_mask;
 
             for (const RSPRecompilerOverlayConfig &overlay_config : slot_config.overlays) {
                 Overlay overlay{};
