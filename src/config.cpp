@@ -663,7 +663,13 @@ bool N64Recomp::Context::import_reference_context(const N64Recomp::Context& refe
 
     // Copy the functions from the reference context into the reference context's function map.
     for (const N64Recomp::Function& func_in: reference_context.functions) {
-        if (!add_reference_symbol(func_in.name, func_in.section_index, func_in.vram, true)) {
+        // Rename if necessary
+        std::string name = func_in.name;
+        if (N64Recomp::renamed_funcs.contains(name)) {
+            name = name + "_recomp";
+        }
+
+        if (!add_reference_symbol(name, func_in.section_index, func_in.vram, true)) {
             return false;
         }
     }
