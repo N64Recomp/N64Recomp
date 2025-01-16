@@ -665,7 +665,9 @@ bool N64Recomp::Context::import_reference_context(const N64Recomp::Context& refe
     for (const N64Recomp::Function& func_in: reference_context.functions) {
         // Rename if necessary
         std::string name = func_in.name;
-        if (N64Recomp::renamed_funcs.contains(name)) {
+        if (N64Recomp::reimplemented_funcs.contains(name) ||
+            N64Recomp::ignored_funcs.contains(name) ||
+            N64Recomp::renamed_funcs.contains(name)) {
             name = name + "_recomp";
         }
 

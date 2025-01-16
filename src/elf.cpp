@@ -417,7 +417,9 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                     // Check if the symbol is undefined and to know whether to look for it in the reference symbols.
                     if (rel_symbol_section_index == ELFIO::SHN_UNDEF) {
                         // Get renamed version of symbol name if necessary
-                        if (N64Recomp::renamed_funcs.contains(rel_symbol_name)) {
+                        if (N64Recomp::reimplemented_funcs.contains(rel_symbol_name) ||
+                            N64Recomp::ignored_funcs.contains(rel_symbol_name) ||
+                            N64Recomp::renamed_funcs.contains(rel_symbol_name)) {
                             rel_symbol_name = rel_symbol_name + "_recomp";
                         }
 
