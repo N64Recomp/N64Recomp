@@ -891,6 +891,7 @@ int main(int argc, char** argv) {
         for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
             const auto& section = context.sections[section_index];
             const auto& section_funcs = context.section_functions[section_index];
+            const auto& section_relocs = section.relocs;
 
             if (section.has_mips32_relocs || !section_funcs.empty()) {
                 std::string_view section_name_trimmed{ section.name };
@@ -904,10 +905,15 @@ int main(int argc, char** argv) {
                 }
 
                 std::string section_funcs_array_name = fmt::format("section_{}_{}_funcs", section_index, section_name_trimmed);
+                std::string section_relocs_array_name = section_relocs.empty() ? "nullptr" : fmt::format("section_{}_{}_relocs", section_index, section_name_trimmed);
+                std::string section_relocs_array_size = section_relocs.empty() ? "0" : fmt::format("ARRLEN({})", section_relocs_array_name);
 
-                section_load_table += fmt::format("    {{ .rom_addr = 0x{0:08X}, .ram_addr = 0x{1:08X}, .size = 0x{2:08X}, .funcs = {3}, .num_funcs = ARRLEN({3}), .index = {4} }},\n",
-                                                  section.rom_addr, section.ram_addr, section.size, section_funcs_array_name, section_index);
+                // Write the section's table entry.
+                section_load_table += fmt::format("    {{ .rom_addr = 0x{0:08X}, .ram_addr = 0x{1:08X}, .size = 0x{2:08X}, .funcs = {3}, .num_funcs = ARRLEN({3}), .relocs = {4}, .num_relocs = {5}, .index = {6} }},\n",
+                                                  section.rom_addr, section.ram_addr, section.size, section_funcs_array_name,
+                                                  section_relocs_array_name, section_relocs_array_size, section_index);
 
+                // Write the section's functions.
                 fmt::print(overlay_file, "static FuncEntry {}[] = {{\n", section_funcs_array_name);
 
                 for (size_t func_index : section_funcs) {
@@ -921,6 +927,28 @@ int main(int argc, char** argv) {
                 }
 
                 fmt::print(overlay_file, "}};\n");
+
+                // Write the section's relocations.
+                if (!section_relocs.empty()) {
+                    fmt::print(overlay_file, "static RelocEntry {}[] = {{\n", section_relocs_array_name);
+
+                    for (const N64Recomp::Reloc& reloc : section_relocs) {
+                        if (reloc.target_section != N64Recomp::SectionAbsolute) {
+                            uint32_t target_section_offset;
+                            if (reloc.target_section == N64Recomp::SectionEvent) {
+                                target_section_offset = reloc.symbol_index;
+                            }
+                            else {
+                                target_section_offset = reloc.target_section_offset;
+                            }
+                            fmt::print(overlay_file, "    {{ .offset = 0x{:08X}, .target_section_offset = 0x{:08X}, .target_section = {}, .type = {} }}, \n",
+                                reloc.address - section.ram_addr, target_section_offset, reloc.target_section, reloc_names[static_cast<size_t>(reloc.type)] );
+                        }
+                    }
+
+                    fmt::print(overlay_file, "}};\n");
+                }
+
                 written_sections++;
             }
         }
