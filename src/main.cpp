@@ -199,7 +199,7 @@ void dump_context(const N64Recomp::Context& context, const std::unordered_map<ui
                 for (const N64Recomp::Reloc& reloc : section.relocs) {
                     if (reloc.target_section == section_index || reloc.target_section == section.bss_section_index) {
                         // TODO allow emitting MIPS32 relocs for specific sections via a toml option for TLB mapping support.
-                        if (reloc.type == N64Recomp::RelocType::R_MIPS_HI16 || reloc.type == N64Recomp::RelocType::R_MIPS_LO16) {
+                        if (reloc.type == N64Recomp::RelocType::R_MIPS_HI16 || reloc.type == N64Recomp::RelocType::R_MIPS_LO16 || reloc.type == N64Recomp::RelocType::R_MIPS_26) {
                             fmt::print(func_context_file, "    {{ type = \"{}\", vram = 0x{:08X}, target_vram = 0x{:08X} }},\n",
                                 reloc_names[static_cast<int>(reloc.type)], reloc.address, reloc.target_section_offset + section.ram_addr);
                         }

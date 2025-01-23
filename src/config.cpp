@@ -609,7 +609,7 @@ bool N64Recomp::Context::from_symbol_file(const std::filesystem::path& symbol_fi
 
                                 RelocType reloc_type = reloc_type_from_name(type_string.value());
 
-                                if (reloc_type != RelocType::R_MIPS_HI16 && reloc_type != RelocType::R_MIPS_LO16 && reloc_type != RelocType::R_MIPS_32) {
+                                if (reloc_type != RelocType::R_MIPS_HI16 && reloc_type != RelocType::R_MIPS_LO16 && reloc_type != RelocType::R_MIPS_26 && reloc_type != RelocType::R_MIPS_32) {
                                     throw toml::parse_error("Invalid reloc entry type", reloc_el.source());
                                 }
 
