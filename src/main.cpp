@@ -866,13 +866,6 @@ int main(int argc, char** argv) {
         );
     }
 
-    fmt::print(func_header_file,
-        "\n"
-        "#ifdef __cplusplus\n"
-        "}}\n"
-        "#endif\n"
-    );
-
     {
         std::ofstream overlay_file(config.output_func_path / "recomp_overlays.inl");
         std::string section_load_table = "static SectionTableEntry section_table[] = {\n";
@@ -933,7 +926,7 @@ int main(int argc, char** argv) {
                     fmt::print(overlay_file, "static RelocEntry {}[] = {{\n", section_relocs_array_name);
 
                     for (const N64Recomp::Reloc& reloc : section_relocs) {
-                        if (reloc.target_section != N64Recomp::SectionAbsolute) {
+                        if (reloc.target_section != N64Recomp::SectionAbsolute || context.is_manual_patch_symbol(reloc.target_section_offset)) {
                             uint32_t target_section_offset;
                             if (reloc.target_section == N64Recomp::SectionEvent) {
                                 target_section_offset = reloc.symbol_index;
@@ -1012,8 +1005,44 @@ int main(int argc, char** argv) {
             // Add a dummy element at the end to ensure the array has a valid length because C doesn't allow zero-size arrays.
             fmt::print(overlay_file, "    NULL\n");
             fmt::print(overlay_file, "}};\n");
+
+            // Collect manual patch symbols.
+            std::vector<std::pair<uint32_t, std::string>> manual_patch_syms{};
+
+            for (const auto& func : context.functions) {
+                if (func.words.empty() && context.is_manual_patch_symbol(func.vram)) {
+                    manual_patch_syms.emplace_back(func.vram, func.name);
+                }
+            }            
+
+            // Sort the manual patch symbols by vram.
+            std::sort(manual_patch_syms.begin(), manual_patch_syms.end(), [](const auto& lhs, const auto& rhs) {
+                return lhs.first < rhs.first;
+            });
+
+            // Emit the manual patch symbols.
+            fmt::print(overlay_file,
+                "\n"
+                "static const ManualPatchSymbol manual_patch_symbols[] = {{\n"
+            );
+            for (const auto& manual_patch_sym_entry : manual_patch_syms) {
+                fmt::print(overlay_file, "    {{ 0x{:08X}, {} }},\n", manual_patch_sym_entry.first, manual_patch_sym_entry.second);
+
+                fmt::print(func_header_file,
+                    "void {}(uint8_t* rdram, recomp_context* ctx);\n", manual_patch_sym_entry.second);
+            }
+            // Add a dummy element at the end to ensure the array has a valid length because C doesn't allow zero-size arrays.
+            fmt::print(overlay_file, "    {{ 0, NULL }}\n");
+            fmt::print(overlay_file, "}};\n");
         }
     }
+
+    fmt::print(func_header_file,
+        "\n"
+        "#ifdef __cplusplus\n"
+        "}}\n"
+        "#endif\n"
+    );
 
     if (!config.output_binary_path.empty()) {
         std::ofstream output_binary{config.output_binary_path, std::ios::binary};

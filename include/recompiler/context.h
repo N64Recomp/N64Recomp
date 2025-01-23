@@ -565,6 +565,12 @@ namespace N64Recomp {
         void set_all_reference_sections_relocatable() {
             all_reference_sections_relocatable = true;
         }
+
+        bool is_manual_patch_symbol(uint32_t vram) const {
+            // Zero-sized symbols between 0x8F000000 and 0x90000000 are manually specified symbols for use with patches.
+            // TODO make this configurable or come up with a more sensible solution for dealing with manual symbols for patches.
+            return vram >= 0x8F000000 && vram < 0x90000000;
+        }
     };
 
     class Generator;

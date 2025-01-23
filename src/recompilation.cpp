@@ -46,9 +46,7 @@ JalResolutionResult resolve_jal(const N64Recomp::Context& context, size_t cur_se
 
             // Zero-sized symbol handling. unless there's only one matching target.
             if (target_func.words.empty()) {
-                // Allow zero-sized symbols between 0x8F000000 and 0x90000000 for use with patches.
-                // TODO make this configurable or come up with a more sensible solution for dealing with manual symbols for patches.
-                if (target_func.vram < 0x8F000000 || target_func.vram > 0x90000000) {
+                if (!context.is_manual_patch_symbol(target_func.vram)) {
                     continue;
                 }
             }
