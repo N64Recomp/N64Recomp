@@ -923,10 +923,26 @@ int main(int argc, char** argv) {
 
                 // Write the section's relocations.
                 if (!section_relocs.empty()) {
+                    // Determine if reference symbols are being used.
+                    bool reference_symbol_mode = !config.func_reference_syms_file_path.empty();
+
                     fmt::print(overlay_file, "static RelocEntry {}[] = {{\n", section_relocs_array_name);
 
                     for (const N64Recomp::Reloc& reloc : section_relocs) {
-                        if (reloc.target_section != N64Recomp::SectionAbsolute || context.is_manual_patch_symbol(reloc.target_section_offset)) {
+                        bool emit_reloc = false;
+                        uint16_t target_section = reloc.target_section;
+                        // In reference symbol mode, only emit relocations into the table that point to
+                        // non-absolute reference symbols, events, or manual patch symbols.
+                        if (reference_symbol_mode) {
+                            bool manual_patch_symbol = N64Recomp::is_manual_patch_symbol(reloc.target_section_offset);
+                            bool is_absolute = reloc.target_section == N64Recomp::SectionAbsolute;
+                            emit_reloc = (reloc.reference_symbol && !is_absolute) || target_section == N64Recomp::SectionEvent || manual_patch_symbol;
+                        }
+                        // Otherwise, emit all relocs.
+                        else {
+                            emit_reloc = true;
+                        }
+                        if (emit_reloc) {
                             uint32_t target_section_offset;
                             if (reloc.target_section == N64Recomp::SectionEvent) {
                                 target_section_offset = reloc.symbol_index;
@@ -1010,7 +1026,7 @@ int main(int argc, char** argv) {
             std::vector<std::pair<uint32_t, std::string>> manual_patch_syms{};
 
             for (const auto& func : context.functions) {
-                if (func.words.empty() && context.is_manual_patch_symbol(func.vram)) {
+                if (func.words.empty() && N64Recomp::is_manual_patch_symbol(func.vram)) {
                     manual_patch_syms.emplace_back(func.vram, func.name);
                 }
             }            

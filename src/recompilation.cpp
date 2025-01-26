@@ -46,7 +46,7 @@ JalResolutionResult resolve_jal(const N64Recomp::Context& context, size_t cur_se
 
             // Zero-sized symbol handling. unless there's only one matching target.
             if (target_func.words.empty()) {
-                if (!context.is_manual_patch_symbol(target_func.vram)) {
+                if (!N64Recomp::is_manual_patch_symbol(target_func.vram)) {
                     continue;
                 }
             }

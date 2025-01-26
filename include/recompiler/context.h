@@ -566,11 +566,6 @@ namespace N64Recomp {
             all_reference_sections_relocatable = true;
         }
 
-        bool is_manual_patch_symbol(uint32_t vram) const {
-            // Zero-sized symbols between 0x8F000000 and 0x90000000 are manually specified symbols for use with patches.
-            // TODO make this configurable or come up with a more sensible solution for dealing with manual symbols for patches.
-            return vram >= 0x8F000000 && vram < 0x90000000;
-        }
     };
 
     class Generator;
@@ -587,6 +582,12 @@ namespace N64Recomp {
 
     ModSymbolsError parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, Context& context_out);
     std::vector<uint8_t> symbols_to_bin_v1(const Context& mod_context);
+    
+    inline bool is_manual_patch_symbol(uint32_t vram) {
+        // Zero-sized symbols between 0x8F000000 and 0x90000000 are manually specified symbols for use with patches.
+        // TODO make this configurable or come up with a more sensible solution for dealing with manual symbols for patches.
+        return vram >= 0x8F000000 && vram < 0x90000000;
+    }
 
     inline bool validate_mod_id(std::string_view str) {
         // Disallow empty ids.
