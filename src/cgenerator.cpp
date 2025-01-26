@@ -301,6 +301,7 @@ void N64Recomp::CGenerator::get_operand_string(Operand operand, UnaryOpType oper
         case UnaryOpType::TruncateLFromD:
             operand_string = "TRUNC_L_D(" + operand_string + ")";
             break;
+        // TODO these four operations should use banker's rounding, but roundeven is C23 so it's unavailable here.
         case UnaryOpType::RoundWFromS:
             operand_string = "lroundf(" + operand_string + ")";
             break;

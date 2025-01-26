@@ -797,6 +797,7 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
     }
 }
 
+// TODO these four operations should use banker's rounding, but roundeven is C23 so it's unavailable here.
 int32_t do_round_w_s(float num) {
     return lroundf(num);
 }
@@ -1092,7 +1093,13 @@ void N64Recomp::LiveGenerator::process_unary_op(const UnaryOp& op, const Instruc
             break;
         case UnaryOpType::ToS32:
         case UnaryOpType::ToInt32:
-            jit_op = SLJIT_MOV_S32;
+            // sljit won't emit a sign extension with SLJIT_MOV_32 if the destination is memory,
+            // so emit an explicit move into a register and set that register as the new src.
+            sljit_emit_op1(compiler, SLJIT_MOV_S32, Registers::arithmetic_temp1, 0, src, srcw);
+            // Replace the original input with the temporary register.
+            src = Registers::arithmetic_temp1;
+            srcw = 0;
+            jit_op = SLJIT_MOV;
             break;
         // Unary ops that can't be used as a standalone operation
         case UnaryOpType::ToU32:
@@ -1665,8 +1672,11 @@ void N64Recomp::LiveGenerator::emit_cop1_cs_read(int reg) const {
         // Call get_cop1_cs.
         sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS0(32), SLJIT_IMM, sljit_sw(get_cop1_cs));
 
-        // Store the result in the output register.
-        sljit_emit_op1(compiler, SLJIT_MOV_S32, dst, dstw, SLJIT_RETURN_REG, 0);
+        // Sign extend the result into a temp register.
+        sljit_emit_op1(compiler, SLJIT_MOV_S32, Registers::arithmetic_temp1, 0, SLJIT_RETURN_REG, 0);
+
+        // Move the sign extended result into the destination.
+        sljit_emit_op1(compiler, SLJIT_MOV, dst, dstw, Registers::arithmetic_temp1, 0);
     }
 }
 
