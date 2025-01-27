@@ -589,6 +589,16 @@ namespace N64Recomp {
         return vram >= 0x8F000000 && vram < 0x90000000;
     }
 
+    // Locale-independent ASCII-only version of isalpha.
+    inline bool isalpha_nolocale(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+    }
+    
+    // Locale-independent ASCII-only version of isalnum.
+    inline bool isalnum_nolocale(char c) {
+        return isalpha_nolocale(c) || (c >= '0' && c <= '9');
+    }
+
     inline bool validate_mod_id(std::string_view str) {
         // Disallow empty ids.
         if (str.size() == 0) {
@@ -604,13 +614,13 @@ namespace N64Recomp {
         // so this is just to prevent "weird" mod ids.
 
         // Check the first character, which must be alphabetical or an underscore.
-        if (!isalpha(str[0]) && str[0] != '_') {
+        if (!isalpha_nolocale(str[0]) && str[0] != '_') {
             return false;
         }
 
         // Check the remaining characters, which can be alphanumeric or underscore.
         for (char c : str.substr(1)) {
-            if (!isalnum(c) && c != '_') {
+            if (!isalnum_nolocale(c) && c != '_') {
                 return false;
             }
         }
