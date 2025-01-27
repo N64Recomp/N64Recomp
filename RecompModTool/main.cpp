@@ -20,11 +20,14 @@
 
 constexpr std::string_view symbol_filename = "mod_syms.bin";
 constexpr std::string_view binary_filename = "mod_binary.bin";
-constexpr std::string_view manifest_filename = "manifest.json";
+constexpr std::string_view manifest_filename = "mod.json";
 
 struct ModManifest {
     std::string mod_id;
     std::string version_string;
+    std::string display_name;
+    std::string description;
+    std::string short_description;
     std::vector<std::string> authors;
     std::string game_id;
     std::string minimum_recomp_version;
@@ -162,7 +165,7 @@ static T read_toml_value(const toml::table& data, std::string_view key, bool req
 
     if (value_node == nullptr) {
         if (required) {
-            throw toml::parse_error(("Missing required field " + std::string{key}).c_str(), data.source());
+            throw toml::parse_error(("Missing required field \"" + std::string{key} + "\"").c_str(), data.source());
         }
         else {
             return T{};
@@ -174,7 +177,7 @@ static T read_toml_value(const toml::table& data, std::string_view key, bool req
         return opt.value();
     }
     else {
-        throw toml::parse_error(("Incorrect type for field " + std::string{key}).c_str(), data.source());
+        throw toml::parse_error(("Incorrect type for field \"" + std::string{key} + "\"").c_str(), data.source());
     }
 }
 
@@ -220,6 +223,9 @@ ModManifest parse_mod_config_manifest(const std::filesystem::path& basedir, cons
 
     // Mod ID
     ret.mod_id = read_toml_value<std::string_view>(manifest_table, "id", true);
+    if (!N64Recomp::validate_mod_id(ret.mod_id)) {
+        throw toml::parse_error("Invalid mod id", manifest_table["id"].node()->source());
+    }
 
     // Mod version
     ret.version_string = read_toml_value<std::string_view>(manifest_table, "version", true);
@@ -227,6 +233,15 @@ ModManifest parse_mod_config_manifest(const std::filesystem::path& basedir, cons
     if (!validate_version_string(ret.version_string, version_has_label)) {
         throw toml::parse_error("Invalid mod version", manifest_table["version"].node()->source());
     }
+
+    // Display name
+    ret.display_name = read_toml_value<std::string_view>(manifest_table, "display_name", true);
+
+    // Description (optional)
+    ret.description = read_toml_value<std::string_view>(manifest_table, "description", false);
+
+    // Short description (optional)
+    ret.short_description = read_toml_value<std::string_view>(manifest_table, "short_description", false);
 
     // Authors
     const toml::array& authors_array = read_toml_array(manifest_table, "authors", true);
@@ -426,57 +441,53 @@ bool parse_callback_name(std::string_view data, std::string& dependency_name, st
     return true;
 }
 
-void print_vector_elements(std::ostream& output_file, const std::vector<std::string>& vec, bool compact) {
-    char separator = compact ? ' ' : '\n';
-    for (size_t i = 0; i < vec.size(); i++) {
-        const std::string& val = vec[i];
-        fmt::print(output_file, "{}\"{}\"{}{}",
-            compact ? "" : "        ", val, i == vec.size() - 1 ? "" : ",", separator);
+toml::array string_vector_to_toml(const std::vector<std::string>& input) {
+    toml::array ret{};
+    for (const std::string& str : input) {
+        ret.emplace_back(str);
     }
+    return ret;
 }
 
 void write_manifest(const std::filesystem::path& path, const ModManifest& manifest) {
-    std::ofstream output_file(path);
+    toml::table output_data{};
 
-    fmt::print(output_file,
-        "{{\n"
-        "    \"game_id\": \"{}\",\n"
-        "    \"id\": \"{}\",\n"
-        "    \"version\": \"{}\",\n"
-        "    \"authors\": [\n",
-        manifest.game_id, manifest.mod_id, manifest.version_string);
+    output_data.emplace("game_id", manifest.game_id);
+    output_data.emplace("id", manifest.mod_id);
+    output_data.emplace("version", manifest.version_string);
+    output_data.emplace("display_name", manifest.display_name);
+    
+    if (!manifest.description.empty()) {
+        output_data.emplace("description", manifest.description);
+    }
+    
+    if (!manifest.short_description.empty()) {
+        output_data.emplace("short_description", manifest.short_description);
+    }
 
-    print_vector_elements(output_file, manifest.authors, false);
+    output_data.emplace("authors", string_vector_to_toml(manifest.authors));
 
-    fmt::print(output_file, 
-        "    ],\n"
-        "    \"minimum_recomp_version\": \"{}\"",
-        manifest.minimum_recomp_version);
+    output_data.emplace("minimum_recomp_version", manifest.minimum_recomp_version);
 
     if (!manifest.native_libraries.empty()) {
-        fmt::print(output_file, ",\n"
-            "    \"native_libraries\": {{\n");
+        toml::table libraries_table{};
+
         size_t library_index = 0; 
         for (const auto& [library, funcs] : manifest.native_libraries) {
-            fmt::print(output_file, "        \"{}\": [ ",
-                library);
-            print_vector_elements(output_file, funcs, true);
-            fmt::print(output_file, "]{}\n",
-                library_index == manifest.native_libraries.size() - 1 ? "" : ",");
-            library_index++;
+            libraries_table.emplace(library, string_vector_to_toml(funcs));
         }
-        fmt::print(output_file, "    }}");
+
+        output_data.emplace("native_libraries", std::move(libraries_table));
     }
 
     if (!manifest.full_dependency_strings.empty()) {
-        fmt::print(output_file, ",\n"
-            "    \"dependencies\": [\n");
-        print_vector_elements(output_file, manifest.full_dependency_strings, false);
-        fmt::print(output_file, "    ]");
+        output_data.emplace("dependencies", string_vector_to_toml(manifest.full_dependency_strings));
     }
 
+    toml::json_formatter formatter{output_data, toml::format_flags::indentation | toml::format_flags::indentation};
+    std::ofstream output_file(path);
 
-    fmt::print(output_file, "\n}}\n");
+    output_file << formatter << std::endl;
 }
 
 N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bool& good) {
