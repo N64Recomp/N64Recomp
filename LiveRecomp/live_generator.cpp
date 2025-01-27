@@ -797,6 +797,7 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
     }
 }
 
+// TODO these four operations should use banker's rounding, but roundeven is C23 so it's unavailable here.
 int32_t do_round_w_s(float num) {
     return lroundf(num);
 }
@@ -1092,7 +1093,13 @@ void N64Recomp::LiveGenerator::process_unary_op(const UnaryOp& op, const Instruc
             break;
         case UnaryOpType::ToS32:
         case UnaryOpType::ToInt32:
-            jit_op = SLJIT_MOV_S32;
+            // sljit won't emit a sign extension with SLJIT_MOV_32 if the destination is memory,
+            // so emit an explicit move into a register and set that register as the new src.
+            sljit_emit_op1(compiler, SLJIT_MOV_S32, Registers::arithmetic_temp1, 0, src, srcw);
+            // Replace the original input with the temporary register.
+            src = Registers::arithmetic_temp1;
+            srcw = 0;
+            jit_op = SLJIT_MOV;
             break;
         // Unary ops that can't be used as a standalone operation
         case UnaryOpType::ToU32:
@@ -1259,6 +1266,17 @@ void N64Recomp::LiveGenerator::emit_function_start(const std::string& function_n
     // sljit_emit_op0(compiler, SLJIT_BREAKPOINT);
     sljit_emit_enter(compiler, 0, SLJIT_ARGS2V(P, P), 4 | SLJIT_ENTER_FLOAT(1), 5 | SLJIT_ENTER_FLOAT(0), 0);
     sljit_emit_op2(compiler, SLJIT_SUB, Registers::rdram, 0, Registers::rdram, 0, SLJIT_IMM, rdram_offset);
+    
+    // Check if this function's entry is hooked and emit the hook call if so.
+    auto find_hook_it = inputs.entry_func_hooks.find(func_index);
+    if (find_hook_it != inputs.entry_func_hooks.end()) {
+        // Load rdram and ctx into R0 and R1.
+        sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, Registers::rdram, 0, SLJIT_IMM, rdram_offset);
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, Registers::ctx, 0);
+        // Load the hook's index into R2.
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, find_hook_it->second);
+        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS3V(P, P, W), SLJIT_IMM, sljit_sw(inputs.run_hook));
+    }
 }
 
 void N64Recomp::LiveGenerator::emit_function_end() const {
@@ -1590,7 +1608,19 @@ void N64Recomp::LiveGenerator::emit_switch_close() const {
     // Nothing to do here, the jump table is built in emit_switch.
 }
 
-void N64Recomp::LiveGenerator::emit_return(const Context& context) const {
+void N64Recomp::LiveGenerator::emit_return(const Context& context, size_t func_index) const {
+    (void)context;
+    
+    // Check if this function's return is hooked and emit the hook call if so.
+    auto find_hook_it = inputs.return_func_hooks.find(func_index);
+    if (find_hook_it != inputs.return_func_hooks.end()) {
+        // Load rdram and ctx into R0 and R1.
+        sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, Registers::rdram, 0, SLJIT_IMM, rdram_offset);
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, Registers::ctx, 0);
+        // Load the return hook's index into R2.
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, find_hook_it->second);
+        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS3V(P, P, W), SLJIT_IMM, sljit_sw(inputs.run_hook));
+    }
     sljit_emit_return_void(compiler);
 }
 
@@ -1642,8 +1672,11 @@ void N64Recomp::LiveGenerator::emit_cop1_cs_read(int reg) const {
         // Call get_cop1_cs.
         sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS0(32), SLJIT_IMM, sljit_sw(get_cop1_cs));
 
-        // Store the result in the output register.
-        sljit_emit_op1(compiler, SLJIT_MOV_S32, dst, dstw, SLJIT_RETURN_REG, 0);
+        // Sign extend the result into a temp register.
+        sljit_emit_op1(compiler, SLJIT_MOV_S32, Registers::arithmetic_temp1, 0, SLJIT_RETURN_REG, 0);
+
+        // Move the sign extended result into the destination.
+        sljit_emit_op1(compiler, SLJIT_MOV, dst, dstw, Registers::arithmetic_temp1, 0);
     }
 }
 

@@ -201,8 +201,8 @@ std::vector<N64Recomp::InstructionPatch> get_instruction_patches(const toml::tab
     return ret;
 }
 
-std::vector<N64Recomp::FunctionHook> get_function_hooks(const toml::table* patches_data) {
-    std::vector<N64Recomp::FunctionHook> ret;
+std::vector<N64Recomp::FunctionTextHook> get_function_hooks(const toml::table* patches_data) {
+    std::vector<N64Recomp::FunctionTextHook> ret;
 
     // Check if the function hook array exists.
     const toml::node_view func_hook_data = (*patches_data)["hook"];
@@ -230,7 +230,7 @@ std::vector<N64Recomp::FunctionHook> get_function_hooks(const toml::table* patch
                     throw toml::parse_error("before_vram is not word-aligned", el.source());
                 }
 
-                ret.push_back(N64Recomp::FunctionHook{
+                ret.push_back(N64Recomp::FunctionTextHook{
                     .func_name = func_name.value(),
                     .before_vram = before_vram.has_value() ? (int32_t)before_vram.value() : 0,
                     .text = text.value(),
@@ -609,7 +609,7 @@ bool N64Recomp::Context::from_symbol_file(const std::filesystem::path& symbol_fi
 
                                 RelocType reloc_type = reloc_type_from_name(type_string.value());
 
-                                if (reloc_type != RelocType::R_MIPS_HI16 && reloc_type != RelocType::R_MIPS_LO16 && reloc_type != RelocType::R_MIPS_32) {
+                                if (reloc_type != RelocType::R_MIPS_HI16 && reloc_type != RelocType::R_MIPS_LO16 && reloc_type != RelocType::R_MIPS_26 && reloc_type != RelocType::R_MIPS_32) {
                                     throw toml::parse_error("Invalid reloc entry type", reloc_el.source());
                                 }
 

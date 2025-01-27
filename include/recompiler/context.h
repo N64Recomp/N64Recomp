@@ -85,6 +85,8 @@ namespace N64Recomp {
     constexpr std::string_view EventSectionName = ".recomp_event";
     constexpr std::string_view ImportSectionPrefix = ".recomp_import.";
     constexpr std::string_view CallbackSectionPrefix = ".recomp_callback.";
+    constexpr std::string_view HookSectionPrefix = ".recomp_hook.";
+    constexpr std::string_view HookReturnSectionPrefix = ".recomp_hook_return.";
 
     // Special dependency names.
     constexpr std::string_view DependencySelf = ".";
@@ -183,6 +185,19 @@ namespace N64Recomp {
         ReplacementFlags flags;
     };
 
+    enum class HookFlags : uint32_t {
+        AtReturn = 1 << 0,
+    };
+    inline HookFlags operator&(HookFlags lhs, HookFlags rhs) { return HookFlags(uint32_t(lhs) & uint32_t(rhs)); }
+    inline HookFlags operator|(HookFlags lhs, HookFlags rhs) { return HookFlags(uint32_t(lhs) | uint32_t(rhs)); }
+
+    struct FunctionHook {
+        uint32_t func_index;
+        uint32_t original_section_vrom;
+        uint32_t original_vram;
+        HookFlags flags;
+    };
+
     class Context {
     private:
         //// Reference symbols (used for populating relocations for patches)
@@ -208,6 +223,8 @@ namespace N64Recomp {
         std::vector<uint8_t> rom;
         // Whether reference symbols should be validated when emitting function calls during recompilation.
         bool skip_validating_reference_symbols = true;
+        // Whether all function calls (excluding reference symbols) should go through lookup.
+        bool use_lookup_for_all_function_calls = false;
 
         //// Only used by the CLI, TODO move this to a struct in the internal headers.
         // A mapping of function name to index in the functions vector
@@ -236,6 +253,8 @@ namespace N64Recomp {
         std::vector<Callback> callbacks;
         // List of symbols from events, which contains the names of events that this context provides.
         std::vector<EventSymbol> event_symbols;
+        // List of hooks, which contains the original function to hook and the function index to call at the hook.
+        std::vector<FunctionHook> hooks;
 
         // Causes functions to print their name to the console the first time they're called.
         bool trace_mode;
@@ -546,6 +565,7 @@ namespace N64Recomp {
         void set_all_reference_sections_relocatable() {
             all_reference_sections_relocatable = true;
         }
+
     };
 
     class Generator;
@@ -562,6 +582,12 @@ namespace N64Recomp {
 
     ModSymbolsError parse_mod_symbols(std::span<const char> data, std::span<const uint8_t> binary, const std::unordered_map<uint32_t, uint16_t>& sections_by_vrom, Context& context_out);
     std::vector<uint8_t> symbols_to_bin_v1(const Context& mod_context);
+    
+    inline bool is_manual_patch_symbol(uint32_t vram) {
+        // Zero-sized symbols between 0x8F000000 and 0x90000000 are manually specified symbols for use with patches.
+        // TODO make this configurable or come up with a more sensible solution for dealing with manual symbols for patches.
+        return vram >= 0x8F000000 && vram < 0x90000000;
+    }
 
     inline bool validate_mod_id(std::string_view str) {
         // Disallow empty ids.

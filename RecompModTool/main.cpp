@@ -573,6 +573,8 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
         bool event_section = cur_section.name == N64Recomp::EventSectionName;
         bool import_section = cur_section.name.starts_with(N64Recomp::ImportSectionPrefix);
         bool callback_section = cur_section.name.starts_with(N64Recomp::CallbackSectionPrefix);
+        bool hook_section = cur_section.name.starts_with(N64Recomp::HookSectionPrefix);
+        bool hook_return_section = cur_section.name.starts_with(N64Recomp::HookReturnSectionPrefix);
 
         // Add the functions from the current input section to the current output section.
         auto& section_out = ret.sections[output_section_index];
@@ -634,6 +636,42 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
                             .original_section_vrom = reference_section_rom,
                             .original_vram = reference_section_vram + reference_symbol.section_offset,
                             .flags = force_patch_section ? N64Recomp::ReplacementFlags::Force : N64Recomp::ReplacementFlags{}
+                        }
+                    );
+                }
+
+                if (hook_section || hook_return_section) {
+                    // Get the name of the hooked function.
+                    size_t section_prefix_length = hook_section ? N64Recomp::HookSectionPrefix.size() : N64Recomp::HookReturnSectionPrefix.size();
+                    std::string hooked_function_name = cur_section.name.substr(section_prefix_length);
+
+                    // Find the corresponding symbol in the reference symbols.
+                    N64Recomp::SymbolReference cur_reference;
+                    bool original_func_exists = input_context.find_regular_reference_symbol(hooked_function_name, cur_reference);
+
+                    // Check that the function being patched exists in the original reference symbols.
+                    if (!original_func_exists) {
+                        fmt::print(stderr, "Function {} hooks a function ({}) that doesn't exist in the original ROM.\n", cur_func.name, hooked_function_name);
+                        return {};
+                    }
+
+                    // Check that the reference symbol is actually a function.
+                    const auto& reference_symbol = input_context.get_reference_symbol(cur_reference);
+                    if (!reference_symbol.is_function) {
+                        fmt::print(stderr, "Function {0} hooks {1}, but {1} was a variable in the original ROM.\n", cur_func.name, hooked_function_name);
+                        return {};
+                    }
+
+                    uint32_t reference_section_vram = input_context.get_reference_section_vram(reference_symbol.section_index);
+                    uint32_t reference_section_rom = input_context.get_reference_section_rom(reference_symbol.section_index);
+
+                    // Add a replacement for this function to the output context.
+                    ret.hooks.emplace_back(
+                        N64Recomp::FunctionHook {
+                            .func_index = (uint32_t)output_func_index,
+                            .original_section_vrom = reference_section_rom,
+                            .original_vram = reference_section_vram + reference_symbol.section_offset,
+                            .flags = hook_return_section ? N64Recomp::HookFlags::AtReturn : N64Recomp::HookFlags{}
                         }
                     );
                 }

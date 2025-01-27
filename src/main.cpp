@@ -199,7 +199,7 @@ void dump_context(const N64Recomp::Context& context, const std::unordered_map<ui
                 for (const N64Recomp::Reloc& reloc : section.relocs) {
                     if (reloc.target_section == section_index || reloc.target_section == section.bss_section_index) {
                         // TODO allow emitting MIPS32 relocs for specific sections via a toml option for TLB mapping support.
-                        if (reloc.type == N64Recomp::RelocType::R_MIPS_HI16 || reloc.type == N64Recomp::RelocType::R_MIPS_LO16) {
+                        if (reloc.type == N64Recomp::RelocType::R_MIPS_HI16 || reloc.type == N64Recomp::RelocType::R_MIPS_LO16 || reloc.type == N64Recomp::RelocType::R_MIPS_26) {
                             fmt::print(func_context_file, "    {{ type = \"{}\", vram = 0x{:08X}, target_vram = 0x{:08X} }},\n",
                                 reloc_names[static_cast<int>(reloc.type)], reloc.address, reloc.target_section_offset + section.ram_addr);
                         }
@@ -536,7 +536,7 @@ int main(int argc, char** argv) {
     }
 
     // Apply any function hooks.
-    for (const N64Recomp::FunctionHook& patch : config.function_hooks) {
+    for (const N64Recomp::FunctionTextHook& patch : config.function_hooks) {
         // Check if the specified function exists.
         auto func_find = context.functions_by_name.find(patch.func_name);
         if (func_find == context.functions_by_name.end()) {
@@ -866,13 +866,6 @@ int main(int argc, char** argv) {
         );
     }
 
-    fmt::print(func_header_file,
-        "\n"
-        "#ifdef __cplusplus\n"
-        "}}\n"
-        "#endif\n"
-    );
-
     {
         std::ofstream overlay_file(config.output_func_path / "recomp_overlays.inl");
         std::string section_load_table = "static SectionTableEntry section_table[] = {\n";
@@ -891,6 +884,7 @@ int main(int argc, char** argv) {
         for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
             const auto& section = context.sections[section_index];
             const auto& section_funcs = context.section_functions[section_index];
+            const auto& section_relocs = section.relocs;
 
             if (section.has_mips32_relocs || !section_funcs.empty()) {
                 std::string_view section_name_trimmed{ section.name };
@@ -904,21 +898,66 @@ int main(int argc, char** argv) {
                 }
 
                 std::string section_funcs_array_name = fmt::format("section_{}_{}_funcs", section_index, section_name_trimmed);
+                std::string section_relocs_array_name = section_relocs.empty() ? "nullptr" : fmt::format("section_{}_{}_relocs", section_index, section_name_trimmed);
+                std::string section_relocs_array_size = section_relocs.empty() ? "0" : fmt::format("ARRLEN({})", section_relocs_array_name);
 
-                section_load_table += fmt::format("    {{ .rom_addr = 0x{0:08X}, .ram_addr = 0x{1:08X}, .size = 0x{2:08X}, .funcs = {3}, .num_funcs = ARRLEN({3}), .index = {4} }},\n",
-                                                  section.rom_addr, section.ram_addr, section.size, section_funcs_array_name, section_index);
+                // Write the section's table entry.
+                section_load_table += fmt::format("    {{ .rom_addr = 0x{0:08X}, .ram_addr = 0x{1:08X}, .size = 0x{2:08X}, .funcs = {3}, .num_funcs = ARRLEN({3}), .relocs = {4}, .num_relocs = {5}, .index = {6} }},\n",
+                                                  section.rom_addr, section.ram_addr, section.size, section_funcs_array_name,
+                                                  section_relocs_array_name, section_relocs_array_size, section_index);
 
+                // Write the section's functions.
                 fmt::print(overlay_file, "static FuncEntry {}[] = {{\n", section_funcs_array_name);
 
                 for (size_t func_index : section_funcs) {
                     const auto& func = context.functions[func_index];
+                    size_t func_size = func.reimplemented ? 0 : func.words.size() * sizeof(func.words[0]);
 
                     if (func.reimplemented || (!func.name.empty() && !func.ignored && func.words.size() != 0)) {
-                        fmt::print(overlay_file, "    {{ .func = {}, .offset = 0x{:08x} }},\n", func.name, func.rom - section.rom_addr);
+                        fmt::print(overlay_file, "    {{ .func = {}, .offset = 0x{:08X}, .rom_size = 0x{:08X} }},\n",
+                            func.name, func.rom - section.rom_addr, func_size);
                     }
                 }
 
                 fmt::print(overlay_file, "}};\n");
+
+                // Write the section's relocations.
+                if (!section_relocs.empty()) {
+                    // Determine if reference symbols are being used.
+                    bool reference_symbol_mode = !config.func_reference_syms_file_path.empty();
+
+                    fmt::print(overlay_file, "static RelocEntry {}[] = {{\n", section_relocs_array_name);
+
+                    for (const N64Recomp::Reloc& reloc : section_relocs) {
+                        bool emit_reloc = false;
+                        uint16_t target_section = reloc.target_section;
+                        // In reference symbol mode, only emit relocations into the table that point to
+                        // non-absolute reference symbols, events, or manual patch symbols.
+                        if (reference_symbol_mode) {
+                            bool manual_patch_symbol = N64Recomp::is_manual_patch_symbol(reloc.target_section_offset);
+                            bool is_absolute = reloc.target_section == N64Recomp::SectionAbsolute;
+                            emit_reloc = (reloc.reference_symbol && !is_absolute) || target_section == N64Recomp::SectionEvent || manual_patch_symbol;
+                        }
+                        // Otherwise, emit all relocs.
+                        else {
+                            emit_reloc = true;
+                        }
+                        if (emit_reloc) {
+                            uint32_t target_section_offset;
+                            if (reloc.target_section == N64Recomp::SectionEvent) {
+                                target_section_offset = reloc.symbol_index;
+                            }
+                            else {
+                                target_section_offset = reloc.target_section_offset;
+                            }
+                            fmt::print(overlay_file, "    {{ .offset = 0x{:08X}, .target_section_offset = 0x{:08X}, .target_section = {}, .type = {} }}, \n",
+                                reloc.address - section.ram_addr, target_section_offset, reloc.target_section, reloc_names[static_cast<size_t>(reloc.type)] );
+                        }
+                    }
+
+                    fmt::print(overlay_file, "}};\n");
+                }
+
                 written_sections++;
             }
         }
@@ -982,8 +1021,44 @@ int main(int argc, char** argv) {
             // Add a dummy element at the end to ensure the array has a valid length because C doesn't allow zero-size arrays.
             fmt::print(overlay_file, "    NULL\n");
             fmt::print(overlay_file, "}};\n");
+
+            // Collect manual patch symbols.
+            std::vector<std::pair<uint32_t, std::string>> manual_patch_syms{};
+
+            for (const auto& func : context.functions) {
+                if (func.words.empty() && N64Recomp::is_manual_patch_symbol(func.vram)) {
+                    manual_patch_syms.emplace_back(func.vram, func.name);
+                }
+            }            
+
+            // Sort the manual patch symbols by vram.
+            std::sort(manual_patch_syms.begin(), manual_patch_syms.end(), [](const auto& lhs, const auto& rhs) {
+                return lhs.first < rhs.first;
+            });
+
+            // Emit the manual patch symbols.
+            fmt::print(overlay_file,
+                "\n"
+                "static const ManualPatchSymbol manual_patch_symbols[] = {{\n"
+            );
+            for (const auto& manual_patch_sym_entry : manual_patch_syms) {
+                fmt::print(overlay_file, "    {{ 0x{:08X}, {} }},\n", manual_patch_sym_entry.first, manual_patch_sym_entry.second);
+
+                fmt::print(func_header_file,
+                    "void {}(uint8_t* rdram, recomp_context* ctx);\n", manual_patch_sym_entry.second);
+            }
+            // Add a dummy element at the end to ensure the array has a valid length because C doesn't allow zero-size arrays.
+            fmt::print(overlay_file, "    {{ 0, NULL }}\n");
+            fmt::print(overlay_file, "}};\n");
         }
     }
+
+    fmt::print(func_header_file,
+        "\n"
+        "#ifdef __cplusplus\n"
+        "}}\n"
+        "#endif\n"
+    );
 
     if (!config.output_binary_path.empty()) {
         std::ofstream output_binary{config.output_binary_path, std::ios::binary};
