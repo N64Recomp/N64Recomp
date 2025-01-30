@@ -104,10 +104,10 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
 
                 if (section_index < context.sections.size()) {
                     auto section_offset = value - elf_file.sections[section_index]->get_address();
-                    const uint32_t* words = reinterpret_cast<const uint32_t*>(elf_file.sections[section_index]->get_data() + section_offset);
                     uint32_t vram = static_cast<uint32_t>(value);
                     uint32_t num_instructions = type == ELFIO::STT_FUNC ? size / 4 : 0;
                     uint32_t rom_address = static_cast<uint32_t>(section_offset + section.rom_addr);
+                    const uint32_t* words = reinterpret_cast<const uint32_t*>(context.rom.data() + rom_address);
 
                     section.function_addrs.push_back(vram);
                     context.functions_by_vram[vram].push_back(context.functions.size());
@@ -551,6 +551,36 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                     return a.address < b.address;
                 }
             );
+
+            // Patch the ROM word for HI16 and LO16 reference symbol relocs to non-relocatable sections.
+            for (size_t i = 0; i < section_out.relocs.size(); i++) {
+                auto& reloc = section_out.relocs[i];
+                if (reloc.reference_symbol && (reloc.type == N64Recomp::RelocType::R_MIPS_HI16 || reloc.type == N64Recomp::RelocType::R_MIPS_LO16)) {
+                    bool target_section_relocatable = context.is_reference_section_relocatable(reloc.target_section);
+                    if (!target_section_relocatable) {
+                        uint32_t reloc_rom_addr = reloc.address - section_out.ram_addr + section_out.rom_addr;
+                        uint32_t reloc_rom_word = byteswap(*reinterpret_cast<const uint32_t*>(context.rom.data() + reloc_rom_addr));
+
+                        uint32_t ref_section_vram = context.get_reference_section_vram(reloc.target_section);
+                        uint32_t full_immediate = reloc.target_section_offset + ref_section_vram;
+
+                        uint32_t imm;
+
+                        if (reloc.type == N64Recomp::RelocType::R_MIPS_HI16) {
+                            imm = (full_immediate >> 16) + ((full_immediate >> 15) & 1);
+                        }
+                        else {
+                            imm = full_immediate & 0xFFFF;
+                        }
+
+                        *reinterpret_cast<uint32_t*>(context.rom.data() + reloc_rom_addr) = byteswap(reloc_rom_word | imm);
+                        // Remove the reloc by setting it to a type of NONE.
+                        reloc.type = N64Recomp::RelocType::R_MIPS_NONE;
+                        reloc.reference_symbol = false;
+                        reloc.symbol_index = (uint32_t)-1;
+                    }
+                }
+            }
         }
     }
 
