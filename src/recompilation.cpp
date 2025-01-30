@@ -184,19 +184,10 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                     reloc_reference_symbol = reloc.symbol_index;
                     // Don't try to relocate special section symbols.
                     if (context.is_regular_reference_section(reloc.target_section) || reloc_section == N64Recomp::SectionAbsolute) {
+                        // TODO this may not be needed anymore as HI16/LO16 relocs to non-relocatable sections is handled directly in elf parsing.
                         bool ref_section_relocatable = context.is_reference_section_relocatable(reloc.target_section);
                         // Resolve HI16 and LO16 reference symbol relocs to non-relocatable sections by patching the instruction immediate.
                         if (!ref_section_relocatable && (reloc_type == N64Recomp::RelocType::R_MIPS_HI16 || reloc_type == N64Recomp::RelocType::R_MIPS_LO16)) {
-                            uint32_t ref_section_vram = context.get_reference_section_vram(reloc.target_section);
-                            uint32_t full_immediate = reloc.target_section_offset + ref_section_vram;
-
-                            if (reloc_type == N64Recomp::RelocType::R_MIPS_HI16) {
-                                imm = (full_immediate >> 16) + ((full_immediate >> 15) & 1);
-                            }
-                            else if (reloc_type == N64Recomp::RelocType::R_MIPS_LO16) {
-                                imm = full_immediate & 0xFFFF;
-                            }
-
                             // The reloc has been processed, so set it to none to prevent it getting processed a second time during instruction code generation.
                             reloc_type = N64Recomp::RelocType::R_MIPS_NONE;
                             reloc_reference_symbol = (size_t)-1;
