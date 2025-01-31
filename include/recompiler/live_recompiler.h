@@ -141,6 +141,16 @@ namespace N64Recomp {
 
     void live_recompiler_init();
     bool recompile_function_live(LiveGenerator& generator, const Context& context, size_t function_index, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs);
+
+    class ShimFunction {
+    private:
+        void* code;
+        recomp_func_t* func;
+    public:
+        ShimFunction(recomp_func_ext_t* to_shim, uintptr_t value);
+        ~ShimFunction();
+        recomp_func_t* get_func() { return func; }
+    };
 }
 
 #endif

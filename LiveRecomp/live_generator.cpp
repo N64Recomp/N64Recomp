@@ -1896,3 +1896,29 @@ bool N64Recomp::recompile_function_live(LiveGenerator& generator, const Context&
     return recompile_function_custom(generator, context, function_index, output_file, static_funcs_out, tag_reference_relocs);
 }
 
+N64Recomp::ShimFunction::ShimFunction(recomp_func_ext_t* to_shim, uintptr_t value) {
+    sljit_compiler* compiler = sljit_create_compiler(nullptr);
+
+    // Create the function.
+    sljit_label* func_label = sljit_emit_label(compiler);
+    sljit_emit_enter(compiler, 0, SLJIT_ARGS2V(P_R, P_R), 3, 0, 0);
+
+    // Move the provided value into the third argument.
+    sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, sljit_sw(value));
+
+    // Tail call the provided function.
+    sljit_emit_icall(compiler, SLJIT_CALL | SLJIT_CALL_RETURN, SLJIT_ARGS3V(P, P, W), SLJIT_IMM, sljit_sw(to_shim));
+
+    // Generate the function's code and get the address to the function.
+    code = sljit_generate_code(compiler, 0, nullptr);
+    func = reinterpret_cast<recomp_func_t*>(sljit_get_label_addr(func_label));
+
+    // Cleanup.
+    sljit_free_compiler(compiler);
+}
+
+N64Recomp::ShimFunction::~ShimFunction() {
+    sljit_free_code(code, nullptr);
+    code = nullptr;
+    func = nullptr;
+}

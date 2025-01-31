@@ -439,7 +439,11 @@ gpr cop0_status_read(recomp_context* ctx);
 void switch_error(const char* func, uint32_t vram, uint32_t jtbl);
 void do_break(uint32_t vram);
 
+// The function signature for all recompiler output functions.
 typedef void (recomp_func_t)(uint8_t* rdram, recomp_context* ctx);
+// The function signature for special functions that need a third argument.
+// These get called via generated shims to allow providing some information about the caller, such as mod id.
+typedef void (recomp_func_ext_t)(uint8_t* rdram, recomp_context* ctx, uintptr_t arg);
 
 recomp_func_t* get_function(int32_t vram);
 
