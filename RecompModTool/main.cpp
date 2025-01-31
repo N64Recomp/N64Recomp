@@ -32,6 +32,7 @@ struct ModManifest {
     std::string game_id;
     std::string minimum_recomp_version;
     std::unordered_map<std::string, std::vector<std::string>> native_libraries;
+    std::vector<toml::table> config_options;
     std::vector<std::string> dependencies;
     std::vector<std::string> full_dependency_strings;
 };
@@ -218,6 +219,11 @@ static std::vector<std::filesystem::path> get_toml_path_array(const toml::array&
     return ret;
 }
 
+bool validate_config_option(const toml::table& option) {
+    // TODO config option validation.
+    return true;
+}
+
 ModManifest parse_mod_config_manifest(const std::filesystem::path& basedir, const toml::table& manifest_table) {
     ModManifest ret;
 
@@ -313,6 +319,23 @@ ModManifest parse_mod_config_manifest(const std::filesystem::path& basedir, cons
             }
             else {
                 throw toml::parse_error("Invalid type for dependency entry", el.source());
+            }
+        });
+    }
+
+    // Config schema (optional)
+    const toml::array& config_options_array = read_toml_array(manifest_table, "config_options", false);
+    if (!config_options_array.empty()) {
+        ret.config_options.reserve(config_options_array.size());
+        config_options_array.for_each([&ret](const auto& el) {
+            if constexpr (toml::is_table<decltype(el)>) {
+                if (!validate_config_option(el)) {
+                    throw toml::parse_error("Invalid config option", el.source());
+                }
+                ret.config_options.emplace_back(el);
+            }
+            else {
+                throw toml::parse_error("Invalid type for config option", el.source());
             }
         });
     }
@@ -482,6 +505,14 @@ void write_manifest(const std::filesystem::path& path, const ModManifest& manife
 
     if (!manifest.full_dependency_strings.empty()) {
         output_data.emplace("dependencies", string_vector_to_toml(manifest.full_dependency_strings));
+    }
+
+    if (!manifest.config_options.empty()) {
+        toml::array options_array{};
+        for (const auto& option : manifest.config_options) {
+            options_array.emplace_back(option);
+        }
+        output_data.emplace("config_schema", toml::table{{"options", std::move(options_array)}});
     }
 
     toml::json_formatter formatter{output_data, toml::format_flags::indentation | toml::format_flags::indentation};
