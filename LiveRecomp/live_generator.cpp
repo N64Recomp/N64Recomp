@@ -1563,8 +1563,14 @@ void N64Recomp::LiveGenerator::emit_switch(const Context& recompiler_context, co
         // Get the relocated address of the jump table.
         uint32_t section_offset = jtbl.vram - jtbl_section.ram_addr;
 
+        // Get the section index to use for relocation at runtime.
+        uint16_t reloc_section_index = jtbl.section_index;
+        if (!inputs.original_section_indices.empty()) {
+            reloc_section_index = inputs.original_section_indices[reloc_section_index];
+        }
+
         // Populate the necessary fields of the dummy context and load the relocated address into temp2.
-        dummy_context.reloc_section_index = jtbl.section_index;
+        dummy_context.reloc_section_index = reloc_section_index;
         dummy_context.reloc_target_section_offset = section_offset;
         load_relocated_address(dummy_context, Registers::arithmetic_temp2);
 
