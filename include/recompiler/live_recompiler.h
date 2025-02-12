@@ -83,6 +83,9 @@ namespace N64Recomp {
         std::unordered_map<size_t, size_t> entry_func_hooks;
         // Maps function index in recompiler context to function's return hook slot.
         std::unordered_map<size_t, size_t> return_func_hooks;
+        // Maps section index in the generated code to original section index. Used by regenerated
+        // code to relocate using the corresponding original section's address.
+        std::vector<size_t> original_section_indices;
     };
     class LiveGenerator final : public Generator {
     public:
