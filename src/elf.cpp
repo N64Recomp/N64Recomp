@@ -368,8 +368,8 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                 ELFIO::relocation_section_accessor rel_accessor{ elf_file, reloc_find->second };
                 // Allocate space for the relocs in this section
                 section_out.relocs.resize(rel_accessor.get_entries_num());
-                // Track whether the previous reloc was a HI16 and its previous full_immediate
-                bool prev_hi = false;
+                // Track consecutive identical HI16 relocs to handle the GNU extension to the o32 ABI.
+                int prev_hi_count = 0;
                 // Track whether the previous reloc was a LO16
                 bool prev_lo = false;
                 uint32_t prev_hi_immediate = 0;
@@ -462,7 +462,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                         uint32_t rel_immediate = reloc_rom_word & 0xFFFF;
                         uint32_t full_immediate = (prev_hi_immediate << 16) + (int16_t)rel_immediate;
                         reloc_out.target_section_offset = full_immediate + rel_symbol_offset - rel_section_vram;
-                        if (prev_hi) {
+                        if (prev_hi_count != 0) {
                             if (prev_hi_symbol != rel_symbol) {
                                 fmt::print(stderr, "Paired HI16 and LO16 relocations have different symbols\n"
                                                     "  LO16 reloc index {} in section {} referencing symbol {} with offset 0x{:08X}\n",
@@ -470,8 +470,12 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                                 return nullptr;
                             }
 
-                            // Set the previous HI16 relocs' relocated address.
-                            section_out.relocs[i - 1].target_section_offset = reloc_out.target_section_offset;
+                            // Set the previous HI16 relocs' relocated addresses.
+                            for (size_t paired_index = i - prev_hi_count; paired_index < i; paired_index++) {
+                                uint32_t hi_immediate = section_out.relocs[paired_index].target_section_offset;
+                                uint32_t paired_full_immediate = hi_immediate + (int16_t)rel_immediate;
+                                section_out.relocs[paired_index].target_section_offset = paired_full_immediate + rel_symbol_offset - rel_section_vram;
+                            }
                         }
                         else {
                             // Orphaned LO16 reloc warnings.
@@ -495,7 +499,8 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
                         }
                         prev_lo = true;
                     } else {
-                        if (prev_hi) {
+                        // Allow a HI16 to follow another HI16 for the GNU ABI extension.
+                        if (reloc_out.type != N64Recomp::RelocType::R_MIPS_HI16 && prev_hi_count != 0) {
                             // This is an invalid elf as the MIPS System V ABI documentation states:
                             // "Each relocation type of R_MIPS_HI16 must have an associated R_MIPS_LO16 entry
                             // immediately following it in the list of relocations."
@@ -508,11 +513,26 @@ ELFIO::section* read_sections(N64Recomp::Context& context, const N64Recomp::ElfP
 
                     if (reloc_out.type == N64Recomp::RelocType::R_MIPS_HI16) {
                         uint32_t rel_immediate = reloc_rom_word & 0xFFFF;
-                        prev_hi = true;
-                        prev_hi_immediate = rel_immediate;
-                        prev_hi_symbol = rel_symbol;
+                        // First HI16, store its immediate.
+                        if (prev_hi_count == 0) {
+                            prev_hi_immediate = rel_immediate;
+                            prev_hi_symbol = rel_symbol;
+                        }
+                        // HI16 that follows another HI16, ensure they reference the same symbol.
+                        else {
+                            if (prev_hi_symbol != rel_symbol) {
+                                fmt::print(stderr, "HI16 reloc (index {} symbol {} offset 0x{:08X}) follows another HI16 reloc with a different symbol (index {} symbol {} offset 0x{:08X}) in section {}\n",
+                                    i, rel_symbol, section_out.relocs[i].address,
+                                    i - 1, prev_hi_symbol, section_out.relocs[i - 1].address,
+                                    section_out.name);
+                                return nullptr;
+                            }
+                        }
+                        // Populate the reloc temporarily, the full offset will be calculated upon pairing.
+                        reloc_out.target_section_offset = rel_immediate << 16;
+                        prev_hi_count++;
                     } else {
-                        prev_hi = false;
+                        prev_hi_count = 0;
                     }
 
                     if (reloc_out.type == N64Recomp::RelocType::R_MIPS_32) {
