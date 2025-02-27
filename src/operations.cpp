@@ -9,6 +9,8 @@ namespace N64Recomp {
         { InstrId::cpu_mflo, { UnaryOpType::None, Operand::Rd, Operand::Lo } },
         { InstrId::cpu_mtc1, { UnaryOpType::None, Operand::FsU32L, Operand::Rt } },
         { InstrId::cpu_mfc1, { UnaryOpType::ToInt32, Operand::Rt, Operand::FsU32L } },
+        { InstrId::cpu_dmtc1, { UnaryOpType::None, Operand::FsU64, Operand::Rt } },
+        { InstrId::cpu_dmfc1, { UnaryOpType::None, Operand::Rt, Operand::FsU64 } },
         // Float operations
         { InstrId::cpu_mov_s,     { UnaryOpType::None,           Operand::Fd,       Operand::Fs,       true } },
         { InstrId::cpu_mov_d,     { UnaryOpType::None,           Operand::FdDouble, Operand::FsDouble, true } },
