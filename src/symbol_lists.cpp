@@ -58,6 +58,7 @@ const std::unordered_set<std::string> N64Recomp::reimplemented_funcs {
     // Parallel interface (cartridge, DMA, etc.) functions
     "osCartRomInit",
     "osCreatePiManager",
+    "osPiReadIo",
     "osPiStartDma",
     "osEPiStartDma",
     "osPiGetStatus",
@@ -268,7 +269,6 @@ const std::unordered_set<std::string> N64Recomp::ignored_funcs {
     "__osDevMgrMain",
     "osPiGetCmdQueue",
     "osPiGetStatus",
-    "osPiReadIo",
     "osPiStartDma",
     "osPiWriteIo",
     "osEPiGetDeviceType",
