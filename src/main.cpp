@@ -280,10 +280,13 @@ int main(int argc, char** argv) {
             dumping_context = true;
         } else {
             fmt::print("Usage: {} <config file> [--dump-context]\n", argv[0]);
-            std::exit(EXIT_SUCCESS);
+            std::exit(EXIT_FAILURE);
         }
-    } else {
+    } else if (argc >= 2) {
         dumping_context = false;
+    } else {
+        fmt::print("Usage: {} <config file> [--dump-context]\n", argv[0]);
+        std::exit(EXIT_FAILURE);
     }
 
     const char* config_path = argv[1];
