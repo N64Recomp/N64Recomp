@@ -978,7 +978,7 @@ bool create_mod_zip(const std::filesystem::path& output_dir, const ModConfig& co
         temp_zip_path.string(), (output_dir / symbol_filename).string(), (output_dir / binary_filename).string(), (output_dir / manifest_filename).string());
 
     for (const auto& cur_file : config.inputs.additional_files) {
-        command_string += fmt::format(",\"{}\"", cur_file.string());
+        command_string += fmt::format(",'{}'", cur_file.string());
     }
 
     STARTUPINFOA si{};
