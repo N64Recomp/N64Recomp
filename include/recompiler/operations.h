@@ -204,10 +204,18 @@ namespace N64Recomp {
         bool likely;
     };
 
+    struct TrapOp {
+        // The type of binary operation to use for this compare
+        BinaryOpType comparison;
+        // The input operands.
+        BinaryOperands operands;
+    };
+
     extern const std::unordered_map<InstrId, UnaryOp> unary_ops;
     extern const std::unordered_map<InstrId, BinaryOp> binary_ops;
     extern const std::unordered_map<InstrId, ConditionalBranchOp> conditional_branch_ops;
     extern const std::unordered_map<InstrId, StoreOp> store_ops;
+    extern const std::unordered_map<InstrId, TrapOp> trap_ops;
 }
 
 #endif
