@@ -35,6 +35,8 @@ struct ModManifest {
     std::vector<toml::table> config_options;
     std::vector<std::string> dependencies;
     std::vector<std::string> full_dependency_strings;
+    std::vector<std::string> optional_dependencies;
+    std::vector<std::string> full_optional_dependency_strings;
 };
 
 struct ModInputs {
@@ -323,6 +325,31 @@ ModManifest parse_mod_config_manifest(const std::filesystem::path& basedir, cons
         });
     }
 
+    // Optional dependency list (optional)
+    const toml::array& optional_dependency_array = read_toml_array(manifest_table, "optional_dependencies", false);
+    if (!optional_dependency_array.empty()) {
+        // Reserve room for all the dependencies.
+        ret.dependencies.reserve(optional_dependency_array.size());
+        optional_dependency_array.for_each([&ret](const auto& el) {
+            if constexpr (toml::is_string<decltype(el)>) {
+                size_t dependency_id_length;
+                bool dependency_version_has_label;
+                if (!validate_dependency_string(el.template ref<std::string>(), dependency_id_length, dependency_version_has_label)) {
+                    throw toml::parse_error("Invalid optional dependency entry", el.source());
+                }
+                if (dependency_version_has_label) {
+                    throw toml::parse_error("Dependency versions may not have labels", el.source());
+                }
+                std::string dependency_id = el.template ref<std::string>().substr(0, dependency_id_length);
+                ret.optional_dependencies.emplace_back(dependency_id);
+                ret.full_optional_dependency_strings.emplace_back(el.template ref<std::string>());
+            }
+            else {
+                throw toml::parse_error("Invalid type for optional dependency entry", el.source());
+            }
+        });
+    }
+
     // Config schema (optional)
     const toml::array& config_options_array = read_toml_array(manifest_table, "config_options", false);
     if (!config_options_array.empty()) {
@@ -505,6 +532,10 @@ void write_manifest(const std::filesystem::path& path, const ModManifest& manife
 
     if (!manifest.full_dependency_strings.empty()) {
         output_data.emplace("dependencies", string_vector_to_toml(manifest.full_dependency_strings));
+    }
+
+    if (!manifest.full_optional_dependency_strings.empty()) {
+        output_data.emplace("optional_dependencies", string_vector_to_toml(manifest.full_optional_dependency_strings));
     }
 
     if (!manifest.config_options.empty()) {
@@ -1138,8 +1169,9 @@ int main(int argc, const char** argv) {
         }
     }
 
-    // Copy the dependencies from the config into the context.
+    // Copy the dependencies and optional dependencies from the config into the context.
     context.add_dependencies(config.manifest.dependencies);
+    context.add_dependencies(config.manifest.optional_dependencies);
 
     N64Recomp::ElfParsingConfig elf_config {
         .bss_section_suffix = {},

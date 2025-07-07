@@ -233,6 +233,8 @@ namespace N64Recomp {
         //// Mod dependencies and their symbols
         
         //// Imported values
+        // Dependency names.
+        std::vector<std::string> dependencies;
         // Mapping of dependency name to dependency index.
         std::unordered_map<std::string, size_t> dependencies_by_name;
         // List of symbols imported from dependencies.
@@ -276,6 +278,7 @@ namespace N64Recomp {
 
             size_t dependency_index = dependencies_by_name.size();
 
+            dependencies.emplace_back(id);
             dependencies_by_name.emplace(id, dependency_index);
             dependency_events_by_name.resize(dependencies_by_name.size());
             dependency_imports_by_name.resize(dependencies_by_name.size());
@@ -295,6 +298,7 @@ namespace N64Recomp {
 
             for (const std::string& dep : new_dependencies) {
                 size_t dependency_index = dependencies_by_name.size();
+                dependencies.emplace_back(dep);
                 dependencies_by_name.emplace(dep, dependency_index);
             }
 
