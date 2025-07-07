@@ -1005,11 +1005,11 @@ bool create_mod_zip(const std::filesystem::path& output_dir, const ModConfig& co
 #ifdef _WIN32
     std::filesystem::path temp_zip_path = output_path;
     temp_zip_path.replace_extension(".zip");
-    std::string command_string = fmt::format("powershell -command Compress-Archive -Force -CompressionLevel Optimal -DestinationPath \"{}\" -Path \"{}\",\"{}\",\"{}\"",
+    std::string command_string = fmt::format("powershell -command Compress-Archive -Force -CompressionLevel Optimal -DestinationPath '{}' -Path '{}','{}','{}'",
         temp_zip_path.string(), (output_dir / symbol_filename).string(), (output_dir / binary_filename).string(), (output_dir / manifest_filename).string());
 
     for (const auto& cur_file : config.inputs.additional_files) {
-        command_string += fmt::format(",\"{}\"", cur_file.string());
+        command_string += fmt::format(",'{}'", cur_file.string());
     }
 
     STARTUPINFOA si{};
