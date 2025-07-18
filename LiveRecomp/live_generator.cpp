@@ -774,6 +774,10 @@ void N64Recomp::LiveGenerator::process_binary_op(const BinaryOp& op, const Instr
         case BinaryOpType::LessEqDouble:
             do_float_compare_op(SLJIT_F_LESS_EQUAL, SLJIT_SET_F_LESS_EQUAL, true);
             break;
+        case BinaryOpType::False:
+            // Load 0 into condition destination
+            sljit_emit_op1(compiler, SLJIT_MOV, dst, dstw, SLJIT_IMM, 0);
+            break;
 
         // Loads
         case BinaryOpType::LD:
