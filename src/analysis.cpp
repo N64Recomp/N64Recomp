@@ -321,7 +321,13 @@ bool N64Recomp::analyze_function(const N64Recomp::Context& context, const N64Rec
         while (vram < end_address) {
             // Retrieve the current entry of the jump table
             // TODO same as above
+
+            // Stop scanning if the end of the ROM is reached.
             uint32_t rom_addr = vram + func.rom - func.vram;
+            if (rom_addr >= context.rom.size()) {
+                break;
+            }
+
             uint32_t jtbl_word = byteswap(*reinterpret_cast<const uint32_t*>(&context.rom[rom_addr]));
 
             if (cur_jtbl.got_offset.has_value() && got_ram_addr.has_value()) {
