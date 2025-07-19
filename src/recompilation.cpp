@@ -152,6 +152,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
     }
 
     N64Recomp::RelocType reloc_type = N64Recomp::RelocType::R_MIPS_NONE;
+    bool has_reloc = false;
     uint32_t reloc_section = 0;
     uint32_t reloc_target_section_offset = 0;
     size_t reloc_reference_symbol = (size_t)-1;
@@ -162,6 +163,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
 
     // Check if this instruction has a reloc.
     if (section.relocs.size() > 0 && section.relocs[reloc_index].address == instr_vram) {
+        has_reloc = true;
         // Get the reloc data for this instruction
         const auto& reloc = section.relocs[reloc_index];
         reloc_section = reloc.target_section;
@@ -257,7 +259,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         return true;
     };
 
-    auto print_func_call_by_address = [&generator, reloc_target_section_offset, reloc_section, reloc_reference_symbol, reloc_type, &context, &func, &static_funcs_out, &needs_link_branch, &print_indent, &process_delay_slot, &print_link_branch]
+    auto print_func_call_by_address = [&generator, reloc_target_section_offset, has_reloc, reloc_section, reloc_reference_symbol, reloc_type, &context, &func, &static_funcs_out, &needs_link_branch, &print_indent, &process_delay_slot, &print_link_branch]
         (uint32_t target_func_vram, bool tail_call = false, bool indent = false)
     {
         bool call_by_lookup = false;
@@ -294,7 +296,11 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                 }
             }
             else {
-                JalResolutionResult jal_result = resolve_jal(context, func.section_index, target_func_vram, matched_func_index);
+                uint32_t target_section = func.section_index;
+                if (has_reloc) {
+                    target_section = reloc_section;
+                }
+                JalResolutionResult jal_result = resolve_jal(context, target_section, target_func_vram, matched_func_index);
 
                 switch (jal_result) {
                     case JalResolutionResult::NoMatch:

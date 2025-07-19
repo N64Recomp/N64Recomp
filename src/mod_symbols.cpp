@@ -20,6 +20,11 @@ struct FileSubHeaderV1 {
     uint32_t string_data_size;
 };
 
+enum class SectionFlags : uint32_t {
+    FixedAddress = 1 << 0,
+    GloballyLoaded = 1 << 1,
+};
+
 struct SectionHeaderV1 {
     uint32_t flags;
     uint32_t file_offset;
@@ -172,9 +177,21 @@ bool parse_v1(std::span<const char> data, const std::unordered_map<uint32_t, uin
         cur_section.bss_size = section_header->bss_size;
         cur_section.name = "mod_section_" + std::to_string(section_index);
         cur_section.relocatable = true;
+        cur_section.fixed_address = (section_header->flags & static_cast<uint32_t>(SectionFlags::FixedAddress)) != 0;
+        cur_section.globally_loaded = (section_header->flags & static_cast<uint32_t>(SectionFlags::GloballyLoaded)) != 0;
+
+        if (cur_section.fixed_address && !cur_section.globally_loaded) {
+            printf("Fixed address sections that aren't globally loaded aren't currently supported\n");
+            return false;
+        }
+
+        if (cur_section.globally_loaded && !cur_section.fixed_address) {
+            printf("A globally loaded section must have a fixed address\n");
+            return false;
+        }
+
         uint32_t num_funcs = section_header->num_funcs;
         uint32_t num_relocs = section_header->num_relocs;
-
 
         const FuncV1* funcs = reinterpret_data<FuncV1>(data, offset, num_funcs);
         if (funcs == nullptr) {
