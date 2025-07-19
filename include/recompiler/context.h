@@ -104,6 +104,8 @@ namespace N64Recomp {
         bool executable = false;
         bool relocatable = false; // TODO is this needed? relocs being non-empty should be an equivalent check.
         bool has_mips32_relocs = false;
+        bool fixed_address = false; // Only used in mods, indicates that the section shouldn't be relocated or placed into mod memory.
+        bool globally_loaded = false; // Only used in mods, indicates that the section's functions should be globally loaded. Does not actually load the section's contents into ram.
         std::optional<uint32_t> got_ram_addr = std::nullopt;
     };
 
