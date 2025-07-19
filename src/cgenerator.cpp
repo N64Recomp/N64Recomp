@@ -550,6 +550,14 @@ void N64Recomp::CGenerator::emit_do_break(uint32_t instr_vram) const {
     fmt::print(output_file, "do_break({});\n", instr_vram);
 }
 
+void N64Recomp::CGenerator::emit_trap(const TrapOp& op, const InstructionContext& ctx, uint32_t instr_vram) const {
+    // Thread local variables to prevent allocations when possible.
+    // TODO these thread locals probably don't actually help right now, so figure out a better way to prevent allocations.
+    thread_local std::string expr_string{};
+    get_binary_expr_string(op.comparison, op.operands, ctx, "", expr_string);
+    fmt::print(output_file, "if ({}) {{\n    do_break({});\n}}\n", expr_string, instr_vram);
+}
+
 void N64Recomp::CGenerator::emit_pause_self() const {
     fmt::print(output_file, "pause_self(rdram);\n");
 }
