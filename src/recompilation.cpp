@@ -485,7 +485,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         needs_link_branch = true;
         // Save the jump target register value before executing the delay slot
         print_indent();
-        fmt::print(output_file, "auto jalr_target = ctx->r{};\n", rs);
+        fmt::print(output_file, "uint64_t jalr_target = ctx->r{};\n", rs);
         if (!process_delay_slot(false)) {
             return false;
         }
@@ -563,7 +563,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             fmt::print("[Info] Indirect tail call in {}\n", func.name);
             // Save the jump target register value before executing the delay slot
             print_indent();
-            fmt::print(output_file, "auto jr_target = ctx->r{};\n", rs);
+            fmt::print(output_file, "uint64_t jr_target = ctx->r{};\n", rs);
             if (!process_delay_slot(false)) {
                 return false;
             }
