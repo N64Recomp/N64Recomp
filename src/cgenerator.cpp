@@ -411,7 +411,15 @@ void N64Recomp::CGenerator::emit_function_call_lookup(uint32_t addr) const {
 }
 
 void N64Recomp::CGenerator::emit_function_call_by_register(int reg) const {
-    fmt::print(output_file, "LOOKUP_FUNC({})(rdram, ctx);\n", gpr_to_string(reg));
+    if (reg == -1) {
+        // Use the temp variable for jalr target
+        fmt::print(output_file, "LOOKUP_FUNC({})(rdram, ctx);\n", "jalr_target");
+    } else if (reg == -2) {
+        // Use the temp variable for jr target
+        fmt::print(output_file, "LOOKUP_FUNC({})(rdram, ctx);\n", "jr_target");
+    } else {
+        fmt::print(output_file, "LOOKUP_FUNC({})(rdram, ctx);\n", gpr_to_string(reg));
+    }
 }
 
 void N64Recomp::CGenerator::emit_function_call_reference_symbol(const Context& context, uint16_t section_index, size_t symbol_index, uint32_t target_section_offset) const {

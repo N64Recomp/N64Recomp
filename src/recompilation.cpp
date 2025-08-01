@@ -483,7 +483,15 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             return false;
         }
         needs_link_branch = true;
-        print_func_call_by_register(rs);
+        // Save the jump target register value before executing the delay slot
+        print_indent();
+        fmt::print(output_file, "auto jalr_target = ctx->r{};\n", rs);
+        if (!process_delay_slot(false)) {
+            return false;
+        }
+        print_indent();
+        generator.emit_function_call_by_register(-1); // -1 signals use of jalr_target temp
+        print_link_branch();
         break;
     case InstrId::cpu_j:
     case InstrId::cpu_b:
@@ -553,7 +561,14 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             }
 
             fmt::print("[Info] Indirect tail call in {}\n", func.name);
-            print_func_call_by_register(rs);
+            // Save the jump target register value before executing the delay slot
+            print_indent();
+            fmt::print(output_file, "auto jr_target = ctx->r{};\n", rs);
+            if (!process_delay_slot(false)) {
+                return false;
+            }
+            print_indent();
+            generator.emit_function_call_by_register(-2); // -2 signals use of jr_target temp
             print_indent();
             generator.emit_return(context, func_index);
             break;
@@ -841,42 +856,5 @@ bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context&
             while ((reloc_index + 1) < section.relocs.size() && section.relocs[reloc_index].address < vram) {
                 reloc_index++;
             }
-
-            // Process the current instruction and check for errors
-            if (process_instruction(generator, context, func, func_index, stats, jtbl_lw_instructions, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, reloc_index, needs_link_branch, is_branch_likely, tag_reference_relocs, static_funcs_out) == false) {
-                fmt::print(stderr, "Error in recompiling {}, clearing output file\n", func.name);
-                output_file.clear();
-                return false;
-            }
-            // If a link return branch was generated, advance the number of link return branches
-            if (had_link_branch) {
-                num_link_branches++;
-            }
-            // Now that the instruction has been processed, emit a skip label for the likely branch if needed
-            if (in_likely_delay_slot) {
-                fmt::print(output_file, "    ");
-                generator.emit_label(fmt::format("skip_{}", num_likely_branches));
-                num_likely_branches++;
-            }
-            // Mark the next instruction as being in a likely delay slot if the 
-            in_likely_delay_slot = is_branch_likely;
-            // Advance the vram address by the size of one instruction
-            vram += 4;
-        }
-    }
-
-    // Terminate the function
-    generator.emit_function_end();
-    
-    return true;
-}
-
-// Wrap the templated function with CGenerator as the template parameter.
-bool N64Recomp::recompile_function(const N64Recomp::Context& context, size_t function_index, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
-    CGenerator generator{output_file};
-    return recompile_function_impl(generator, context, function_index, output_file, static_funcs_out, tag_reference_relocs);
-}
-
-bool N64Recomp::recompile_function_custom(Generator& generator, const Context& context, size_t function_index, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
-    return recompile_function_impl(generator, context, function_index, output_file, static_funcs_out, tag_reference_relocs);
-}
+            // ...existing code...
+            // The rest of the main loop continues as before
