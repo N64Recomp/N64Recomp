@@ -745,6 +745,15 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         handled = true;
     }
 
+    auto find_trap_it = trap_ops.find(instr_id);
+    if (find_trap_it != trap_ops.end()) {
+        print_indent();
+        const TrapOp& op = find_trap_it->second;
+
+        generator.emit_trap(op, instruction_context, instr_vram);
+        handled = true;
+    }
+
     if (!handled) {
         fmt::print(stderr, "Unhandled instruction: {}\n", instr.getOpcodeName());
         return false;
