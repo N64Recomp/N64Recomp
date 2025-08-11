@@ -94,6 +94,7 @@ const std::unordered_set<std::string> N64Recomp::reimplemented_funcs {
     "osSetEventMesg",
     // Timer functions
     "osGetTime",
+    "osSetTime",
     "osSetTimer",
     "osStopTimer",
     // Voice functions
@@ -114,6 +115,7 @@ const std::unordered_set<std::string> N64Recomp::reimplemented_funcs {
     "osVirtualToPhysical",
     // Coprocessor 0/1 functions
     "osGetCount",
+    "osSetCount",
     "__osSetFpcCsr",
     // Cache funcs
     "osInvalDCache",
@@ -329,6 +331,7 @@ const std::unordered_set<std::string> N64Recomp::ignored_funcs {
     "osSetTimer",
     "osStopTimer",
     "osGetTime",
+    "osSetTime",
     "__osInsertTimer",
     "__osTimerInterrupt",
     "__osTimerServicesInit",
@@ -391,6 +394,7 @@ const std::unordered_set<std::string> N64Recomp::ignored_funcs {
     // Coprocessor 0/1 functions
     "__osSetCount",
     "osGetCount",
+    "osSetCount",
     "__osSetSR",
     "__osGetSR",
     "__osSetCause",
