@@ -297,7 +297,8 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             }
             else {
                 uint32_t target_section = func.section_index;
-                if (has_reloc) {
+                // If this instruction has a reloc and the target section is a normal section, use the section of the reloc when searching for a matching target function. 
+                if (has_reloc && reloc_section < 65500) {
                     target_section = reloc_section;
                 }
                 JalResolutionResult jal_result = resolve_jal(context, target_section, target_func_vram, matched_func_index);
