@@ -646,6 +646,11 @@ int main(int argc, char** argv) {
                         continue;
                     }
 
+                    // Ignore R_MIPS_NONE relocs, which get produced during symbol parsing for non-relocatable reference sections.
+                    if (reloc.type == N64Recomp::RelocType::R_MIPS_NONE) {
+                        continue;
+                    }
+
                     // Check if the reloc points to the event section.
                     if (reloc.target_section == event_section_index) {
                         // It does, so find the function it's pointing at.
