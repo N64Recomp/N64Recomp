@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <vector>
+#include <unordered_map>
 
 namespace N64Recomp {
     struct InstructionPatch {
@@ -42,6 +43,7 @@ namespace N64Recomp {
         bool single_file_output;
         bool use_absolute_symbols;
         bool unpaired_lo16_warnings;
+        bool use_mdebug;
         bool trace_mode;
         bool allow_exports;
         bool strict_patch_mode;
@@ -62,6 +64,11 @@ namespace N64Recomp {
         std::vector<ManualFunction> manual_functions;
         std::string bss_section_suffix;
         std::string recomp_include;
+        // Manual mappings of mdebug file records to elf sections.
+        std::unordered_map<std::string, std::string> mdebug_text_map;
+        std::unordered_map<std::string, std::string> mdebug_data_map;
+        std::unordered_map<std::string, std::string> mdebug_rodata_map;
+        std::unordered_map<std::string, std::string> mdebug_bss_map;
 
         Config(const char* path);
         bool good() { return !bad; }

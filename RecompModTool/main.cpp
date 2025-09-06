@@ -1181,7 +1181,8 @@ int main(int argc, const char** argv) {
         .entrypoint_address = 0,
         .use_absolute_symbols = false,
         .unpaired_lo16_warnings = false,
-        .all_sections_relocatable = true
+        .all_sections_relocatable = true,
+        .use_mdebug = false,
     };
     bool dummy_found_entrypoint;
     N64Recomp::DataSymbolMap dummy_syms_map;

@@ -129,11 +129,19 @@ namespace N64Recomp {
         std::unordered_map<std::string, size_t> manually_sized_funcs;
         // The section names that were specified as relocatable
         std::unordered_set<std::string> relocatable_sections;
+        // Symbols to ignore.
+        std::unordered_set<std::string> ignored_syms;
+        // Manual mappings of mdebug file records to elf sections.
+        std::unordered_map<std::string, std::string> mdebug_text_map;
+        std::unordered_map<std::string, std::string> mdebug_data_map;
+        std::unordered_map<std::string, std::string> mdebug_rodata_map;
+        std::unordered_map<std::string, std::string> mdebug_bss_map;
         bool has_entrypoint;
         int32_t entrypoint_address;
         bool use_absolute_symbols;
         bool unpaired_lo16_warnings;
         bool all_sections_relocatable;
+        bool use_mdebug;
     };
     
     struct DataSymbol {
