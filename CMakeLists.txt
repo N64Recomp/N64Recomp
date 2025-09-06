@@ -98,6 +98,7 @@ add_library(N64RecompElf)
 
 target_sources(N64RecompElf PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/elf.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/mdebug.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/symbol_lists.cpp
 )
 

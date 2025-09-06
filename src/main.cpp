@@ -310,6 +310,9 @@ int main(int argc, char** argv) {
     std::unordered_set<std::string> relocatable_sections{};
     relocatable_sections.insert(relocatable_sections_ordered.begin(), relocatable_sections_ordered.end());
 
+    std::unordered_set<std::string> ignored_syms_set{};
+    ignored_syms_set.insert(config.ignored_funcs.begin(), config.ignored_funcs.end());
+
     N64Recomp::Context context{};
     
     if (!config.elf_path.empty() && !config.symbols_file_path.empty()) {
@@ -347,11 +350,17 @@ int main(int argc, char** argv) {
         N64Recomp::ElfParsingConfig elf_config {
             .bss_section_suffix = config.bss_section_suffix,
             .relocatable_sections = std::move(relocatable_sections),
+            .ignored_syms = std::move(ignored_syms_set),
+            .mdebug_text_map = config.mdebug_text_map,
+            .mdebug_data_map = config.mdebug_data_map,
+            .mdebug_rodata_map = config.mdebug_rodata_map,
+            .mdebug_bss_map = config.mdebug_bss_map,
             .has_entrypoint = config.has_entrypoint,
             .entrypoint_address = config.entrypoint,
             .use_absolute_symbols = config.use_absolute_symbols,
             .unpaired_lo16_warnings = config.unpaired_lo16_warnings,
             .all_sections_relocatable = false,
+            .use_mdebug = config.use_mdebug,
         };
 
         for (const auto& func_size : config.manual_func_sizes) {
@@ -359,7 +368,9 @@ int main(int argc, char** argv) {
         }
 
         bool found_entrypoint_func;
-        N64Recomp::Context::from_elf_file(config.elf_path, context, elf_config, dumping_context, data_syms, found_entrypoint_func);
+        if (!N64Recomp::Context::from_elf_file(config.elf_path, context, elf_config, dumping_context, data_syms, found_entrypoint_func)) {
+            exit_failure("Failed to parse elf\n");
+        }
 
         // Add any manual functions
         add_manual_functions(context, config.manual_functions);
