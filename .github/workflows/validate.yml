@@ -15,7 +15,7 @@ jobs:
       matrix:
         type: [ Debug, Release ]
         # macos-13 is intel, macos-14 is arm, blaze/ubuntu-22.04 is arm
-        os: [ ubuntu-latest, windows-latest, macos-13, macos-14 ] #, blaze/ubuntu-22.04 ]
+        os: [ ubuntu-latest, windows-latest, macos-13, macos-14, blaze/ubuntu-22.04 ]
     name: ${{ matrix.os }} (${{ (matrix.os == 'macos-14' || matrix.os == 'blaze/ubuntu-22.04') && 'arm64' || 'x64' }}, ${{ matrix.type }})
     steps:
       - name: Checkout
