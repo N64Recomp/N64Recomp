@@ -19,6 +19,13 @@ namespace N64Recomp {
         std::string text;
     };
 
+    struct FunctionHookDefinition {
+        std::string func_name;
+        std::string hook_func_name;
+        int32_t before_vram;
+        bool before_call;  // If true, hook before function call; if false, hook at specific vram
+    };
+
     struct FunctionSize {
         std::string func_name;
         uint32_t size_bytes;
@@ -60,6 +67,7 @@ namespace N64Recomp {
         std::vector<std::string> renamed_funcs;
         std::vector<InstructionPatch> instruction_patches;
         std::vector<FunctionTextHook> function_hooks;
+        std::vector<FunctionHookDefinition> function_hook_definitions;
         std::vector<FunctionSize> manual_func_sizes;
         std::vector<ManualFunction> manual_functions;
         std::string bss_section_suffix;
