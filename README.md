@@ -11,6 +11,7 @@ This is not the first project that uses static recompilation on game console bin
 * [Function Hooks](#function-hooks)
 * [RSP Microcode Support](#rsp-microcode-support)
 * [Planned Features](#planned-features)
+* [Lua Output for Runtime Mod Support](#lua-output-for-runtime-mod-support)
 * [Building](#building)
 
 ## How it Works
@@ -90,7 +91,56 @@ RSP microcode can also be recompiled with this tool. Currently there is no suppo
 * Custom metadata format to provide symbol names, relocations, and any other necessary data in order to operate without an elf
 * Emitting multiple functions per output file to speed up compilation
 * Support for recording MIPS32 relocations to allow runtimes to relocate them for TLB mapping
-* Ability to recompile into a dynamic language (such as Lua) to be able to load code at runtime for mod support
+
+## Lua Output for Runtime Mod Support
+The recompiler now supports generating Lua code instead of C code, enabling dynamic loading of recompiled functions at runtime. This is particularly useful for mod support, allowing game modifications to be distributed as Lua scripts that can be loaded without recompiling the entire game.
+
+### How It Works
+When configured to output Lua, the recompiler translates MIPS instructions into functionally equivalent Lua code. The generated Lua functions maintain the same calling convention as the C recompiler output, taking `rdram` and `ctx` parameters that represent the emulated memory and CPU context.
+
+### Configuration
+To enable Lua output, add the following to your configuration toml:
+
+```toml
+[output]
+language = "lua"  # Options: "c" (default) or "lua"
+```
+
+### Example Usage
+Generated Lua functions can be loaded and executed at runtime:
+
+```lua
+-- Load a mod's recompiled functions
+local mod_functions = require("mod_custom_functions")
+
+-- Register the mod function to override or extend game behavior
+register_function_override("original_function_name", mod_functions.custom_function)
+
+-- The mod function will be called with the same context as C functions
+-- function custom_function(rdram, ctx)
+--     -- Access registers: ctx.r4, ctx.r5, etc.
+--     -- Access memory: lw(rdram, address, offset)
+--     -- Call other functions: some_function(rdram, ctx)
+-- end
+```
+
+### Runtime Requirements
+To use Lua-recompiled functions, your runtime must provide:
+- A Lua interpreter (LuaJIT recommended for performance)
+- Memory access functions (`lw`, `sw`, `lb`, `sb`, etc.)
+- Arithmetic helper functions for 32/64-bit operations
+- Context object with register access
+- Function lookup capability for cross-calling
+
+### Benefits
+- **Dynamic Mods**: Load new game logic without recompiling
+- **Hot Reload**: Update mod code while the game is running
+- **Easier Distribution**: Share mods as simple Lua scripts
+- **Sandboxing**: Isolate mod code from the main game
+- **Debugging**: Easier to debug and iterate on mod functionality
+
+### Performance Considerations
+Lua-recompiled functions will be slower than their C counterparts. For performance-critical code, consider using LuaJIT's FFI or keeping the main game logic in C while using Lua only for mod extensions.
 
 ## Building
 This project can be built with CMake 3.20 or above and a C++ compiler that supports C++20. This repo uses git submodules, so be sure to clone recursively (`git clone --recurse-submodules`) or initialize submodules recursively after cloning (`git submodule update --init --recursive`). From there, building is identical to any other cmake project, e.g. run `cmake` in the target build folder and point it at the root of this repo, then run `cmake --build .` from that target folder.

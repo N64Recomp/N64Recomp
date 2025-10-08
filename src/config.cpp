@@ -540,6 +540,24 @@ N64Recomp::Config::Config(const char* path) {
             trace_mode = false;
         }
 
+        // Parse output language option (optional, defaults to C)
+        std::optional<std::string> output_language_opt = input_data["output_language"].value<std::string>();
+        if (output_language_opt.has_value()) {
+            std::string lang_str = output_language_opt.value();
+            if (lang_str == "c" || lang_str == "C") {
+                output_language = N64Recomp::OutputLanguage::C;
+            } else if (lang_str == "lua" || lang_str == "Lua" || lang_str == "LUA") {
+                output_language = N64Recomp::OutputLanguage::Lua;
+            } else {
+                throw toml::parse_error(
+                    fmt::format("Invalid output_language '{}', must be 'c' or 'lua'", lang_str),
+                    input_data["output_language"].node()->source()
+                );
+            }
+        } else {
+            output_language = N64Recomp::OutputLanguage::C;  // Default to C
+        }
+
         // Function reference symbols file (optional)
         std::optional<std::string> func_reference_syms_file_opt = input_data["func_reference_syms_file"].value<std::string>();
         if (func_reference_syms_file_opt.has_value()) {

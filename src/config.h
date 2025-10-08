@@ -7,6 +7,11 @@
 #include <unordered_map>
 
 namespace N64Recomp {
+    enum class OutputLanguage {
+        C,
+        Lua
+    };
+
     struct InstructionPatch {
         std::string func_name;
         int32_t vram;
@@ -54,6 +59,7 @@ namespace N64Recomp {
         bool trace_mode;
         bool allow_exports;
         bool strict_patch_mode;
+        OutputLanguage output_language;
         std::filesystem::path elf_path;
         std::filesystem::path symbols_file_path;
         std::filesystem::path func_reference_syms_file_path;
