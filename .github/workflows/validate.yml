@@ -55,7 +55,7 @@ jobs:
         if: runner.os != 'Windows'
         uses: actions/upload-artifact@v4
         with:
-          name: BuildResults-${{ matrix.os }}-${{ matrix.type }}
+          name: RecompBuildArtifacts-${{ matrix.os }}-${{ matrix.type }}
           path: |
             ./cmake-build/LiveRecompTest
             ./cmake-build/N64Recomp
@@ -78,7 +78,7 @@ jobs:
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
-          name: BuildResults-${{ matrix.os }}-${{ matrix.type }}
+          name: RecompBuildArtifacts-${{ matrix.os }}-${{ matrix.type }}
           path: |
             ./cmake-build/LiveRecompTest.exe
             ./cmake-build/N64Recomp.exe
