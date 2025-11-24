@@ -51,6 +51,17 @@ jobs:
           
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.type }} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
           cmake --build cmake-build --config ${{ matrix.type }} --target N64Recomp -j $(nproc)
+      - name: Upload Build Artifacts (Unix)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BuildResults-${{ matrix.os }}-${{ matrix.type }}
+          path: |
+            ./cmake-build/LiveRecompTest
+            ./cmake-build/N64Recomp
+            ./cmake-build/OfflineModRecomp
+            ./cmake-build/RecompModTool
+            ./cmake-build/RSPRecomp
       - name: Build N64Recomp (Windows)
         if: runner.os == 'Windows'
         run: |-
@@ -63,3 +74,14 @@ jobs:
           
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.type }} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
           cmake --build cmake-build --config ${{ matrix.type }} --target N64Recomp -j $cpuCores
+      - name: Upload Build Artifacts (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BuildResults-${{ matrix.os }}-${{ matrix.type }}
+          path: |
+            ./cmake-build/LiveRecompTest.exe
+            ./cmake-build/N64Recomp.exe
+            ./cmake-build/OfflineModRecomp.exe
+            ./cmake-build/RecompModTool.exe
+            ./cmake-build/RSPRecomp.exe
