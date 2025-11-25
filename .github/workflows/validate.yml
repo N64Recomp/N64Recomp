@@ -50,7 +50,7 @@ jobs:
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
           
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.type }} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
-          cmake --build cmake-build --config ${{ matrix.type }}
+          cmake --build cmake-build --config ${{ matrix.type }} --target N64Recomp -j $(nproc)
       - name: Upload Build Artifacts (Unix)
         if: runner.os != 'Windows'
         uses: actions/upload-artifact@v4
