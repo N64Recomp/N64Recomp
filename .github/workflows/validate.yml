@@ -15,7 +15,7 @@ jobs:
       matrix:
         type: [ Debug, Release ]
         # macos-13 is intel, macos-14 is arm, blaze/ubuntu-22.04 is arm
-        os: [ ubuntu-latest, windows-latest, macos-13, macos-14, blaze/ubuntu-22.04 ]
+        os: [ ubuntu-latest, windows-latest, macos-15-intel, macos-14, blaze/ubuntu-22.04 ]
     name: ${{ matrix.os }} (${{ (matrix.os == 'macos-14' || matrix.os == 'blaze/ubuntu-22.04') && 'arm64' || 'x64' }}, ${{ matrix.type }})
     steps:
       - name: Checkout
@@ -50,7 +50,7 @@ jobs:
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
           
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.type }} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
-          cmake --build cmake-build --config ${{ matrix.type }} --target N64Recomp -j $(nproc)
+          cmake --build cmake-build --config ${{ matrix.type }} -j $(nproc)
       - name: Upload Build Artifacts (Unix)
         if: runner.os != 'Windows'
         uses: actions/upload-artifact@v4
