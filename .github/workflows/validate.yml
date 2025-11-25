@@ -15,7 +15,7 @@ jobs:
       matrix:
         type: [ Debug, Release ]
         # macos-13 is intel, macos-14 is arm, blaze/ubuntu-22.04 is arm
-        os: [ ubuntu-latest, windows-latest, macos-13, macos-14, blaze/ubuntu-22.04 ]
+        os: [ ubuntu-latest, windows-latest, macos-15-intel, macos-14, blaze/ubuntu-22.04 ]
     name: ${{ matrix.os }} (${{ (matrix.os == 'macos-14' || matrix.os == 'blaze/ubuntu-22.04') && 'arm64' || 'x64' }}, ${{ matrix.type }})
     steps:
       - name: Checkout
@@ -50,16 +50,34 @@ jobs:
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
           
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.type }} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
-          cmake --build cmake-build --config ${{ matrix.type }} --target N64Recomp -j $(nproc)
+          cmake --build cmake-build --config ${{ matrix.type }} -j $(nproc)
+      - name: Upload Build Artifacts (Unix)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: N64Recomp-${{ runner.os }}-${{ runner.arch }}-${{ matrix.type }}
+          path: |
+            ./cmake-build/LiveRecompTest
+            ./cmake-build/N64Recomp
+            ./cmake-build/OfflineModRecomp
+            ./cmake-build/RecompModTool
+            ./cmake-build/RSPRecomp
       - name: Build N64Recomp (Windows)
         if: runner.os == 'Windows'
         run: |-
           # enable ccache
           set $env:PATH="$env:USERPROFILE/.cargo/bin;$env:PATH"
-          $cpuCores = (Get-CimInstance -ClassName Win32_Processor).NumberOfLogicalProcessors
 
-          # remove LLVM from PATH so it doesn't overshadow the one provided by VS
-          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -ne 'C:\Program Files\LLVM\bin' }) -join ';'
-          
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.type }} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
-          cmake --build cmake-build --config ${{ matrix.type }} --target N64Recomp -j $cpuCores
+          cmake --build cmake-build --config ${{ matrix.type }}
+      - name: Upload Build Artifacts (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: N64Recomp-${{ runner.os }}-${{ runner.arch }}-${{ matrix.type }}
+          path: |
+            ./cmake-build/LiveRecompTest.exe
+            ./cmake-build/N64Recomp.exe
+            ./cmake-build/OfflineModRecomp.exe
+            ./cmake-build/RecompModTool.exe
+            ./cmake-build/RSPRecomp.exe
