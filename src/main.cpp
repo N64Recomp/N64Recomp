@@ -272,21 +272,25 @@ int main(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     };
 
-    bool dumping_context;
+    bool dumping_context = false;
 
-    if (argc >= 3) {
-        std::string arg2 = argv[2];
-        if (arg2 == "--dump-context") {
-            dumping_context = true;
-        } else {
-            fmt::print("Usage: {} <config file> [--dump-context]\n", argv[0]);
-            std::exit(EXIT_SUCCESS);
-        }
-    } else {
-        dumping_context = false;
+    if (argc < 2) {
+        fmt::print("Usage: {} <config file> [--dump-context]\n", argv[0]);
+        return EXIT_SUCCESS;
     }
 
     const char* config_path = argv[1];
+
+    for (size_t i = 2; i < argc; i++) {
+        std::string_view cur_arg = argv[i];
+        if (cur_arg == "--dump-context") {
+            dumping_context = true;
+        }
+        else {
+            fmt::print("Unknown argument \"{}\"\n", cur_arg);
+            return EXIT_FAILURE;
+        }
+    }
 
     N64Recomp::Config config{ config_path };
     if (!config.good()) {
