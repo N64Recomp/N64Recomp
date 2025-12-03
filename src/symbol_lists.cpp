@@ -661,4 +661,8 @@ const std::unordered_set<std::string> N64Recomp::renamed_funcs {
     "div64_32",
     "__moddi3",
     "_matherr",
+
+    // File IO
+    "open",
+    "close",
 };
