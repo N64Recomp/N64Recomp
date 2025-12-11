@@ -128,9 +128,9 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
                     if (bind == ELFIO::STB_LOCAL) {
                         name = fmt::format("{}_{:08X}", name, rom_address);
                     }
-                    
+
                     if (num_instructions > 0) {
-                        context.section_functions[section_index].push_back(context.functions.size());            
+                        context.section_functions[section_index].push_back(context.functions.size());
                         recorded_symbol = true;
                     }
                     context.functions_by_name[name] = context.functions.size();
@@ -252,7 +252,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, ELFIO::section*& mdeb
         ELFIO::Elf_Xword flags = section->get_flags();
         ELFIO::Elf_Xword section_size = section->get_size();
 
-        // Check if this section will end up in the ROM. It must not be a nobits (NOLOAD) type, must have the alloc flag set and must have a nonzero size. 
+        // Check if this section will end up in the ROM. It must not be a nobits (NOLOAD) type, must have the alloc flag set and must have a nonzero size.
         if (type != ELFIO::SHT_NOBITS && (flags & ELFIO::SHF_ALLOC) && section_size != 0) {
             std::optional<size_t> segment_index = get_segment(segments, section_size, section->get_offset());
             if (!segment_index.has_value()) {
@@ -296,7 +296,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, ELFIO::section*& mdeb
         if (elf_config.all_sections_relocatable || elf_config.relocatable_sections.contains(section_name)) {
             section_out.relocatable = true;
         }
-        
+
         // Check if this section is a reloc section
         if (type == ELFIO::SHT_REL) {
             // If it is, determine the name of the section it relocates
@@ -304,7 +304,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, ELFIO::section*& mdeb
                 fmt::print(stderr, "Could not determine corresponding section for reloc section {}\n", section_name.c_str());
                 return nullptr;
             }
-            
+
             // FIXME This should be using SH_INFO to create a reloc section to target section mapping instead of using the name.
             std::string reloc_target_section = section_name.substr(strlen(".rel"));
 
@@ -320,7 +320,9 @@ ELFIO::section* read_sections(N64Recomp::Context& context, ELFIO::section*& mdeb
         if (type == ELFIO::SHT_NOBITS && section_name.ends_with(elf_config.bss_section_suffix)) {
             std::string bss_target_section = section_name.substr(0, section_name.size() - elf_config.bss_section_suffix.size());
 
-            bss_sections_by_name[bss_target_section] = section.get();
+            if (!bss_target_section.empty()) {
+                bss_sections_by_name[bss_target_section] = section.get();
+            }
         }
 
         // If this section was marked as being in the ROM in the previous pass, copy it into the ROM now.
@@ -430,7 +432,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, ELFIO::section*& mdeb
                                 rel_symbol_name);
                             return nullptr;
                         }
-                        
+
                         reloc_out.reference_symbol = true;
                         // Replace the reloc's symbol index with the index into the reference symbol array.
                         rel_section_vram = 0;
@@ -573,7 +575,7 @@ ELFIO::section* read_sections(N64Recomp::Context& context, ELFIO::section*& mdeb
             // Sort this section's relocs by address, which allows for binary searching and more efficient iteration during recompilation.
             // This is safe to do as the entire full_immediate in present in relocs due to the pairing that was done earlier, so the HI16 does not
             // need to directly preceed the matching LO16 anymore.
-            std::sort(section_out.relocs.begin(), section_out.relocs.end(), 
+            std::sort(section_out.relocs.begin(), section_out.relocs.end(),
                 [](const N64Recomp::Reloc& a, const N64Recomp::Reloc& b) {
                     return a.address < b.address;
                 }
