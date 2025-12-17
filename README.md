@@ -8,6 +8,7 @@ This is not the first project that uses static recompilation on game console bin
 * [Overlays](#overlays)
 * [How to Use](#how-to-use)
 * [Single File Output Mode](#single-file-output-mode-for-patches)
+* [Function Hooks](#function-hooks)
 * [RSP Microcode Support](#rsp-microcode-support)
 * [Planned Features](#planned-features)
 * [Building](#building)
@@ -29,7 +30,7 @@ For relocatable overlays, the tool will modify supported instructions possessing
 Support for relocations for TLB mapping is coming in the future, which will add the ability to provide a list of MIPS32 relocations so that the runtime can relocate them on load. Combining this with the functionality used for relocatable overlays should allow running most TLB mapped code without incurring a performance penalty on every RAM access.
 
 ## How to Use
-The recompiler is configured by providing a toml file in order to configure the recompiler behavior, which is the first argument provided to the recompiler. The toml is where you specify input and output file paths, as well as optionally stub out specific functions, skip recompilation of specific functions, and patch single instructions in the target binary. There is also planned functionality to be able to emit hooks in the recompiler output by adding them to the toml (the `[[patches.func]]` and `[[patches.hook]]` sections of the linked toml below), but this is currently unimplemented. Documentation on every option that the recompiler provides is not currently available, but an example toml can be found in the Zelda 64: Recompiled project [here](https://github.com/Mr-Wiseguy/Zelda64Recomp/blob/dev/us.rev1.toml).
+The recompiler is configured by providing a toml file in order to configure the recompiler behavior, which is the first argument provided to the recompiler. The toml is where you specify input and output file paths, as well as optionally stub out specific functions, skip recompilation of specific functions, and patch single instructions in the target binary. Documentation on every option that the recompiler provides is not currently available, but an example toml can be found in the Zelda 64: Recompiled project [here](https://github.com/Mr-Wiseguy/Zelda64Recomp/blob/dev/us.rev1.toml).
 
 Currently, the only way to provide the required metadata is by passing an elf file to this tool. The easiest way to get such an elf is to set up a disassembly or decompilation of the target binary, but there will be support for providing the metadata via a custom format to bypass the need to do so in the future.
 
@@ -39,6 +40,48 @@ This tool can also be configured to recompile in "single file output" mode via a
 This mode can be combined with the functionality provided by almost all linkers (ld, lld, MSVC's link.exe, etc.) to replace functions from the original recompiler output with modified versions. Those linkers only look for symbols in a static library if they weren't already found in a previous input file, so providing the recompiled patches to the linker before providing the original recompiler output will result in the patches taking priority over functions with the same names from the original recompiler output.
 
 This saves a tremendous amount of time while iterating on patches for the target binary, as you can bypass rerunning the recompiler on the target binary as well as compiling the original recompiler output. An example of using this single file output mode for that purpose can be found in the Zelda 64: Recompiled project [here](https://github.com/Mr-Wiseguy/Zelda64Recomp/blob/dev/patches.toml), with the corresponding Makefile that gets used to build the elf for those patches [here](https://github.com/Mr-Wiseguy/Zelda64Recomp/blob/dev/patches/Makefile).
+
+## Function Hooks
+The recompiler supports injecting custom function calls at specific points in the recompiled code through the configuration toml. This allows you to add instrumentation, debugging, or custom behavior without modifying the original binary.
+
+### Text-based Hooks
+Text-based hooks allow you to insert arbitrary C code at specific points using the `[[patches.hook]]` section:
+
+```toml
+[[patches.hook]]
+func = "osCreateThread"
+before_vram = 0x80001234
+text = "printf(\"Creating thread\\n\");"
+```
+
+### Function Call Hooks
+Function call hooks allow you to call a specific function that you implement in your runtime using the `[[patches.func]]` section. These hooks receive the full recompilation context, giving access to all registers and memory.
+
+Hook at the beginning of a function (before any instructions execute):
+```toml
+[[patches.func]]
+func = "osCreateThread"
+hook_func = "my_osCreateThread_hook"
+before_call = true
+```
+
+Hook at a specific instruction address within a function:
+```toml
+[[patches.func]]
+func = "osStartThread"
+hook_func = "my_osStartThread_hook"
+before_vram = 0x80001500
+```
+
+The hook functions should be implemented in your runtime code with the following signature:
+```c
+void my_osCreateThread_hook(uint8_t* rdram, recomp_context* ctx) {
+    // Access registers via ctx->r1, ctx->r2, etc.
+    printf("osCreateThread called with arg: %d\n", (int)ctx->r4);
+}
+```
+
+Both hook types can be used together in the same configuration file. The `before_vram` addresses must be 4-byte aligned instruction addresses within the target function.
 
 ## RSP Microcode Support
 RSP microcode can also be recompiled with this tool. Currently there is no support for recompiling RSP overlays, but it may be added in the future if desired. Documentation on how to use this functionality will be coming soon.
