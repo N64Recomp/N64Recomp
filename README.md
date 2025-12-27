@@ -52,6 +52,12 @@ RSP microcode can also be recompiled with this tool. Currently there is no suppo
 ## Building
 This project can be built with CMake 3.20 or above and a C++ compiler that supports C++20. This repo uses git submodules, so be sure to clone recursively (`git clone --recurse-submodules`) or initialize submodules recursively after cloning (`git submodule update --init --recursive`). From there, building is identical to any other cmake project, e.g. run `cmake` in the target build folder and point it at the root of this repo, then run `cmake --build .` from that target folder.
 
+## Nix
+If you are using nixos or have [nix installed](https://nixos.org/)
+This project can be built and run using nix flakes, to spawn a shell with both, N64Recomp and RSPRecomp programs available you can perform the command:
+
+`nix shell github:Mr-Wiseguy/N64Recomp`
+
 ## Libraries Used
 * [rabbitizer](https://github.com/Decompollaborate/rabbitizer) for instruction decoding/analysis
 * [ELFIO](https://github.com/serge1/ELFIO) for elf parsing
