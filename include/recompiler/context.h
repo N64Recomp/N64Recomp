@@ -400,7 +400,7 @@ namespace N64Recomp {
             return reference_symbols[symbol_index];
         }
 
-        size_t num_regular_reference_symbols() {
+        size_t num_regular_reference_symbols() const {
             return reference_symbols.size();
         }
 
@@ -572,6 +572,10 @@ namespace N64Recomp {
             }
         }
 
+        size_t num_reference_sections() const {
+            return reference_sections.size();
+        }
+
         void copy_reference_sections_from(const Context& rhs) {
             reference_sections = rhs.reference_sections;
         }
@@ -580,6 +584,9 @@ namespace N64Recomp {
             all_reference_sections_relocatable = true;
         }
 
+        void add_reference_section(const ReferenceSection& sec) {
+            reference_sections.emplace_back(sec);
+        }
     };
 
     class Generator;
