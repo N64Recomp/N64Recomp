@@ -648,7 +648,15 @@ std::vector<uint8_t> N64Recomp::symbols_to_bin_v1(const N64Recomp::Context& cont
 
     for (size_t section_index = 0; section_index < context.sections.size(); section_index++) {
         const Section& cur_section = context.sections[section_index];
+        uint32_t section_flags = 0;
+        if (cur_section.fixed_address) {
+            section_flags |= static_cast<uint32_t>(SectionFlags::FixedAddress);
+        }
+        if (cur_section.globally_loaded) {
+            section_flags |= static_cast<uint32_t>(SectionFlags::GloballyLoaded);
+        }
         SectionHeaderV1 section_out {
+            .flags = section_flags,
             .file_offset = cur_section.rom_addr,
             .vram = cur_section.ram_addr,
             .rom_size = cur_section.size,

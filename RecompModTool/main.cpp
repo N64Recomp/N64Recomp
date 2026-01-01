@@ -32,6 +32,7 @@ struct ModManifest {
     std::string game_id;
     std::string minimum_recomp_version;
     std::unordered_map<std::string, std::vector<std::string>> native_libraries;
+    bool custom_gamemode = false;
     std::vector<toml::table> config_options;
     std::vector<std::string> dependencies;
     std::vector<std::string> full_dependency_strings;
@@ -367,6 +368,9 @@ ModManifest parse_mod_config_manifest(const std::filesystem::path& basedir, cons
         });
     }
 
+    // Custom gamemode (optional)
+    ret.custom_gamemode = read_toml_value<bool>(manifest_table, "custom_gamemode", false);
+
     return ret;
 }
 
@@ -544,6 +548,10 @@ void write_manifest(const std::filesystem::path& path, const ModManifest& manife
             options_array.emplace_back(option);
         }
         output_data.emplace("config_schema", toml::table{{"options", std::move(options_array)}});
+    }
+
+    if (manifest.custom_gamemode) {
+        output_data.emplace("custom_gamemode", manifest.custom_gamemode);
     }
 
     toml::json_formatter formatter{output_data, toml::format_flags::indentation | toml::format_flags::indentation};
