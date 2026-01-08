@@ -1478,6 +1478,27 @@ void N64Recomp::LiveGenerator::emit_jtbl_addend_declaration(const JumpTable& jtb
     // Nothing to do here, the live recompiler performs a subtraction to get the switch's case.
 }
 
+static sljit_s32 get_condition_type(bool cmp_signed, N64Recomp::BinaryOpType comparison) {
+    // Comparisons need to be inverted to account for the fact that the generator is expected to generate a code block that only runs if
+    // the condition is met, meaning the branch should be taken if the condition isn't met.
+    switch (comparison) {
+        case N64Recomp::BinaryOpType::Equal:
+            return SLJIT_NOT_EQUAL;
+        case N64Recomp::BinaryOpType::NotEqual:
+            return SLJIT_EQUAL;
+        case N64Recomp::BinaryOpType::GreaterEq:
+            return cmp_signed ? SLJIT_SIG_LESS : SLJIT_LESS;
+        case N64Recomp::BinaryOpType::Greater:
+            return cmp_signed ? SLJIT_SIG_LESS_EQUAL : SLJIT_LESS_EQUAL;
+        case N64Recomp::BinaryOpType::LessEq:
+            return cmp_signed ? SLJIT_SIG_GREATER : SLJIT_GREATER;
+        case N64Recomp::BinaryOpType::Less:
+            return cmp_signed ? SLJIT_SIG_GREATER_EQUAL : SLJIT_GREATER_EQUAL;
+        default:
+            return -1;
+    }
+}
+
 void N64Recomp::LiveGenerator::emit_branch_condition(const ConditionalBranchOp& op, const InstructionContext& ctx) const {
     // Make sure there's no pending jump.
     if(context->cur_branch_jump != nullptr) {
@@ -1506,53 +1527,12 @@ void N64Recomp::LiveGenerator::emit_branch_condition(const ConditionalBranchOp& 
         return;
     }
 
-    sljit_s32 condition_type;
     bool cmp_signed = op.operands.operand_operations[0] == UnaryOpType::ToS64;
-    // Comparisons need to be inverted to account for the fact that the generator is expected to generate a code block that only runs if
-    // the condition is met, meaning the branch should be taken if the condition isn't met.
-    switch (op.comparison) {
-        case BinaryOpType::Equal:
-            condition_type = SLJIT_NOT_EQUAL;
-            break;
-        case BinaryOpType::NotEqual:
-            condition_type = SLJIT_EQUAL;
-            break;
-        case BinaryOpType::GreaterEq:
-            if (cmp_signed) {
-                condition_type = SLJIT_SIG_LESS;
-            }
-            else {
-                condition_type = SLJIT_LESS;
-            }
-            break;
-        case BinaryOpType::Greater:
-            if (cmp_signed) {
-                condition_type = SLJIT_SIG_LESS_EQUAL;
-            }
-            else {
-                condition_type = SLJIT_LESS_EQUAL;
-            }
-            break;
-        case BinaryOpType::LessEq:
-            if (cmp_signed) {
-                condition_type = SLJIT_SIG_GREATER;
-            }
-            else {
-                condition_type = SLJIT_GREATER;
-            }
-            break;
-        case BinaryOpType::Less:
-            if (cmp_signed) {
-                condition_type = SLJIT_SIG_GREATER_EQUAL;
-            }
-            else {
-                condition_type = SLJIT_GREATER_EQUAL;
-            }
-            break;
-        default:
-            assert(false && "Invalid branch condition comparison operation!");
-            errored = true;
-            return;
+    sljit_s32 condition_type = get_condition_type(cmp_signed, op.comparison);
+    if (condition_type < 0) {
+        assert(false && "Invalid branch condition comparison operation!");
+        errored = true;
+        return;
     }
     sljit_sw src1;
     sljit_sw src1w;
@@ -1924,6 +1904,29 @@ void N64Recomp::LiveGenerator::emit_do_break(uint32_t instr_vram) const {
     sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, instr_vram);
     // Call do_break.
     sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS1V(32), SLJIT_IMM, sljit_sw(inputs.do_break));
+}
+
+void N64Recomp::LiveGenerator::emit_trap(const TrapOp& op, const InstructionContext& ctx, uint32_t instr_vram) const {
+    bool cmp_signed = op.operands.operand_operations[0] == UnaryOpType::ToS64;
+    sljit_s32 condition_type = get_condition_type(cmp_signed, op.comparison);
+    if (condition_type < 0) {
+        assert(false && "Invalid trap condition!");
+        errored = true;
+        return;
+    }
+    sljit_sw src1;
+    sljit_sw src1w;
+    sljit_sw src2;
+    sljit_sw src2w;
+    get_operand_values(op.operands.operands[0], ctx, src1, src1w, nullptr, 0);
+    get_operand_values(op.operands.operands[1], ctx, src2, src2w, nullptr, 0);
+
+    // Emit a comparison evaluating the trap condition
+    struct sljit_jump *ignore_trap = sljit_emit_cmp(compiler, condition_type, src1, src1w, src2, src2w);
+    // Emit code to take the exception path
+    emit_do_break(instr_vram);
+    // Step over the exception path
+    sljit_set_label(ignore_trap, sljit_emit_label(compiler));
 }
 
 void N64Recomp::LiveGenerator::emit_pause_self() const {
