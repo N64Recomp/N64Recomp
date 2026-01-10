@@ -585,6 +585,55 @@ int main(int argc, char** argv) {
         func.function_hooks[instruction_index] = patch.text;
     }
 
+    // Apply function hook definitions from config
+    for (const N64Recomp::FunctionHookDefinition& hook_def : config.function_hook_definitions) {
+        // Check if the specified function exists.
+        auto func_find = context.functions_by_name.find(hook_def.func_name);
+        if (func_find == context.functions_by_name.end()) {
+            // Function doesn't exist, present an error to the user instead of silently failing.
+            exit_failure(fmt::format("Function {} has a hook definition but does not exist!", hook_def.func_name));
+        }
+
+        N64Recomp::Function& func = context.functions[func_find->second];
+        int32_t func_vram = func.vram;
+
+        int32_t hook_vram = 0;
+        
+        if (hook_def.before_call) {
+            // Hook at the beginning of the function (before first instruction)
+            hook_vram = -1;
+        } else {
+            // Hook at specific vram address
+            hook_vram = hook_def.before_vram;
+            
+            // Check that the function actually contains this vram address.
+            if (hook_vram < func_vram || hook_vram >= func_vram + func.words.size() * sizeof(func.words[0])) {
+                exit_failure(fmt::format("Function {} has a hook definition for vram 0x{:08X} but doesn't contain that vram address!", 
+                    hook_def.func_name, (uint32_t)hook_vram));
+            }
+        }
+
+        // Calculate the instruction index.
+        size_t instruction_index = -1;
+        if (hook_vram != -1) {
+            instruction_index = (static_cast<size_t>(hook_vram) - func_vram) / sizeof(uint32_t);
+        }
+
+        // Check if a function hook already exists for that instruction index.
+        auto hook_find = func.function_hooks.find(instruction_index);
+        if (hook_find != func.function_hooks.end()) {
+            exit_failure(fmt::format("Function {} already has a function hook for vram 0x{:08X}!", 
+                hook_def.func_name, hook_vram == -1 ? func_vram : (uint32_t)hook_vram));
+        }
+
+        // Generate the hook call text
+        std::string hook_text = fmt::format("{}(rdram, ctx);", hook_def.hook_func_name);
+        func.function_hooks[instruction_index] = hook_text;
+        
+        // Add the hook function to the header file declarations
+        fmt::print(func_header_file, "void {}(uint8_t* rdram, recomp_context* ctx);\n", hook_def.hook_func_name);
+    }
+
     std::ofstream current_output_file;
     size_t output_file_count = 0;
     size_t cur_file_function_count = 0;

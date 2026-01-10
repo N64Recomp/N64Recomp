@@ -245,6 +245,67 @@ std::vector<N64Recomp::FunctionTextHook> get_function_hooks(const toml::table* p
     return ret;
 }
 
+std::vector<N64Recomp::FunctionHookDefinition> get_function_hook_definitions(const toml::table* patches_data) {
+    std::vector<N64Recomp::FunctionHookDefinition> ret;
+
+    // Check if the function hook definitions array exists.
+    const toml::node_view func_hook_def_data = (*patches_data)["func"];
+
+    if (func_hook_def_data.is_array()) {
+        const toml::array* func_hook_def_array = func_hook_def_data.as_array();
+        ret.reserve(func_hook_def_array->size());
+
+        // Copy all the hook definitions into the output vector.
+        func_hook_def_array->for_each([&ret](auto&& el) {
+            if constexpr (toml::is_table<decltype(el)>) {
+                const toml::table& cur_hook_def = *el.as_table();
+
+                std::optional<std::string> func_name = cur_hook_def["func"].value<std::string>();
+                std::optional<std::string> hook_func_name = cur_hook_def["hook_func"].value<std::string>();
+                std::optional<uint32_t> before_vram = cur_hook_def["before_vram"].value<uint32_t>();
+                
+                // Check for "before_call" flag (defaults to false)
+                bool before_call = false;
+                std::optional<bool> before_call_opt = cur_hook_def["before_call"].value<bool>();
+                if (before_call_opt.has_value()) {
+                    before_call = before_call_opt.value();
+                }
+
+                if (!func_name.has_value() || !hook_func_name.has_value()) {
+                    throw toml::parse_error("Function hook definition is missing required value(s)", el.source());
+                }
+
+                // Either before_vram or before_call must be specified
+                if (!before_vram.has_value() && !before_call) {
+                    throw toml::parse_error("Function hook definition must specify either before_vram or before_call", el.source());
+                }
+
+                // Can't specify both
+                if (before_vram.has_value() && before_call) {
+                    throw toml::parse_error("Function hook definition cannot specify both before_vram and before_call", el.source());
+                }
+
+                if (before_vram.has_value() && before_vram.value() & 0b11) {
+                    // Not properly aligned, so throw an error (and make it look like a normal toml one).
+                    throw toml::parse_error("before_vram is not word-aligned", el.source());
+                }
+
+                ret.push_back(N64Recomp::FunctionHookDefinition{
+                    .func_name = func_name.value(),
+                    .hook_func_name = hook_func_name.value(),
+                    .before_vram = before_vram.has_value() ? (int32_t)before_vram.value() : 0,
+                    .before_call = before_call,
+                });
+            }
+            else {
+                throw toml::parse_error("Invalid function hook definition entry", el.source());
+            }
+        });
+    }
+
+    return ret;
+}
+
 void get_mdebug_mappings(const toml::array* mdebug_mappings_array,
     std::unordered_map<std::string, std::string>& mdebug_text_map,
     std::unordered_map<std::string, std::string>& mdebug_data_map,
@@ -462,6 +523,9 @@ N64Recomp::Config::Config(const char* path) {
 
             // Function hooks (optional)
             function_hooks = get_function_hooks(table);
+
+            // Function hook definitions (optional)
+            function_hook_definitions = get_function_hook_definitions(table);
         }
 
         // Use trace mode if enabled (optional)
