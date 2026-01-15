@@ -425,6 +425,13 @@ ELFIO::section* read_sections(N64Recomp::Context& context, ELFIO::section*& mdeb
 
                     // Check if the symbol is undefined and to know whether to look for it in the reference symbols.
                     if (rel_symbol_section_index == ELFIO::SHN_UNDEF) {
+                        // Get renamed version of symbol name if necessary
+                        if (N64Recomp::reimplemented_funcs.contains(rel_symbol_name) ||
+                            N64Recomp::ignored_funcs.contains(rel_symbol_name) ||
+                            N64Recomp::renamed_funcs.contains(rel_symbol_name)) {
+                            rel_symbol_name = rel_symbol_name + "_recomp";
+                        }
+
                         // Undefined sym, check the reference symbols.
                         N64Recomp::SymbolReference sym_ref;
                         if (!context.find_reference_symbol(rel_symbol_name, sym_ref)) {
