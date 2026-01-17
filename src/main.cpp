@@ -794,7 +794,7 @@ int main(int argc, char** argv) {
 
             // Search for the closest function 
             size_t closest_func_index = 0;
-            while (section_funcs[closest_func_index] < static_func_addr && closest_func_index < section_funcs.size()) {
+            while (closest_func_index < section_funcs.size() && section_funcs[closest_func_index] < static_func_addr) {
                 closest_func_index++;
             }
 
