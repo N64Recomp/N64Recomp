@@ -235,6 +235,8 @@ namespace N64Recomp {
         bool skip_validating_reference_symbols = true;
         // Whether all function calls (excluding reference symbols) should go through lookup.
         bool use_lookup_for_all_function_calls = false;
+        // Whether function calls between relocatable sections is allowed.
+        bool cross_relocatable_section_function_calls = false;
 
         //// Only used by the CLI, TODO move this to a struct in the internal headers.
         // A mapping of function name to index in the functions vector

@@ -18,6 +18,7 @@ enum class JalResolutionResult {
     Match,
     CreateStatic,
     Ambiguous,
+    AmbiguousWithRelocatable,
     Error
 };
 
@@ -34,6 +35,7 @@ JalResolutionResult resolve_jal(const N64Recomp::Context& context, size_t cur_se
     uint32_t section_vram_end = cur_section.ram_addr + cur_section.size;
     bool in_current_section = target_func_vram >= section_vram_start && target_func_vram < section_vram_end;
     bool exact_match_found = false;
+    bool found_relocatable_match = false;
 
     // Use a thread local to prevent reallocation across runs and to allow multi-threading in the future.
     thread_local std::vector<size_t> matched_funcs{};
@@ -59,10 +61,13 @@ JalResolutionResult resolve_jal(const N64Recomp::Context& context, size_t cur_se
                 break;
             }
 
-            // If the function's section isn't relocatable, add the function as a candidate.
+            // If the function's section isn't relocatable or if cross relocatable section function calls are enabled, add the function as a candidate.
             const auto& target_func_section = context.sections[target_func.section_index];
-            if (!target_func_section.relocatable) {
+            if (context.cross_relocatable_section_function_calls || !target_func_section.relocatable) {
                 matched_funcs.push_back(target_func_index);
+                if (target_func_section.relocatable) {
+                    found_relocatable_match = true;
+                }
             }
         }
     }
@@ -93,6 +98,11 @@ JalResolutionResult resolve_jal(const N64Recomp::Context& context, size_t cur_se
         }
         // If there's more than one match, use an indirect jump to resolve the function at runtime.
         else {
+            // Ambiguous matches where any of the matches are in a relocatable section must be reported differently than normal ambiguous matches.
+            // This is because the loaded address of the function may not be the original address, so a lookup using the original address would fail. 
+            if (found_relocatable_match) {
+                return JalResolutionResult::AmbiguousWithRelocatable;
+            }
             return JalResolutionResult::Ambiguous;
         }
     }
@@ -162,7 +172,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
     uint16_t imm = instr.Get_immediate();
 
     // Check if this instruction has a reloc.
-    if (section.relocs.size() > 0 && section.relocs[reloc_index].address == instr_vram) {
+    if (section.relocs.size() > 0 && section.relocs[reloc_index].address == instr_vram && section.relocs[reloc_index].type != N64Recomp::RelocType::R_MIPS_NONE) {
         has_reloc = true;
         // Get the reloc data for this instruction
         const auto& reloc = section.relocs[reloc_index];
@@ -326,6 +336,9 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                         // If a game ever needs to jump between multiple relocatable sections, relocation will be necessary here.
                         call_by_lookup = true;
                         break;
+                    case JalResolutionResult::AmbiguousWithRelocatable:
+                        fmt::print(stderr, "Ambiguous jal target 0x{:08X} in function {}, but one or more matches were relocatable. Calling by lookup for relocatable functions with the unrelocated address is not supported.\n", target_func_vram, func.name);
+                        return false;
                     case JalResolutionResult::Error:
                         fmt::print(stderr, "Internal error when resolving jal to address 0x{:08X} in function {}. Please report this issue.\n", target_func_vram, func.name);
                         return false;
