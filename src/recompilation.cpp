@@ -1,5 +1,6 @@
 #include <vector>
 #include <set>
+#include <sstream>
 #include <unordered_set>
 #include <unordered_map>
 #include <cassert>
@@ -802,7 +803,6 @@ bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context&
         N64Recomp::FunctionStats stats{};
         if (!N64Recomp::analyze_function(context, func, instructions, stats)) {
             fmt::print(stderr, "Failed to analyze {}\n", func.name);
-            output_file.clear();
             return false;
         }
 
@@ -845,8 +845,7 @@ bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context&
 
             // Process the current instruction and check for errors
             if (process_instruction(generator, context, func, func_index, stats, jtbl_lw_instructions, instr_index, instructions, output_file, false, needs_link_branch, num_link_branches, reloc_index, needs_link_branch, is_branch_likely, tag_reference_relocs, static_funcs_out) == false) {
-                fmt::print(stderr, "Error in recompiling {}, clearing output file\n", func.name);
-                output_file.clear();
+                fmt::print(stderr, "Error in recompiling {} at instr {}\n", func.name, instr_index);
                 return false;
             }
             // If a link return branch was generated, advance the number of link return branches
@@ -873,9 +872,21 @@ bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context&
 }
 
 // Wrap the templated function with CGenerator as the template parameter.
+//
+// Buffer the function's emission into a temporary ostringstream and only
+// commit to the real output_file on success. Fixes the "clearing output
+// file" bug where output_file.clear() inside recompile_function_impl was
+// resetting stream flags rather than truncating buffered text — leaving a
+// partial function (signature + open braces, no body) in shared multi-
+// function output files.
 bool N64Recomp::recompile_function(const N64Recomp::Context& context, size_t function_index, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
-    CGenerator generator{output_file};
-    return recompile_function_impl(generator, context, function_index, output_file, static_funcs_out, tag_reference_relocs);
+    std::ostringstream buffer;
+    CGenerator generator{buffer};
+    bool ok = recompile_function_impl(generator, context, function_index, buffer, static_funcs_out, tag_reference_relocs);
+    if (ok) {
+        output_file << buffer.str();
+    }
+    return ok;
 }
 
 bool N64Recomp::recompile_function_custom(Generator& generator, const Context& context, size_t function_index, std::ostream& output_file, std::span<std::vector<uint32_t>> static_funcs_out, bool tag_reference_relocs) {
