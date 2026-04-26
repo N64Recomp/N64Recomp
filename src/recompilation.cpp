@@ -260,7 +260,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         return true;
     };
 
-    auto print_func_call_by_address = [&generator, reloc_target_section_offset, has_reloc, reloc_section, reloc_reference_symbol, reloc_type, &context, &func, &static_funcs_out, &needs_link_branch, &print_indent, &process_delay_slot, &print_link_branch]
+    auto print_func_call_by_address = [&generator, reloc_target_section_offset, has_reloc, reloc_section, reloc_reference_symbol, reloc_type, &context, &func, &static_funcs_out, &needs_link_branch, &print_indent, &process_delay_slot, &print_link_branch, &output_file, instr_vram]
         (uint32_t target_func_vram, bool tail_call = false, bool indent = false)
     {
         bool call_by_lookup = false;
@@ -306,8 +306,20 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
 
                 switch (jal_result) {
                     case JalResolutionResult::NoMatch:
-                        fmt::print(stderr, "No function found for jal target: 0x{:08X}\n", target_func_vram);
-                        return false;
+                        // No symbol found for this jal target. Instead of failing
+                        // the whole recompile (which would block ~hundreds of
+                        // downstream functions for one missing symbol), emit a
+                        // runtime call that aborts loudly with diagnostic info.
+                        // The function still compiles; only the unsupported call
+                        // path crashes if reached. Per project principles
+                        // (F:\Projects\recomp-template\NES\PRINCIPLES.md #12),
+                        // this is NOT a stub — no behavior is simulated; the
+                        // call is left as an unimplementable hole that surfaces
+                        // at runtime with full context.
+                        fmt::print(stderr, "[Warn] No function found for jal target 0x{:08X} in {} — emitting runtime abort\n", target_func_vram, func.name);
+                        if (indent) fmt::print(output_file, "    ");
+                        fmt::print(output_file, "    recomp_unhandled_call(rdram, ctx, 0x{:08X}u, 0x{:08X}u);\n", instr_vram, target_func_vram);
+                        return true;
                     case JalResolutionResult::Match:
                         jal_target_name = context.functions[matched_func_index].name;
                         break;
@@ -425,8 +437,15 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                 generator.emit_cop0_status_read(rt);
                 break;
             default:
-                fmt::print(stderr, "Unhandled cop0 register in mfc0: {}\n", (int)reg);
-                return false;
+                // Engine doesn't model this cop0 register yet. Emit a
+                // runtime call instead of failing — the function still
+                // compiles; runtime aborts loudly if this read is hit.
+                // Per project principles: not a stub, just an
+                // unimplementable hole surfaced at runtime.
+                fmt::print(stderr, "[Warn] Unhandled cop0 register in mfc0: {} — emitting runtime abort\n", (int)reg);
+                print_indent();
+                fmt::print(output_file, "ctx->r{} = recomp_unhandled_cop0_read(rdram, ctx, 0x{:08X}u, {});\n", (int)rt, instr_vram, (int)reg);
+                break;
             }
             break;
         }
@@ -439,8 +458,10 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                 generator.emit_cop0_status_write(rt);
                 break;
             default:
-                fmt::print(stderr, "Unhandled cop0 register in mtc0: {}\n", (int)reg);
-                return false;
+                fmt::print(stderr, "[Warn] Unhandled cop0 register in mtc0: {} — emitting runtime abort\n", (int)reg);
+                print_indent();
+                fmt::print(output_file, "recomp_unhandled_cop0_write(rdram, ctx, 0x{:08X}u, {}, ctx->r{});\n", instr_vram, (int)reg, (int)rt);
+                break;
             }
             break;
         }
@@ -481,8 +502,15 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
     case InstrId::cpu_jalr:
         // jalr can only be handled with $ra as the return address register
         if (rd != (int)rabbitizer::Registers::Cpu::GprO32::GPR_O32_ra) {
-            fmt::print(stderr, "Invalid return address reg for jalr: f{}\n", rd);
-            return false;
+            // Engine doesn't model jalr with non-RA link register. Emit a
+            // runtime call instead of failing — the function still
+            // compiles; runtime aborts loudly if this jalr is reached.
+            // Per project principles: not a stub, an unimplementable
+            // hole surfaced at runtime with full context.
+            fmt::print(stderr, "[Warn] Invalid return address reg for jalr: r{} in {} at 0x{:08X} — emitting runtime abort\n", rd, func.name, instr_vram);
+            print_indent();
+            fmt::print(output_file, "recomp_unhandled_jalr(rdram, ctx, 0x{:08X}u, ctx->r{}, {});\n", instr_vram, (int)rs, rd);
+            break;
         }
         needs_link_branch = true;
         print_func_call_by_register(rs);
@@ -520,8 +548,19 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                 generator.emit_return(context, func_index);
             }
             else {
-                fmt::print(stderr, "Unhandled branch in {} at 0x{:08X} to 0x{:08X}\n", func.name, instr_vram, branch_target);
-                return false;
+                // Branch to an address the engine can't resolve (not in
+                // functions_by_vram, not a label inside this function).
+                // Emit a runtime abort with diagnostic info instead of
+                // failing the whole recompile. The branch transfers
+                // control, so we follow with a return so the C compiler
+                // doesn't fall through into the next instruction's emit.
+                // Per project principles: no stub, no simulated behavior;
+                // the unhandled branch surfaces at runtime if reached.
+                fmt::print(stderr, "[Warn] Unhandled branch in {} at 0x{:08X} to 0x{:08X} — emitting runtime abort\n", func.name, instr_vram, branch_target);
+                print_indent();
+                fmt::print(output_file, "recomp_unhandled_branch(rdram, ctx, 0x{:08X}u, 0x{:08X}u);\n", instr_vram, branch_target);
+                print_indent();
+                generator.emit_return(context, func_index);
             }
         }
         break;
@@ -747,8 +786,14 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
     }
 
     if (!handled) {
-        fmt::print(stderr, "Unhandled instruction: {}\n", instr.getOpcodeName());
-        return false;
+        // Engine doesn't have a decoder for this opcode. Emit a runtime
+        // call instead of failing — function still compiles; if execution
+        // reaches the unhandled instruction, it aborts loudly with the
+        // opcode name. Per project principles: not a stub, an
+        // unimplementable hole surfaced at runtime with full context.
+        fmt::print(stderr, "[Warn] Unhandled instruction '{}' in {} at 0x{:08X} — emitting runtime abort\n", instr.getOpcodeName(), func.name, instr_vram);
+        print_indent();
+        fmt::print(output_file, "recomp_unhandled_instruction(rdram, ctx, 0x{:08X}u, \"{}\");\n", instr_vram, instr.getOpcodeName());
     }
 
     // TODO is this used?
