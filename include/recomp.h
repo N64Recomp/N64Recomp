@@ -1,6 +1,8 @@
 #ifndef __RECOMP_H__
 #define __RECOMP_H__
 
+#include <stdint.h>
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
@@ -467,6 +469,24 @@ extern int32_t* section_addresses;
 void recomp_syscall_handler(uint8_t* rdram, recomp_context* ctx, int32_t instruction_vram);
 
 void pause_self(uint8_t *rdram);
+
+/* Tolerant-emit runtime entry points. The engine emits calls to these
+ * for instructions/branches/calls it can't translate at compile time;
+ * consumers implement them in a runtime hook file (e.g. extras.c).
+ * See src/recompilation.cpp for the emit sites and PRINCIPLES.md #12
+ * for why these exist (loud runtime aborts, NOT stubs). */
+void recomp_unhandled_branch(uint8_t *rdram, recomp_context *ctx,
+                             uint32_t instr_vram, uint32_t branch_target);
+void recomp_unhandled_call(uint8_t *rdram, recomp_context *ctx,
+                           uint32_t instr_vram, uint32_t target);
+void recomp_unhandled_jalr(uint8_t *rdram, recomp_context *ctx,
+                           uint32_t instr_vram, uint64_t target_value, int rd);
+uint64_t recomp_unhandled_cop0_read(uint8_t *rdram, recomp_context *ctx,
+                                    uint32_t instr_vram, int cop0_reg);
+void recomp_unhandled_cop0_write(uint8_t *rdram, recomp_context *ctx,
+                                 uint32_t instr_vram, int cop0_reg, uint64_t value);
+void recomp_unhandled_instruction(uint8_t *rdram, recomp_context *ctx,
+                                  uint32_t instr_vram, const char *opcode_name);
 
 #ifdef __cplusplus
 }

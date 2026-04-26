@@ -387,7 +387,21 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                 return true;
             }
 
-            fmt::print(stderr, "[Warn] Function {} is branching outside of the function (to 0x{:08X})\n", func.name, branch_target);
+            // Branch out of function with no symbol at target. Emit a
+            // runtime abort instead of `goto L_<vram>` to a label that
+            // never exists. Per project principles: no stub, an
+            // unimplementable hole surfaced loudly at runtime.
+            fmt::print(stderr, "[Warn] Function {} is branching outside of the function (to 0x{:08X}) — emitting runtime abort\n", func.name, branch_target);
+            if (!process_delay_slot(true)) {
+                return false;
+            }
+            print_indent();
+            print_indent();
+            fmt::print(output_file, "recomp_unhandled_branch(rdram, ctx, 0x{:08X}u, 0x{:08X}u);\n", instr_vram, branch_target);
+            print_indent();
+            print_indent();
+            generator.emit_return(context, func_index);
+            return true;
         }
 
         if (!process_delay_slot(true)) {
