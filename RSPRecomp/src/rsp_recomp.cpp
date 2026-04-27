@@ -233,6 +233,34 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
         // Print a label if one exists here
         if (branch_targets.direct_targets.contains(instr_vram) || branch_targets.indirect_targets.contains(instr_vram)) {
             fmt::print(output_file, "L_{:04X}:\n", instr_vram);
+            // Watchdog tick at every label. Each basic-block entry
+            // increments watchdog_count and records this label's
+            // PC into the ring `pc_trail`. If the count exceeds
+            // 100M, return Watchdog — the ucode is hung.
+            //
+            // Cost: ~5 cheap ops (load/inc/store/cmp/branch). For
+            // a 50ms audio frame this adds <1ms wall-clock —
+            // worth paying always-on. If a future ucode needs the
+            // bare-metal speed, expose a compile-time #define to
+            // strip these emits.
+            //
+            // Per the project's "always-on ring buffer" rule
+            // (CLAUDE.md global): no arming. The trail is filled
+            // continuously; on Watchdog the runtime queries it
+            // backward over the last 32 entries.
+            fmt::print(output_file,
+                "    ctx->pc_trail[ctx->pc_trail_idx & 31] = 0x{0:04X};\n"
+                "    ctx->pc_trail_idx++;\n"
+                "    if (++ctx->watchdog_count > 100000000ULL) {{\n"
+                "        fprintf(stderr, \"[rsp watchdog] hung at PC 0x{0:04X} after %llu transitions; PC trail (oldest..newest):\\n\", (unsigned long long)ctx->watchdog_count);\n"
+                "        for (uint32_t i = 0; i < 32; i++) {{\n"
+                "            uint32_t pos = (ctx->pc_trail_idx + i) & 31;\n"
+                "            fprintf(stderr, \"  [%2u] PC=0x%04X\\n\", i, ctx->pc_trail[pos]);\n"
+                "        }}\n"
+                "        fprintf(stderr, \"[rsp watchdog] regs: r1=%08X r28=%08X r29=%08X r31=%08X data_ptr-related: r28=%08X data_size: r27=%08X\\n\", ctx->r1, ctx->r28, ctx->r29, ctx->r31, ctx->r28, ctx->r27);\n"
+                "        return RspExitReason::Watchdog;\n"
+                "    }}\n",
+                instr_vram);
         }
     }
 
@@ -1080,6 +1108,39 @@ void create_function(const std::string& function_name, std::ofstream& output_fil
     // rspboot semantics: $1 is reset to 0xFC0 at every entry. All other
     // GPRs persist from the previous task (already in *ctx via refs).
     fmt::print(output_file, "    r1 = 0xFC0;\n");
+    // Reset the watchdog counter for this run. The PC trail is
+    // intentionally NOT cleared — if a previous task's terminal PCs
+    // are still in the ring, that's useful context for the next
+    // run's debugging.
+    fmt::print(output_file, "    ctx->watchdog_count = 0;\n");
+    // NOTE on Stadium's aspMain hang (verified via watchdog trail
+    // 2026-04-27): the dispatch at L_1048 reads from DMEM[$29],
+    // computes a handler index, and `jr`s to that handler. On
+    // first entry $29 is uninitialized (Path A persistent ctx ->
+    // 0). DMEM[0..0xF7F] holds ucode_data (DMA'd by the runtime)
+    // — the first 32 bytes are the dispatch handler table. So the
+    // dispatch ends up landing at handler[0] = PC 0x10EC, which
+    // is the DMA-trigger function (`jr $ra; mtc0 r3, SP_RD_LEN`).
+    // It then `jr`s back to $31 = 0x1038 (= return after the
+    // initial `jal L_1120` in the L_102C boot path), busy-waits
+    // on SP_DMA_BUSY (always 0 in HLE), and re-enters the
+    // dispatch with $29 still 0 — infinite loop.
+    //
+    // Setting $29 alone doesn't help: even with $29 pointing to a
+    // valid command region, the ACTUAL FIRST DMA never loaded
+    // anything because dma_mem_address / dma_dram_address are
+    // uninitialized when L_10EC fires from the L_1120 path
+    // (L_1120 doesn't call SET_DMA_MEM/DRAM — it expects the
+    // caller to have done so). On real hardware, rspboot leaves
+    // SP_MEM_ADDR / SP_DRAM_ADDR set to its last DMA's values
+    // (loading ucode_data); aspMain's first dispatch round must
+    // be using a command that re-DMAs from a known offset. This
+    // requires deeper analysis of standard libultra aspMain
+    // semantics or comparison with a working game's audio task.
+    //
+    // The watchdog and PC trail (added this session) will
+    // immediately reveal a fix's effect: if the dispatch starts
+    // landing at handlers OTHER than 0x10EC, progress.
     // Write each instruction
     for (size_t instr_index = 0; instr_index < instrs.size(); instr_index++) {
         process_instruction(instr_index, instrs, output_file, branch_targets, config.unsupported_instructions, resume_targets, is_permutation, false, false);
