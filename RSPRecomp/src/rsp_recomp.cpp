@@ -257,7 +257,8 @@ bool process_instruction(size_t instr_index, const std::vector<rabbitizer::Instr
                 "            uint32_t pos = (ctx->pc_trail_idx + i) & 31;\n"
                 "            fprintf(stderr, \"  [%2u] PC=0x%04X\\n\", i, ctx->pc_trail[pos]);\n"
                 "        }}\n"
-                "        fprintf(stderr, \"[rsp watchdog] regs: r1=%08X r28=%08X r29=%08X r31=%08X data_ptr-related: r28=%08X data_size: r27=%08X\\n\", ctx->r1, ctx->r28, ctx->r29, ctx->r31, ctx->r28, ctx->r27);\n"
+                "        fprintf(stderr, \"[rsp watchdog] gprs: r1=%08X r2=%08X r3=%08X r25=%08X r26=%08X r27=%08X r28=%08X r29=%08X r30=%08X r31=%08X jt=%08X dma_mem=%08X dma_dram=%08X\\n\",\n"
+                "            ctx->r1, ctx->r2, ctx->r3, ctx->r25, ctx->r26, ctx->r27, ctx->r28, ctx->r29, ctx->r30, ctx->r31, ctx->jump_target, ctx->dma_mem_address, ctx->dma_dram_address);\n"
                 "        return RspExitReason::Watchdog;\n"
                 "    }}\n",
                 instr_vram);
@@ -1173,6 +1174,14 @@ void create_function(const std::string& function_name, std::ofstream& output_fil
             "\n"
             "RspExitReason {0}(uint8_t* rdram, [[maybe_unused]] uint32_t ucode_addr) {{\n"
             "    static thread_local RspContext persistent_ctx{{}};\n"
+            "    // Pre-task hook: if a runtime registered a hook keyed by\n"
+            "    // this ucode's name, call it here. Lets game-specific code\n"
+            "    // replicate parts of rspboot's setup that the static\n"
+            "    // recompilation can't infer (initial GPRs, DMA-engine\n"
+            "    // residue, pre-loaded command data in DMEM). Inline\n"
+            "    // null-check by the std::unordered_map lookup — typical\n"
+            "    // cost is one branch when no hook is registered.\n"
+            "    recomp::rsp::run_pre_task_hook(rdram, &persistent_ctx, \"{0}\", ucode_addr);\n"
             "    return {0}_impl(rdram, &persistent_ctx);\n"
             "}}\n",
             function_name);
