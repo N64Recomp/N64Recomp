@@ -1,11 +1,17 @@
 #include <set>
 #include <algorithm>
+#include <unordered_set>
 
 #include "rabbitizer.hpp"
 #include "fmt/format.h"
 
 #include "recompiler/context.h"
 #include "analysis.h"
+
+static uint32_t read_be_u32_local(const uint8_t* p) {
+    return (uint32_t(p[0]) << 24) | (uint32_t(p[1]) << 16) |
+           (uint32_t(p[2]) << 8)  |  uint32_t(p[3]);
+}
 
 extern "C" const char* RabbitizerRegister_getNameGpr(uint8_t regValue);
 
@@ -347,5 +353,254 @@ bool N64Recomp::analyze_function(const N64Recomp::Context& context, const N64Rec
         //fmt::print("Jtbl at 0x{:08X} (rom 0x{:08X}) with {} entries used by instr at 0x{:08X}\n", cur_jtbl.vram, cur_jtbl.rom, cur_jtbl.entries.size(), cur_jtbl.jr_vram);
     }
 
+    return true;
+}
+
+// Reads a jump-table's entries out of `body` starting at jtbl_vram,
+// stopping at the first entry that doesn't decode to a vram inside
+// the body's address range [vram_base, vram_base + bytes_size). Each
+// entry that DOES point into the body becomes a destination; offsets
+// (vram - vram_base) are pushed into out_targets.
+//
+// Returns the number of entries collected. Returns 0 if the table
+// has no valid entries (caller should treat as an analysis failure).
+static size_t read_jump_table_targets(
+    const uint8_t* body, size_t bytes_size,
+    uint32_t vram_base, uint32_t jtbl_vram,
+    std::vector<size_t>& out_targets)
+{
+    if (jtbl_vram < vram_base) return 0;
+    size_t jtbl_off = jtbl_vram - vram_base;
+    if (jtbl_off >= bytes_size) return 0;
+
+    size_t collected = 0;
+    while (jtbl_off + 4 <= bytes_size) {
+        uint32_t entry = read_be_u32_local(body + jtbl_off);
+        // Entry should be a vram pointing inside the body. Out-of-range
+        // entry => end of table.
+        if (entry < vram_base || entry >= vram_base + bytes_size) {
+            break;
+        }
+        size_t target_off = entry - vram_base;
+        // Targets must be 4-aligned MIPS instructions.
+        if ((target_off & 0x3u) != 0) break;
+        out_targets.push_back(target_off);
+        collected++;
+        jtbl_off += 4;
+    }
+    return collected;
+}
+
+bool N64Recomp::discover_function_bounds(
+    const uint8_t* body, size_t bytes_size,
+    uint32_t vram_base, uint32_t entry_offset,
+    size_t& size_out, std::string& error_out)
+{
+    using InstrId = rabbitizer::InstrId::UniqueId;
+    using RegId   = rabbitizer::Registers::Cpu::GprO32;
+
+    if (entry_offset + 4 > bytes_size) {
+        error_out = fmt::format(
+            "entry_offset 0x{:X} past body end 0x{:X}",
+            entry_offset, bytes_size);
+        return false;
+    }
+
+    // BFS over reachable instruction offsets. visited[off] = true once
+    // we've decoded the instruction at off. We can revisit offsets if
+    // they're reached by multiple control-flow paths but only decode
+    // them once.
+    std::unordered_set<size_t> visited;
+    std::vector<size_t> worklist;
+    worklist.push_back(entry_offset);
+
+    size_t max_reached = entry_offset;
+
+    // For each non-jr-$ra `jr <reg>` we encounter, we need to read the
+    // jump-table entries and add them to the BFS. We do this inline
+    // by running analyze_instruction across the linear path that
+    // reached this jr. To keep register state correct per-block, we
+    // restart per-block scans with fresh register state — this is
+    // an approximation (real CFG analysis would merge state at joins)
+    // but works for the lui+addiu+addu+lw+jr jump-table pattern that
+    // analyze_instruction recognizes, since that pattern is local to
+    // the basic block containing the jr.
+
+    while (!worklist.empty()) {
+        size_t off = worklist.back();
+        worklist.pop_back();
+        if (visited.contains(off)) continue;
+
+        // Per-block scan: walk linearly from off through the basic
+        // block's terminator, simulating register state as we go.
+        // Register state is local to this scan — fresh on entry.
+        RegState reg_states[32]{};
+        std::vector<RegState> stack_states{};
+        // Fake Function for analyze_instruction's signature. We only
+        // need it for fields the analyzer itself reads; section_index
+        // is consumed only by the jtbl-bounding pass which we don't
+        // run here. ram_addr-equivalent fields can be passed via the
+        // real instructions' vrams.
+        N64Recomp::Function fake_func;
+        fake_func.section_index = 0;
+        fake_func.vram = vram_base;
+        fake_func.rom = 0;
+        fake_func.words.clear();
+        N64Recomp::FunctionStats local_stats;
+
+        size_t cursor = off;
+        while (cursor + 4 <= bytes_size) {
+            if (visited.contains(cursor)) {
+                // Already analyzed this offset — stop linear scan.
+                break;
+            }
+            visited.insert(cursor);
+            if (cursor > max_reached) max_reached = cursor;
+
+            const uint32_t insn_word = read_be_u32_local(body + cursor);
+            rabbitizer::InstructionCpu instr(
+                insn_word, vram_base + uint32_t(cursor));
+            const auto id = instr.getUniqueId();
+
+            // Update register state via the existing simulator. This
+            // tracks lui/addiu/addu/lw chains so when we hit a jr
+            // <reg> the simulator already has the jump-table base in
+            // local_stats.jump_tables.
+            //
+            // analyze_instruction returns false on analyzer-level
+            // problems (e.g. negative stack offsets) — that's a real
+            // bug we shouldn't paper over.
+            if (!analyze_instruction(instr, fake_func, local_stats,
+                                     reg_states, stack_states,
+                                     /*is_got_addr_defined=*/false)) {
+                error_out = fmt::format(
+                    "analyze_instruction rejected insn 0x{:08X} at "
+                    "offset 0x{:X} (vram 0x{:08X})",
+                    insn_word, cursor, vram_base + uint32_t(cursor));
+                return false;
+            }
+
+            // jr $ra: function return — block ends after delay slot.
+            if (id == InstrId::cpu_jr) {
+                int rs = int(instr.GetO32_rs());
+                // Delay slot is reachable.
+                size_t delay = cursor + 4;
+                if (delay + 4 <= bytes_size) {
+                    visited.insert(delay);
+                    if (delay > max_reached) max_reached = delay;
+                    // Don't recurse into the delay slot's instruction —
+                    // it's a single insn that runs in the shadow of
+                    // the jr. Just mark it visited.
+                }
+                if (rs == int(RegId::GPR_O32_ra)) {
+                    // jr $ra — return.
+                    break;
+                }
+                // jr <other reg> — jump table OR computed tail call.
+                // analyze_instruction recorded a JumpTable entry in
+                // local_stats if the lui+addiu+addu+lw pattern lined
+                // up. If we have one, read its entries from body
+                // bytes and add to BFS worklist.
+                if (local_stats.jump_tables.empty()) {
+                    error_out = fmt::format(
+                        "indirect jr at offset 0x{:X} (vram 0x{:08X}) — "
+                        "register-state simulator did NOT detect a "
+                        "jump-table pattern. May be a tail call or "
+                        "an analysis gap. Cannot bound this function.",
+                        cursor, vram_base + uint32_t(cursor));
+                    return false;
+                }
+                // The most recently appended jump table corresponds to
+                // this jr. Read its entries from the body bytes.
+                const N64Recomp::JumpTable& jtbl =
+                    local_stats.jump_tables.back();
+                std::vector<size_t> jtbl_targets;
+                size_t collected = read_jump_table_targets(
+                    body, bytes_size, vram_base, jtbl.vram,
+                    jtbl_targets);
+                if (collected == 0) {
+                    error_out = fmt::format(
+                        "indirect jr at offset 0x{:X} — jump table "
+                        "at vram 0x{:08X} has no valid entries "
+                        "(first entry would point outside body)",
+                        cursor, jtbl.vram);
+                    return false;
+                }
+                // Add each target to BFS. Also extend max_reached past
+                // the table itself so we count its bytes as part of
+                // the function.
+                for (size_t t : jtbl_targets) {
+                    if (!visited.contains(t)) {
+                        worklist.push_back(t);
+                    }
+                }
+                size_t jtbl_end = (jtbl.vram - vram_base) +
+                                  collected * 4;
+                if (jtbl_end > 0) {
+                    if (jtbl_end - 4 > max_reached) {
+                        max_reached = jtbl_end - 4;
+                    }
+                }
+                break;  // block ends after the jr's delay slot
+            }
+
+            // J / JAL (unconditional branch with delay slot).
+            if (id == InstrId::cpu_j || id == InstrId::cpu_jal) {
+                size_t delay = cursor + 4;
+                if (delay + 4 <= bytes_size) {
+                    visited.insert(delay);
+                    if (delay > max_reached) max_reached = delay;
+                }
+                if (instr.hasOperandAlias(
+                        rabbitizer::OperandType::cpu_label)) {
+                    uint32_t target_vram = instr.getInstrIndexAsVram();
+                    if (target_vram >= vram_base &&
+                        target_vram < vram_base + bytes_size) {
+                        size_t target_off = target_vram - vram_base;
+                        if (!visited.contains(target_off)) {
+                            worklist.push_back(target_off);
+                        }
+                    }
+                }
+                if (id == InstrId::cpu_jal) {
+                    cursor = delay + 4;
+                    continue;
+                }
+                break;  // unconditional j ends the block
+            }
+
+            // Conditional branches: target + fall-through reachable.
+            if (instr.isBranch()) {
+                size_t delay = cursor + 4;
+                if (delay + 4 <= bytes_size) {
+                    visited.insert(delay);
+                    if (delay > max_reached) max_reached = delay;
+                }
+                if (instr.hasOperandAlias(
+                        rabbitizer::OperandType::cpu_branch_target_label)) {
+                    uint32_t target_vram = instr.getBranchVramGeneric();
+                    if (target_vram >= vram_base &&
+                        target_vram < vram_base + bytes_size) {
+                        size_t target_off = target_vram - vram_base;
+                        if (!visited.contains(target_off)) {
+                            worklist.push_back(target_off);
+                        }
+                    }
+                }
+                cursor = delay + 4;
+                continue;
+            }
+
+            cursor += 4;
+        }
+    }
+
+    size_t end_off = max_reached + 4;
+    if (end_off > bytes_size) end_off = bytes_size;
+    if (end_off <= entry_offset) {
+        error_out = "no reachable instructions found at entry";
+        return false;
+    }
+    size_out = end_off - entry_offset;
     return true;
 }
