@@ -545,23 +545,31 @@ bool N64Recomp::discover_function_bounds(
             }
 
             // J / JAL (unconditional branch with delay slot).
+            //
+            // J — unconditional jump. In Stadium fragments, j targets
+            // inside the body are USUALLY tail calls to neighboring
+            // functions, not intra-function loops (loops use
+            // conditional B* branches with negative offsets, which the
+            // BFS handles separately). Treat j as a hard block
+            // terminator; do NOT follow the target. If the target is
+            // genuinely intra-function (rare), that's a CFG analysis
+            // gap that surfaces as missing code at the j-target,
+            // which the recompiler will report cleanly.
+            //
+            // JAL — call into another function. The target is, by
+            // definition, a separate function's entry. Following it
+            // here would absorb that other function into this one's
+            // body, which is exactly the bug we're fixing. JAL is
+            // followed sequentially (control returns after delay
+            // slot) but its target is NOT added to the BFS worklist.
             if (id == InstrId::cpu_j || id == InstrId::cpu_jal) {
                 size_t delay = cursor + 4;
                 if (delay + 4 <= bytes_size) {
                     visited.insert(delay);
                     if (delay > max_reached) max_reached = delay;
                 }
-                if (instr.hasOperandAlias(
-                        rabbitizer::OperandType::cpu_label)) {
-                    uint32_t target_vram = instr.getInstrIndexAsVram();
-                    if (target_vram >= vram_base &&
-                        target_vram < vram_base + bytes_size) {
-                        size_t target_off = target_vram - vram_base;
-                        if (!visited.contains(target_off)) {
-                            worklist.push_back(target_off);
-                        }
-                    }
-                }
+                // Deliberately NOT adding j/jal targets to the BFS.
+                // See comment block above.
                 if (id == InstrId::cpu_jal) {
                     cursor = delay + 4;
                     continue;
