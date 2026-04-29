@@ -495,15 +495,41 @@ size_t add_decompressed_section(Context& context,
         return size_t(-1);
     }
 
-    // Stash decompressed bytes at synthetic_rom = 0xFE000000 | wrapper_off
-    // so the existing pipeline (which addresses sections via rom_addr)
-    // finds them. The 0xFE prefix is reserved for synthesized sections.
-    const uint32_t synthetic_rom = 0xFE000000u | rom_wrapper;
+    // Stash decompressed bytes in context.rom at a synthetic_rom that's
+    // GUARANTEED not to overlap any other section. We use a cumulative
+    // allocator: a static counter that grows as sections are added, so
+    // each section's bytes occupy a fresh, non-overlapping range.
+    //
+    // The previous formula (0xFE000000 | wrap_off) was wrong because
+    // Stadium's wrappers are densely packed in ROM — wrap_offs are
+    // closer together than the SUM of their decompressed sizes — so
+    // (0xFE000000 | wrap_offA) + size_A often overlapped
+    // (0xFE000000 | wrap_offB). The second memcpy clobbered the first
+    // section's body, including its jump-table entries.
+    //
+    // Cumulative allocation eliminates the overlap entirely. The
+    // 0xFE000000 prefix is preserved for traceability (synthetic ranges
+    // start above any real ROM offset, which is at most ~64 MB).
     const uint32_t reloc_offset = read_be_u32(blob.data() + 0x14);
     if (reloc_offset > blob.size()) {
         std::fprintf(stderr,
             "decompressed: section %s relocOffset 0x%X exceeds blob 0x%zX\n",
             section_name.c_str(), reloc_offset, blob.size());
+        return size_t(-1);
+    }
+
+    // Cumulative synthetic-rom counter. Aligned to 4 bytes so MIPS
+    // instruction reads are always aligned.
+    static uint64_t next_synthetic_rom = 0xFE000000ull;
+    const uint32_t synthetic_rom = uint32_t(next_synthetic_rom);
+    next_synthetic_rom += (uint64_t(reloc_offset) + 3u) & ~uint64_t(3u);
+    if (next_synthetic_rom > 0xFFFFFFFFull) {
+        std::fprintf(stderr,
+            "decompressed: section %s — synthetic_rom counter overflowed "
+            "32 bits (next=0x%llX). Engine assumes < 256 MB of "
+            "synthesized-section payload total.\n",
+            section_name.c_str(),
+            (unsigned long long)next_synthetic_rom);
         return size_t(-1);
     }
 
