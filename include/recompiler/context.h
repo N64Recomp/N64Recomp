@@ -107,6 +107,12 @@ namespace N64Recomp {
         bool fixed_address = false; // Only used in mods, indicates that the section shouldn't be relocated or placed into mod memory.
         bool globally_loaded = false; // Only used in mods, indicates that the section's functions should be globally loaded. Does not actually load the section's contents into ram.
         std::optional<uint32_t> got_ram_addr = std::nullopt;
+        // Content hash for runtime identification when multiple sections
+        // share a link vram (e.g. pattern-synthesized decompressed
+        // sections). Nonzero only for those; emitted into
+        // recomp_overlays.inl's SectionTableEntry.content_hash. Computed
+        // as FNV-1a-64 of the first 0x40 bytes of the section's body.
+        uint64_t content_hash = 0;
     };
 
     struct ReferenceSection {

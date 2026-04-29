@@ -476,7 +476,8 @@ size_t add_decompressed_section(Context& context,
                                 uint32_t rom_wrapper,
                                 uint32_t vram,
                                 const std::string& section_name,
-                                bool relocatable)
+                                bool relocatable,
+                                uint64_t content_hash)
 {
     if (blob.size() < 0x20) {
         std::fprintf(stderr,
@@ -520,6 +521,7 @@ size_t add_decompressed_section(Context& context,
     section.name       = section_name;
     section.executable = true;
     section.relocatable = relocatable;
+    section.content_hash = content_hash;
 
     if (!parse_fragment_relocs(blob, vram, section_index, section)) {
         return size_t(-1);
@@ -768,24 +770,31 @@ bool synthesize_decompressed_patterns(
 
         if (hits.empty()) continue;
 
-        // Deduplicate by content hash.
+        // Deduplicate by content hash. Hash window is the first 0x100
+        // bytes — measured at 95% uniqueness for Stadium's 0x8FF00000
+        // slot. The runtime side uses the SAME window over the bytes
+        // Stadium decompressed into RDRAM, so build-time and runtime
+        // hashes match. (Smaller fragments hash their full body.)
+        constexpr size_t HASH_WINDOW = 0x100;
         std::unordered_map<uint64_t, size_t> seen_hashes;
         size_t added = 0;
         size_t deduped = 0;
         for (auto& [wrap_off, body] : hits) {
-            uint64_t h = fnv1a_64(body.data(), body.size());
-            auto it = seen_hashes.find(h);
+            const size_t window = std::min(HASH_WINDOW, body.size());
+            const uint64_t content_hash =
+                fnv1a_64(body.data(), window);
+            auto it = seen_hashes.find(content_hash);
             if (it != seen_hashes.end()) {
                 deduped++;
                 continue;
             }
-            seen_hashes.emplace(h, wrap_off);
+            seen_hashes.emplace(content_hash, wrap_off);
 
             const std::string section_name = fmt::format(
                 "{}__rom_{:X}", base_name, wrap_off);
             size_t si = add_decompressed_section(
                 context, body, wrap_off, p.vram,
-                section_name, p.relocatable);
+                section_name, p.relocatable, content_hash);
             if (si == size_t(-1)) {
                 std::fprintf(stderr,
                     "decompressed: pattern %s — failed to add section "
