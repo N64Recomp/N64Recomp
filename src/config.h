@@ -47,6 +47,30 @@ namespace N64Recomp {
         bool relocatable = true;
     };
 
+    // [[input.decompressed_section_pattern]] — describes a SLOT that
+    // multiple decompressed fragments share at runtime. Stadium's
+    // dynamic asset slots (e.g. vram 0x8FF00000) have hundreds of
+    // wrappers that all link at the same vram and get swapped in/out.
+    // For these, instead of declaring each wrapper individually, the
+    // user describes the slot and the engine auto-discovers every
+    // wrapper in the ROM that decompresses to a fragment at this
+    // vram + format.
+    //
+    // Synthesized section names are: <base_name>__rom_<rom_wrapper>
+    // where rom_wrapper is the ROM offset of each wrapper's magic.
+    // Wrappers whose decompressed bytes hash-equal another wrapper's
+    // are deduplicated (only one section emitted per distinct content;
+    // the runtime-side dispatch handles which wrapper-offset is in
+    // play at a given moment).
+    struct DecompressedSectionPattern {
+        // Base name for emitted sections; suffix __rom_<offset>
+        // appends per wrapper. Defaults to "frag_<vram>" if empty.
+        std::string base_name;
+        uint32_t vram = 0;
+        std::string wrapper_format;
+        bool relocatable = true;
+    };
+
     // [output] collision_policy — what to do when two emitted symbols
     // would share a name. "error" (default) aborts the build with a
     // message naming both colliders. "suffix" auto-disambiguates by
@@ -84,6 +108,7 @@ namespace N64Recomp {
         std::vector<FunctionSize> manual_func_sizes;
         std::vector<ManualFunction> manual_functions;
         std::vector<DecompressedSection> decompressed_sections;
+        std::vector<DecompressedSectionPattern> decompressed_section_patterns;
         CollisionPolicy collision_policy = CollisionPolicy::Error;
         std::string bss_section_suffix;
         std::string recomp_include;

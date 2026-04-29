@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <unordered_map>
 #include <vector>
 
 #include "compression/pers_szp.h"
@@ -16,6 +17,19 @@ namespace {
 uint32_t read_be_u32(const uint8_t* p) {
     return (uint32_t(p[0]) << 24) | (uint32_t(p[1]) << 16) |
            (uint32_t(p[2]) << 8)  |  uint32_t(p[3]);
+}
+
+// FNV-1a 64-bit content hash. Used to deduplicate wrappers whose
+// decompressed bytes are byte-for-byte identical (Stadium's 0x8FF00000
+// slot has ~11 such pairs out of 279), and as the runtime dispatch key
+// when multiple wrappers share a link vram.
+uint64_t fnv1a_64(const uint8_t* data, size_t len) {
+    uint64_t h = 0xCBF29CE484222325ull;
+    for (size_t i = 0; i < len; i++) {
+        h ^= uint64_t(data[i]);
+        h *= 0x100000001B3ull;
+    }
+    return h;
 }
 
 // Reads an entire file into memory. Returns empty vector on error.
@@ -445,6 +459,349 @@ bool synthesize_decompressed_sections(
 
     // Cross-section R_MIPS_32 retargeting now that all decompressed
     // sections are in context.sections.
+    resolve_cross_section_targets(context, first_added_index);
+
+    return true;
+}
+
+namespace {
+
+// Adds one synthesized section + its functions + reloc table to the
+// context. Used by both the explicit per-fragment path and the pattern
+// auto-discovery path. `blob` is the decompressed body+relocs (must
+// start with the FRAGMENT header). On success, returns the section
+// index. On failure, returns size_t(-1) and prints to stderr.
+size_t add_decompressed_section(Context& context,
+                                const std::vector<uint8_t>& blob,
+                                uint32_t rom_wrapper,
+                                uint32_t vram,
+                                const std::string& section_name,
+                                bool relocatable)
+{
+    if (blob.size() < 0x20) {
+        std::fprintf(stderr,
+            "decompressed: section %s blob smaller than FRAGMENT header\n",
+            section_name.c_str());
+        return size_t(-1);
+    }
+    if (std::memcmp(blob.data() + 0x08, "FRAGMENT", 8) != 0) {
+        std::fprintf(stderr,
+            "decompressed: section %s missing FRAGMENT magic\n",
+            section_name.c_str());
+        return size_t(-1);
+    }
+
+    // Stash decompressed bytes at synthetic_rom = 0xFE000000 | wrapper_off
+    // so the existing pipeline (which addresses sections via rom_addr)
+    // finds them. The 0xFE prefix is reserved for synthesized sections.
+    const uint32_t synthetic_rom = 0xFE000000u | rom_wrapper;
+    const uint32_t reloc_offset = read_be_u32(blob.data() + 0x14);
+    if (reloc_offset > blob.size()) {
+        std::fprintf(stderr,
+            "decompressed: section %s relocOffset 0x%X exceeds blob 0x%zX\n",
+            section_name.c_str(), reloc_offset, blob.size());
+        return size_t(-1);
+    }
+
+    const size_t needed_rom_size = size_t(synthetic_rom) + reloc_offset;
+    if (context.rom.size() < needed_rom_size) {
+        context.rom.resize(needed_rom_size, 0);
+    }
+    std::memcpy(context.rom.data() + synthetic_rom,
+                blob.data(), reloc_offset);
+
+    const uint16_t section_index = uint16_t(context.sections.size());
+
+    Section section{};
+    section.rom_addr   = synthetic_rom;
+    section.ram_addr   = vram;
+    section.size       = reloc_offset;
+    section.bss_size   = 0;
+    section.name       = section_name;
+    section.executable = true;
+    section.relocatable = relocatable;
+
+    if (!parse_fragment_relocs(blob, vram, section_index, section)) {
+        return size_t(-1);
+    }
+
+    context.sections.emplace_back(std::move(section));
+    context.section_functions.emplace_back();
+
+    auto add_function = [&](uint32_t f_vram, uint32_t f_rom,
+                            std::vector<uint32_t> words,
+                            std::string name) {
+        const size_t fi = context.functions.size();
+        context.functions.emplace_back(
+            f_vram, f_rom, std::move(words), name,
+            section_index, false, false, false);
+        context.section_functions[section_index].push_back(fi);
+        context.sections[section_index].function_addrs.push_back(f_vram);
+        context.functions_by_vram[f_vram].push_back(fi);
+        context.functions_by_name[name] = fi;
+    };
+
+    // (1) Entry trampoline at vram+0 (8 bytes).
+    std::vector<uint32_t> entry_words(2);
+    std::memcpy(entry_words.data(), blob.data() + 0x00, 8);
+    add_function(vram, synthetic_rom,
+                 std::move(entry_words),
+                 section_name + "_entry");
+
+    // (2) Implementation function at vram+0x20. Determine its size by
+    // a basic forward CFG walk:
+    //   - Start at +0x20.
+    //   - At each instruction, track forward-branch targets within the
+    //     function (B/BEQ/BNE/JAL).
+    //   - At every `jr $ra`, the function ends after the delay slot
+    //     UNLESS a tracked forward-branch target is past that point;
+    //     in that case, keep walking (the jr $ra is mid-function,
+    //     reached via a goto/branch, with more code after).
+    //   - Hard cap at relocOffset (where data/relocs start).
+    //
+    // This is far less rigorous than the recompiler's analyze_function
+    // (which is what runs LATER on this function), but it's enough to
+    // size the function correctly for the common cases we've seen so
+    // far. Fragments with weirder shapes (computed-jump exits, etc.)
+    // may need a future refinement; for now they'll either come out
+    // smaller-than-correct (recompile fails — we log + skip) or the
+    // recompiler's own analysis will surface the issue.
+    constexpr uint32_t IMPL_OFFSET = 0x20;
+    const auto get_be32 = [&](size_t off) -> uint32_t {
+        return read_be_u32(blob.data() + off);
+    };
+    auto branch_target_offset = [&](uint32_t insn,
+                                    uint32_t pc_offset) -> size_t {
+        // BEQ/BNE/BLEZ/BGTZ etc all use 16-bit signed offset relative
+        // to the delay slot. opcode in bits 31..26 between 0x04 and
+        // 0x07, plus REGIMM (0x01) for BLTZ/BGEZ/etc.
+        uint32_t opcode = (insn >> 26) & 0x3F;
+        bool is_branch = (opcode == 0x01 ||  // REGIMM
+                          (opcode >= 0x04 && opcode <= 0x07) ||
+                          opcode == 0x14 || opcode == 0x15 ||  // BEQL/BNEL
+                          opcode == 0x16 || opcode == 0x17);   // BLEZL/BGTZL
+        if (!is_branch) return 0;
+        int16_t imm16 = int16_t(insn & 0xFFFF);
+        // Target = (pc_after_delay_slot) + imm16*4 = pc + 4 + imm16*4.
+        // Working in offsets from blob start.
+        int64_t target = int64_t(pc_offset) + 4 + (int64_t(imm16) * 4);
+        if (target <= int64_t(pc_offset)) return 0;  // backward-only
+        if (target > int64_t(reloc_offset)) return 0;
+        return size_t(target);
+    };
+
+    size_t furthest_branch = 0;
+    size_t impl_end = 0;
+    for (size_t off = IMPL_OFFSET; off + 4 <= reloc_offset; off += 4) {
+        const uint32_t insn = get_be32(off);
+        // jr $ra encoding: 0x03E00008
+        if (insn == 0x03E00008u) {
+            // Function ends after delay slot, unless we've tracked a
+            // forward branch past this point.
+            const size_t after_delay = off + 8;
+            if (after_delay > reloc_offset) {
+                impl_end = reloc_offset;
+            } else if (after_delay >= furthest_branch) {
+                impl_end = after_delay;
+            } else {
+                // jr $ra is mid-function — keep walking.
+                continue;
+            }
+            break;
+        }
+        size_t bt = branch_target_offset(insn, off);
+        if (bt > furthest_branch) {
+            furthest_branch = bt;
+        }
+    }
+    if (impl_end == 0) {
+        // No proper return found — degrade to first jr $ra in body
+        // (matches old heuristic) so we still produce something.
+        for (size_t off = IMPL_OFFSET; off + 4 <= reloc_offset; off += 4) {
+            if (get_be32(off) == 0x03E00008u) {
+                impl_end = off + 8;
+                if (impl_end > reloc_offset) impl_end = reloc_offset;
+                break;
+            }
+        }
+    }
+    if (impl_end > IMPL_OFFSET) {
+        const size_t impl_size = impl_end - IMPL_OFFSET;
+        std::vector<uint32_t> impl_words(impl_size / 4);
+        std::memcpy(impl_words.data(),
+                    blob.data() + IMPL_OFFSET, impl_size);
+        const std::string impl_name = fmt::format(
+            "func_{:08X}", vram + IMPL_OFFSET);
+        add_function(vram + IMPL_OFFSET,
+                     synthetic_rom + IMPL_OFFSET,
+                     std::move(impl_words),
+                     impl_name);
+    }
+
+    return section_index;
+}
+
+// Decompress a wrapper at the given ROM offset using the named format.
+// Returns true + populates blob on success.
+bool decompress_wrapper_at(const std::vector<uint8_t>& rom,
+                           uint32_t rom_wrapper,
+                           const std::string& wrapper_format,
+                           std::vector<uint8_t>& blob_out)
+{
+    if (rom_wrapper >= rom.size()) return false;
+    if (wrapper_format == "pers_szp_yay0") {
+        return compression::pers_szp_decompress(
+            rom.data() + rom_wrapper,
+            rom.size() - rom_wrapper, blob_out);
+    } else if (wrapper_format == "yay0") {
+        return compression::yay0_decompress(
+            rom.data() + rom_wrapper,
+            rom.size() - rom_wrapper, blob_out);
+    }
+    return false;
+}
+
+} // namespace
+
+bool synthesize_decompressed_patterns(
+    Context& context,
+    const std::filesystem::path& rom_path,
+    const std::vector<DecompressedSectionPattern>& patterns)
+{
+    if (patterns.empty()) return true;
+
+    const std::vector<uint8_t> rom = read_rom_file(rom_path);
+    if (rom.empty()) {
+        std::fprintf(stderr,
+            "decompressed: failed to read ROM file: %s\n",
+            rom_path.string().c_str());
+        return false;
+    }
+
+    const uint16_t first_added_index = uint16_t(context.sections.size());
+
+    for (const DecompressedSectionPattern& p : patterns) {
+        // Compute the J-trampoline encoding we expect at +0x00 of any
+        // matching fragment: J <vram + 0x20> + nop. MIPS J insn:
+        //   opcode 0x02 << 26 | (target >> 2) & 0x03FFFFFF
+        const uint32_t j_target = p.vram + 0x20u;
+        const uint32_t j_insn = 0x08000000u |
+                                ((j_target >> 2) & 0x03FFFFFFu);
+        // Big-endian byte pattern for the first 8 bytes (J + nop).
+        uint8_t expected_first8[8];
+        expected_first8[0] = uint8_t(j_insn >> 24);
+        expected_first8[1] = uint8_t(j_insn >> 16);
+        expected_first8[2] = uint8_t(j_insn >> 8);
+        expected_first8[3] = uint8_t(j_insn);
+        expected_first8[4] = 0;
+        expected_first8[5] = 0;
+        expected_first8[6] = 0;
+        expected_first8[7] = 0;
+        const uint8_t fragment_magic[8] = {
+            'F', 'R', 'A', 'G', 'M', 'E', 'N', 'T'
+        };
+
+        // Resolve the base_name (default: "frag_<vram>").
+        std::string base_name = p.base_name;
+        if (base_name.empty()) {
+            base_name = fmt::format("frag_{:08X}", p.vram);
+        }
+
+        // Scan the ROM for Yay0 magic. For each, decompress 0x40 bytes,
+        // check the J-insn + FRAGMENT-magic match, and accept.
+        std::vector<std::pair<uint32_t, std::vector<uint8_t>>> hits;
+        size_t scan_pos = 0;
+        while (scan_pos + 16 < rom.size()) {
+            // Find next "Yay0" magic.
+            size_t y0 = std::string::npos;
+            for (size_t i = scan_pos; i + 4 <= rom.size(); i++) {
+                if (rom[i]   == 'Y' && rom[i+1] == 'a' &&
+                    rom[i+2] == 'y' && rom[i+3] == '0') {
+                    y0 = i;
+                    break;
+                }
+            }
+            if (y0 == std::string::npos) break;
+            scan_pos = y0 + 4;
+
+            // Quick prefix decompress to test the FRAGMENT shape.
+            std::vector<uint8_t> prefix;
+            if (!compression::yay0_decompress(
+                    rom.data() + y0, rom.size() - y0, prefix)) {
+                continue;
+            }
+            if (prefix.size() < 0x10) continue;
+            if (std::memcmp(prefix.data(), expected_first8, 8) != 0) continue;
+            if (std::memcmp(prefix.data() + 8, fragment_magic, 8) != 0) continue;
+
+            // Match — figure out the wrapper offset (PERS-SZP wraps Yay0
+            // at -0x18 if the format is pers_szp_yay0; otherwise the
+            // wrapper offset IS the Yay0 offset).
+            uint32_t wrap_off = uint32_t(y0);
+            if (p.wrapper_format == "pers_szp_yay0") {
+                if (y0 < 0x18) continue;
+                if (std::memcmp(rom.data() + (y0 - 0x18),
+                                "PERS-SZP", 8) != 0) {
+                    continue;
+                }
+                wrap_off = uint32_t(y0 - 0x18);
+            } else if (p.wrapper_format != "yay0") {
+                std::fprintf(stderr,
+                    "decompressed: pattern %s unknown wrapper_format '%s'\n",
+                    base_name.c_str(), p.wrapper_format.c_str());
+                return false;
+            }
+
+            // Full decompress.
+            std::vector<uint8_t> body;
+            if (!decompress_wrapper_at(rom, wrap_off, p.wrapper_format, body)) {
+                continue;
+            }
+            hits.emplace_back(wrap_off, std::move(body));
+        }
+
+        std::fprintf(stderr,
+            "decompressed pattern %s @ vram 0x%08X format=%s: "
+            "found %zu wrappers in ROM\n",
+            base_name.c_str(), p.vram, p.wrapper_format.c_str(),
+            hits.size());
+
+        if (hits.empty()) continue;
+
+        // Deduplicate by content hash.
+        std::unordered_map<uint64_t, size_t> seen_hashes;
+        size_t added = 0;
+        size_t deduped = 0;
+        for (auto& [wrap_off, body] : hits) {
+            uint64_t h = fnv1a_64(body.data(), body.size());
+            auto it = seen_hashes.find(h);
+            if (it != seen_hashes.end()) {
+                deduped++;
+                continue;
+            }
+            seen_hashes.emplace(h, wrap_off);
+
+            const std::string section_name = fmt::format(
+                "{}__rom_{:X}", base_name, wrap_off);
+            size_t si = add_decompressed_section(
+                context, body, wrap_off, p.vram,
+                section_name, p.relocatable);
+            if (si == size_t(-1)) {
+                std::fprintf(stderr,
+                    "decompressed: pattern %s — failed to add section "
+                    "for ROM 0x%X (continuing)\n",
+                    base_name.c_str(), wrap_off);
+                continue;
+            }
+            added++;
+        }
+        std::fprintf(stderr,
+            "decompressed pattern %s: %zu sections added "
+            "(%zu deduped as content-identical)\n",
+            base_name.c_str(), added, deduped);
+    }
+
+    // Cross-section R_MIPS_32 retargeting once everything is in.
     resolve_cross_section_targets(context, first_added_index);
 
     return true;

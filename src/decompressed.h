@@ -39,6 +39,22 @@ bool synthesize_decompressed_sections(
     const std::filesystem::path& rom_path,
     const std::vector<DecompressedSection>& configs);
 
+// Auto-discovery: scan the ROM for every wrapper that decompresses
+// to a fragment at the declared vram + format, deduplicate by content
+// hash, and add one Section per distinct content. Section names are
+// auto-generated as <pattern.base_name>__rom_<rom_offset>; the runtime
+// dispatcher uses the bytes Stadium loads at fragment_ptr to identify
+// which section's recompiled C to bind.
+//
+// Each pattern produces an arbitrary number of sections (e.g. Stadium's
+// 0x8FF00000 slot has 268 distinct fragment-bodies). Sections are
+// appended to `context.sections` in deterministic ROM-offset order so
+// rebuilds are reproducible.
+bool synthesize_decompressed_patterns(
+    Context& context,
+    const std::filesystem::path& rom_path,
+    const std::vector<DecompressedSectionPattern>& patterns);
+
 } // namespace N64Recomp
 
 #endif

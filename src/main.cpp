@@ -387,6 +387,17 @@ int main(int argc, char** argv) {
             exit_failure("Failed to synthesize decompressed sections\n");
         }
 
+        // Pattern-driven auto-discovery of decompressed sections. For
+        // slots like Stadium's vram 0x8FF00000 where many wrappers
+        // share a link addr, this scans the ROM and synthesizes one
+        // section per distinct decompressed content. With suffix-style
+        // names (<base>__rom_<offset>) per wrapper.
+        if (!N64Recomp::synthesize_decompressed_patterns(
+                context, config.rom_file_path,
+                config.decompressed_section_patterns)) {
+            exit_failure("Failed to synthesize decompressed patterns\n");
+        }
+
         // Add any manual functions
         add_manual_functions(context, config.manual_functions);
 
@@ -847,6 +858,23 @@ int main(int argc, char** argv) {
             }
             if (result == false) {
                 fmt::print(stderr, "Error recompiling {}\n", func.name);
+                // Pattern-synthesized sections (rom_addr in the synthetic
+                // 0xFE000000 range) are best-effort: we don't know each
+                // function's true size without real CFG analysis. If one
+                // fails, log and continue so the rest of the build
+                // succeeds. The runtime will see a missing func_map
+                // entry and dispatch via LOOKUP_FUNC's trampoline path
+                // if Stadium ever activates this fragment.
+                bool is_pattern_synthesized =
+                    (context.sections[func.section_index].rom_addr & 0xFF000000u)
+                        == 0xFE000000u;
+                if (is_pattern_synthesized) {
+                    fmt::print(stderr,
+                        "  (pattern-synthesized section — skipping, "
+                        "build continues)\n");
+                    context.functions[i].ignored = true;
+                    continue;
+                }
                 std::exit(EXIT_FAILURE);
             }
         } else if (func.reimplemented) {
@@ -956,6 +984,20 @@ int main(int argc, char** argv) {
 
             if (result == false) {
                 fmt::print(stderr, "Error recompiling {}\n", new_func.name);
+                // Pattern-synthesized sections (rom_addr in synthetic
+                // 0xFE000000 range) are best-effort. Mark the static
+                // ignored and continue. See the equivalent block in
+                // the main recompile loop above for rationale.
+                bool is_pattern_synthesized =
+                    (context.sections[new_func.section_index].rom_addr & 0xFF000000u)
+                        == 0xFE000000u;
+                if (is_pattern_synthesized) {
+                    fmt::print(stderr,
+                        "  (pattern-synthesized section — skipping, "
+                        "build continues)\n");
+                    context.functions[new_func_index].ignored = true;
+                    continue;
+                }
                 std::exit(EXIT_FAILURE);
             }
         }

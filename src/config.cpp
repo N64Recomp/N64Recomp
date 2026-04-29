@@ -38,6 +38,36 @@ std::vector<N64Recomp::ManualFunction> get_manual_funcs(const toml::array* manua
     return ret;
 }
 
+std::vector<N64Recomp::DecompressedSectionPattern> get_decompressed_section_patterns(const toml::array* arr) {
+    std::vector<N64Recomp::DecompressedSectionPattern> ret;
+    ret.reserve(arr->size());
+    arr->for_each([&ret](auto&& el) {
+        if constexpr (toml::is_table<decltype(el)>) {
+            std::optional<std::string> base_name = el["base_name"].template value<std::string>();
+            std::optional<uint32_t> vram = el["vram"].template value<uint32_t>();
+            std::optional<std::string> wrapper_format = el["wrapper_format"].template value<std::string>();
+            std::optional<bool> relocatable = el["relocatable"].template value<bool>();
+
+            if (!vram.has_value() || !wrapper_format.has_value()) {
+                throw toml::parse_error(
+                    "decompressed_section_pattern requires vram and "
+                    "wrapper_format", el.source());
+            }
+
+            N64Recomp::DecompressedSectionPattern p;
+            p.base_name      = base_name.value_or("");
+            p.vram           = vram.value();
+            p.wrapper_format = wrapper_format.value();
+            p.relocatable    = relocatable.value_or(true);
+            ret.emplace_back(std::move(p));
+        } else {
+            throw toml::parse_error(
+                "Invalid decompressed_section_pattern entry", el.source());
+        }
+    });
+    return ret;
+}
+
 std::vector<N64Recomp::DecompressedSection> get_decompressed_sections(const toml::array* arr) {
     std::vector<N64Recomp::DecompressedSection> ret;
     ret.reserve(arr->size());
@@ -429,6 +459,19 @@ N64Recomp::Config::Config(const char* path) {
         if (decompressed_data.is_array()) {
             decompressed_sections = get_decompressed_sections(
                 decompressed_data.as_array());
+        }
+
+        // Decompressed section patterns (optional). One
+        // [[input.decompressed_section_pattern]] entry per slot where
+        // multiple wrappers share a link vram (e.g. Stadium's
+        // 0x8FF00000 dynamic-asset slot). The engine scans the ROM
+        // for every wrapper that decompresses to a fragment at the
+        // declared vram + format.
+        toml::node_view decompressed_pattern_data =
+            input_data["decompressed_section_pattern"];
+        if (decompressed_pattern_data.is_array()) {
+            decompressed_section_patterns = get_decompressed_section_patterns(
+                decompressed_pattern_data.as_array());
         }
 
         // Output policies (optional [output] table).
