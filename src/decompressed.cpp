@@ -546,6 +546,54 @@ size_t add_decompressed_section(Context& context,
         context.functions_by_name[name] = fi;
     };
 
+    // Stadium has two FRAGMENT shapes that share the same +0x00..0x20
+    // header (J trampoline + magic + sizes):
+    //
+    //   Code fragment:  +0x20 is a real MIPS function ending in jr $ra
+    //                   (and possibly more functions interspersed with
+    //                   data). Stadium calls the J at +0x00 to dispatch
+    //                   into the function.
+    //
+    //   Data fragment:  +0x20 onwards is pure data (tables of
+    //                   (tag, pointer) records, etc.). The J at +0x00
+    //                   is a dormant placeholder that Stadium NEVER
+    //                   actually calls — Stadium reads the data
+    //                   directly. No MIPS function exists.
+    //
+    // We distinguish by scanning the first 0x100 instructions of the
+    // body for ANY jr $ra (0x03E00008). If absent, the fragment is
+    // data-only: we register the section + R_MIPS_32 relocs but emit
+    // NO FuncEntry rows. Stadium's dispatch never goes through a
+    // func_map entry for these. If something ever does call the
+    // entry-trampoline J, the runtime LOOKUP_FUNC reports the miss
+    // loudly, which is the correct surface — NOT a stub.
+    constexpr uint32_t IMPL_OFFSET = 0x20;
+    bool has_jr_ra = false;
+    {
+        const size_t scan_end = std::min<size_t>(
+            reloc_offset, IMPL_OFFSET + 0x400);  // first 256 insns
+        for (size_t off = IMPL_OFFSET; off + 4 <= scan_end; off += 4) {
+            if (read_be_u32(blob.data() + off) == 0x03E00008u) {
+                has_jr_ra = true;
+                break;
+            }
+        }
+    }
+
+    if (!has_jr_ra) {
+        // Data-only fragment: section + relocs only, no functions.
+        std::fprintf(stderr,
+            "decompressed: section %s — data-only fragment (no jr $ra "
+            "in first 0x400 bytes); registered as section + relocs "
+            "with no FuncEntry rows. Stadium never dispatches the +0x00 "
+            "J trampoline for these (would surface as a runtime "
+            "lookup miss if it did, which is the correct diagnostic).\n",
+            section_name.c_str());
+        return section_index;
+    }
+
+    // Code fragment path: synthesize entry trampoline + impl function.
+
     // (1) Entry trampoline at vram+0 (8 bytes).
     std::vector<uint32_t> entry_words(2);
     std::memcpy(entry_words.data(), blob.data() + 0x00, 8);
@@ -560,7 +608,6 @@ size_t add_decompressed_section(Context& context,
     // existing register-state simulator). On failure it reports a
     // specific offset and reason; we propagate that as a build error
     // — no graceful skip, no stub.
-    constexpr uint32_t IMPL_OFFSET = 0x20;
     if (reloc_offset <= IMPL_OFFSET + 4) {
         std::fprintf(stderr,
             "decompressed: section %s — body too small to contain a "
