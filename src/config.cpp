@@ -38,6 +38,39 @@ std::vector<N64Recomp::ManualFunction> get_manual_funcs(const toml::array* manua
     return ret;
 }
 
+std::vector<N64Recomp::DecompressedSection> get_decompressed_sections(const toml::array* arr) {
+    std::vector<N64Recomp::DecompressedSection> ret;
+    ret.reserve(arr->size());
+    arr->for_each([&ret](auto&& el) {
+        if constexpr (toml::is_table<decltype(el)>) {
+            std::optional<std::string> name = el["name"].template value<std::string>();
+            std::optional<uint32_t> vram = el["vram"].template value<uint32_t>();
+            std::optional<uint32_t> rom_wrapper = el["rom_wrapper"].template value<uint32_t>();
+            std::optional<std::string> wrapper_format = el["wrapper_format"].template value<std::string>();
+            std::optional<bool> relocatable = el["relocatable"].template value<bool>();
+
+            if (!name.has_value() || !vram.has_value() ||
+                !rom_wrapper.has_value() || !wrapper_format.has_value()) {
+                throw toml::parse_error(
+                    "decompressed_section requires name, vram, rom_wrapper, "
+                    "wrapper_format", el.source());
+            }
+
+            N64Recomp::DecompressedSection ds;
+            ds.name           = name.value();
+            ds.vram           = vram.value();
+            ds.rom_wrapper    = rom_wrapper.value();
+            ds.wrapper_format = wrapper_format.value();
+            ds.relocatable    = relocatable.value_or(true);
+            ret.emplace_back(std::move(ds));
+        } else {
+            throw toml::parse_error(
+                "Invalid decompressed_section entry", el.source());
+        }
+    });
+    return ret;
+}
+
 std::vector<std::filesystem::path> get_data_syms_paths(const toml::array* data_syms_paths_array, const std::filesystem::path& basedir) {
     std::vector<std::filesystem::path> ret;
 
@@ -388,6 +421,33 @@ N64Recomp::Config::Config(const char* path) {
         if (function_sizes_data.is_array()) {
             const toml::array* array = function_sizes_data.as_array();
             manual_func_sizes = get_func_sizes(array);
+        }
+
+        // Decompressed sections (optional). One [[input.decompressed_section]]
+        // entry per CPU-decompressed runtime fragment we want recompiled.
+        toml::node_view decompressed_data = input_data["decompressed_section"];
+        if (decompressed_data.is_array()) {
+            decompressed_sections = get_decompressed_sections(
+                decompressed_data.as_array());
+        }
+
+        // Output policies (optional [output] table).
+        toml::node_view output_data = config_data["output"];
+        if (output_data.is_table()) {
+            std::optional<std::string> policy_str =
+                output_data["collision_policy"].value<std::string>();
+            if (policy_str.has_value()) {
+                if (policy_str.value() == "error") {
+                    collision_policy = N64Recomp::CollisionPolicy::Error;
+                } else if (policy_str.value() == "suffix") {
+                    collision_policy = N64Recomp::CollisionPolicy::Suffix;
+                } else {
+                    throw toml::parse_error(
+                        "output.collision_policy must be \"error\" or "
+                        "\"suffix\"",
+                        output_data.as_table()->source());
+                }
+            }
         }
 
         // Output binary path when using an elf file input, includes patching reference symbol MIPS32 relocs (optional)

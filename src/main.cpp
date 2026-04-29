@@ -11,6 +11,7 @@
 
 #include "recompiler/context.h"
 #include "config.h"
+#include "decompressed.h"
 #include <set>
 
 void add_manual_functions(N64Recomp::Context& context, const std::vector<N64Recomp::ManualFunction>& manual_funcs) {
@@ -376,6 +377,16 @@ int main(int argc, char** argv) {
             exit_failure("Failed to parse elf\n");
         }
 
+        // Synthesize decompressed sections (CPU-decompressed-at-runtime
+        // fragments). The recompiler decompresses them now from the ROM
+        // wrapper bytes and adds them as in-memory sections, so the rest
+        // of the pipeline treats them like any other ELF section.
+        if (!N64Recomp::synthesize_decompressed_sections(
+                context, config.rom_file_path,
+                config.decompressed_sections)) {
+            exit_failure("Failed to synthesize decompressed sections\n");
+        }
+
         // Add any manual functions
         add_manual_functions(context, config.manual_functions);
 
@@ -465,6 +476,84 @@ int main(int argc, char** argv) {
 
 
     fmt::print("Function count: {}\n", context.functions.size());
+
+    // Collision detection. If two functions ended up with the same name
+    // (e.g. two sections at the same link vram), the user must opt in to
+    // the suffix policy or fix the collision structurally. Default policy
+    // is Error so silent name collisions never ship.
+    {
+        std::unordered_map<std::string, std::vector<size_t>> by_name;
+        by_name.reserve(context.functions.size());
+        for (size_t i = 0; i < context.functions.size(); i++) {
+            const N64Recomp::Function& f = context.functions[i];
+            if (f.name.empty()) continue;
+            by_name[f.name].push_back(i);
+        }
+
+        std::vector<std::pair<std::string, std::vector<size_t>>> collisions;
+        for (auto& [name, indices] : by_name) {
+            if (indices.size() > 1) {
+                collisions.emplace_back(name, indices);
+            }
+        }
+
+        if (!collisions.empty()) {
+            if (config.collision_policy == N64Recomp::CollisionPolicy::Error) {
+                fmt::print(stderr,
+                    "\nERROR: {} function name collision(s) detected.\n"
+                    "Two or more sections emit functions with the same name; "
+                    "the build cannot proceed without disambiguation.\n\n",
+                    collisions.size());
+                for (const auto& [name, indices] : collisions) {
+                    fmt::print(stderr, "  `{}` is emitted by:\n", name);
+                    for (size_t fi : indices) {
+                        const N64Recomp::Function& f = context.functions[fi];
+                        const N64Recomp::Section& s = context.sections[f.section_index];
+                        fmt::print(stderr,
+                            "    section {} ({}) — function vram 0x{:08X}, rom 0x{:X}\n",
+                            f.section_index, s.name, f.vram, f.rom);
+                    }
+                }
+                fmt::print(stderr,
+                    "\nFix options:\n"
+                    "  1. Set [output] collision_policy = \"suffix\" in your\n"
+                    "     game.toml to auto-disambiguate by appending\n"
+                    "     __rom_<rom_addr> to each colliding symbol. The\n"
+                    "     suffix is only added where collisions exist; the\n"
+                    "     other 99% of symbols stay unchanged.\n"
+                    "  2. Remove one of the colliding sections (e.g. if a\n"
+                    "     decompressed_section duplicates an ELF section).\n"
+                    "  3. Rename via [[input.section_alias]] (not yet\n"
+                    "     implemented; use option 1 for now).\n");
+                std::exit(EXIT_FAILURE);
+            } else {
+                // Suffix policy: rename every colliding function. We
+                // append __rom_<rom_addr> so the suffix encodes a stable
+                // identity (the rom_addr is unique per section in a given
+                // ROM; for synthesized decompressed sections it carries
+                // the wrapper offset).
+                size_t renamed = 0;
+                for (const auto& [name, indices] : collisions) {
+                    for (size_t fi : indices) {
+                        N64Recomp::Function& f = context.functions[fi];
+                        std::string new_name = fmt::format(
+                            "{}__rom_{:X}", f.name, f.rom);
+                        context.functions_by_name.erase(f.name);
+                        f.name = new_name;
+                        context.functions_by_name[f.name] = fi;
+                        renamed++;
+                    }
+                    fmt::print(stderr,
+                        "[collision] `{}` disambiguated across {} section(s)\n",
+                        name, indices.size());
+                }
+                fmt::print(stderr,
+                    "[collision] suffix policy applied: {} function(s) "
+                    "renamed across {} collision group(s)\n",
+                    renamed, collisions.size());
+            }
+        }
+    }
 
     std::filesystem::create_directories(config.output_func_path);
 

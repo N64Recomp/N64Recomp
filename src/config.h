@@ -35,6 +35,27 @@ namespace N64Recomp {
         ManualFunction(const std::string& func_name, std::string section_name, uint32_t vram, uint32_t size) : func_name(std::move(func_name)), section_name(std::move(section_name)), vram(vram), size(size) {}
     };
 
+    // [[input.decompressed_section]] — describes a runtime-decompressed
+    // section. The recompiler decompresses it at build time so it can
+    // emit MIPS-to-C for the bytes the runtime will produce. See
+    // decompressed.h for the synthesis pipeline.
+    struct DecompressedSection {
+        std::string name;
+        uint32_t vram = 0;
+        uint32_t rom_wrapper = 0;
+        std::string wrapper_format;
+        bool relocatable = true;
+    };
+
+    // [output] collision_policy — what to do when two emitted symbols
+    // would share a name. "error" (default) aborts the build with a
+    // message naming both colliders. "suffix" auto-disambiguates by
+    // appending __rom_<rom_addr> to each colliding symbol.
+    enum class CollisionPolicy {
+        Error,   // default
+        Suffix,
+    };
+
     struct Config {
         int32_t entrypoint;
         int32_t functions_per_output_file;
@@ -62,6 +83,8 @@ namespace N64Recomp {
         std::vector<FunctionTextHook> function_hooks;
         std::vector<FunctionSize> manual_func_sizes;
         std::vector<ManualFunction> manual_functions;
+        std::vector<DecompressedSection> decompressed_sections;
+        CollisionPolicy collision_policy = CollisionPolicy::Error;
         std::string bss_section_suffix;
         std::string recomp_include;
         // Manual mappings of mdebug file records to elf sections.

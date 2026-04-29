@@ -119,10 +119,14 @@ add_executable(N64RecompCLI)
 target_sources(N64RecompCLI PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/config.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/decompressed.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/compression/yay0.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/compression/pers_szp.cpp
 )
 
 target_include_directories(N64RecompCLI PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 
 target_link_libraries(N64RecompCLI fmt rabbitizer tomlplusplus::tomlplusplus N64Recomp N64RecompElf)
