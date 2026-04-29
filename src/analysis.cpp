@@ -526,19 +526,20 @@ bool N64Recomp::discover_function_bounds(
                         cursor, jtbl.vram);
                     return false;
                 }
-                // Add each target to BFS. Also extend max_reached past
-                // the table itself so we count its bytes as part of
-                // the function.
+                // Add each target to BFS so its arm gets walked and
+                // its instructions count toward max_reached. Do NOT
+                // extend max_reached to cover the jump table's bytes
+                // themselves: jtbl entries are DATA, not code, and
+                // including them in the function's `words` makes
+                // recompile_function try to interpret intervening
+                // data words as MIPS instructions (which usually
+                // fails because the data isn't valid code). The
+                // recompiler's analyze_function reads jtbl entries
+                // directly from context.rom — they don't need to
+                // be inside func.words.
                 for (size_t t : jtbl_targets) {
                     if (!visited.contains(t)) {
                         worklist.push_back(t);
-                    }
-                }
-                size_t jtbl_end = (jtbl.vram - vram_base) +
-                                  collected * 4;
-                if (jtbl_end > 0) {
-                    if (jtbl_end - 4 > max_reached) {
-                        max_reached = jtbl_end - 4;
                     }
                 }
                 break;  // block ends after the jr's delay slot
