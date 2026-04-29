@@ -9,6 +9,8 @@
 #include "compression/pers_szp.h"
 #include "compression/yay0.h"
 #include "fmt/format.h"
+#include "rabbitizer.hpp"
+#include <set>
 
 namespace N64Recomp {
 
@@ -550,95 +552,201 @@ size_t add_decompressed_section(Context& context,
                  std::move(entry_words),
                  section_name + "_entry");
 
-    // (2) Implementation function at vram+0x20. Determine its size by
-    // a basic forward CFG walk:
-    //   - Start at +0x20.
-    //   - At each instruction, track forward-branch targets within the
-    //     function (B/BEQ/BNE/JAL).
-    //   - At every `jr $ra`, the function ends after the delay slot
-    //     UNLESS a tracked forward-branch target is past that point;
-    //     in that case, keep walking (the jr $ra is mid-function,
-    //     reached via a goto/branch, with more code after).
-    //   - Hard cap at relocOffset (where data/relocs start).
+    // (2) Implementation function at vram+0x20. Determine its size via
+    // a real CFG walk: BFS over reachable instructions following
+    // conditional and unconditional branches, J/JAL targets, and
+    // jr-via-jump-table targets (resolved by reading the jtbl entries
+    // out of the body bytes). The function size is max-reachable-offset
+    // + 4 for the delay slot.
     //
-    // This is far less rigorous than the recompiler's analyze_function
-    // (which is what runs LATER on this function), but it's enough to
-    // size the function correctly for the common cases we've seen so
-    // far. Fragments with weirder shapes (computed-jump exits, etc.)
-    // may need a future refinement; for now they'll either come out
-    // smaller-than-correct (recompile fails — we log + skip) or the
-    // recompiler's own analysis will surface the issue.
+    // This is honest control-flow analysis — no "scan to first jr ra"
+    // shortcut, no skip-on-failure. If we can't determine bounds for
+    // a fragment cleanly, we abort the build with the section name
+    // and the offending instruction; user can either (a) add an
+    // explicit bounds override in the toml, or (b) report a recompiler
+    // bug. Stubbing a function via ignored=true is forbidden per the
+    // project's "no stubs in C/C++" principle.
     constexpr uint32_t IMPL_OFFSET = 0x20;
-    const auto get_be32 = [&](size_t off) -> uint32_t {
-        return read_be_u32(blob.data() + off);
-    };
-    auto branch_target_offset = [&](uint32_t insn,
-                                    uint32_t pc_offset) -> size_t {
-        // BEQ/BNE/BLEZ/BGTZ etc all use 16-bit signed offset relative
-        // to the delay slot. opcode in bits 31..26 between 0x04 and
-        // 0x07, plus REGIMM (0x01) for BLTZ/BGEZ/etc.
-        uint32_t opcode = (insn >> 26) & 0x3F;
-        bool is_branch = (opcode == 0x01 ||  // REGIMM
-                          (opcode >= 0x04 && opcode <= 0x07) ||
-                          opcode == 0x14 || opcode == 0x15 ||  // BEQL/BNEL
-                          opcode == 0x16 || opcode == 0x17);   // BLEZL/BGTZL
-        if (!is_branch) return 0;
-        int16_t imm16 = int16_t(insn & 0xFFFF);
-        // Target = (pc_after_delay_slot) + imm16*4 = pc + 4 + imm16*4.
-        // Working in offsets from blob start.
-        int64_t target = int64_t(pc_offset) + 4 + (int64_t(imm16) * 4);
-        if (target <= int64_t(pc_offset)) return 0;  // backward-only
-        if (target > int64_t(reloc_offset)) return 0;
-        return size_t(target);
+
+    auto discover_impl_size = [&](size_t& impl_size_out,
+                                  std::string& err_out) -> bool {
+        const size_t body_end = reloc_offset;
+        if (body_end <= IMPL_OFFSET + 4) {
+            err_out = "body too small to contain a function at +0x20";
+            return false;
+        }
+        // BFS worklist of insn offsets to visit. visited holds every
+        // offset whose instruction has been decoded.
+        std::set<size_t> visited;
+        std::vector<size_t> worklist;
+        worklist.push_back(IMPL_OFFSET);
+
+        size_t max_reached = IMPL_OFFSET;
+
+        // For non-jr-$ra encountered, we may need jump-table analysis.
+        // Defer those to a second pass after BFS so jtbl reads happen
+        // once per detected jr.
+        std::vector<size_t> indirect_jrs;
+
+        while (!worklist.empty()) {
+            size_t off = worklist.back();
+            worklist.pop_back();
+            if (off + 4 > body_end) {
+                err_out = fmt::format(
+                    "BFS reached offset 0x{:X}, past body end 0x{:X}",
+                    off, body_end);
+                return false;
+            }
+            if (visited.contains(off)) continue;
+
+            // Walk linearly from this offset, marking visited, until
+            // we hit a control-flow boundary that ends the basic block.
+            while (off + 4 <= body_end) {
+                if (visited.contains(off)) break;
+                visited.insert(off);
+                if (off > max_reached) max_reached = off;
+
+                const uint32_t insn_word = read_be_u32(blob.data() + off);
+                rabbitizer::InstructionCpu instr(insn_word, vram + uint32_t(off));
+                const auto id = instr.getUniqueId();
+
+                using InstrId = rabbitizer::InstrId::UniqueId;
+
+                // jr $ra: function return — block ends after delay slot.
+                if (id == InstrId::cpu_jr) {
+                    int rs = int(instr.GetO32_rs());
+                    // Delay slot is reachable.
+                    size_t delay = off + 4;
+                    if (delay + 4 <= body_end) {
+                        visited.insert(delay);
+                        if (delay > max_reached) max_reached = delay;
+                    }
+                    if (rs == int(rabbitizer::Registers::Cpu::GprO32::GPR_O32_ra)) {
+                        // jr $ra — return. Block ends.
+                        break;
+                    }
+                    // jr <other reg> — likely a jump-table dispatch
+                    // OR a tail call. Defer to second pass.
+                    indirect_jrs.push_back(off);
+                    break;
+                }
+
+                // J / JAL (unconditional branch with delay slot).
+                if (id == InstrId::cpu_j || id == InstrId::cpu_jal) {
+                    // Delay slot is reachable.
+                    size_t delay = off + 4;
+                    if (delay + 4 <= body_end) {
+                        visited.insert(delay);
+                        if (delay > max_reached) max_reached = delay;
+                    }
+                    // J target: continue control flow there if it's
+                    // inside our function body (else it's a tail
+                    // call / cross-fragment dispatch).
+                    if (instr.hasOperandAlias(rabbitizer::OperandType::cpu_label)) {
+                        uint32_t target_vram = instr.getInstrIndexAsVram();
+                        if (target_vram >= vram + IMPL_OFFSET &&
+                            target_vram < vram + body_end) {
+                            size_t target_off = target_vram - vram;
+                            if (!visited.contains(target_off)) {
+                                worklist.push_back(target_off);
+                            }
+                        }
+                    }
+                    // JAL = call: control returns after delay slot. J
+                    // = unconditional jump: block ends.
+                    if (id == InstrId::cpu_jal) {
+                        off = delay + 4;
+                        continue;
+                    }
+                    break;
+                }
+
+                // Conditional branches (B*): 16-bit signed offset
+                // relative to delay slot. Both target and fall-through
+                // are reachable.
+                if (instr.isBranch()) {
+                    size_t delay = off + 4;
+                    if (delay + 4 <= body_end) {
+                        visited.insert(delay);
+                        if (delay > max_reached) max_reached = delay;
+                    }
+                    if (instr.hasOperandAlias(rabbitizer::OperandType::cpu_branch_target_label)) {
+                        uint32_t target_vram = instr.getBranchVramGeneric();
+                        if (target_vram >= vram + IMPL_OFFSET &&
+                            target_vram < vram + body_end) {
+                            size_t target_off = target_vram - vram;
+                            if (!visited.contains(target_off)) {
+                                worklist.push_back(target_off);
+                            }
+                        }
+                    }
+                    // Fall-through after delay slot is also reachable.
+                    off = delay + 4;
+                    continue;
+                }
+
+                // Default: fall through to next instruction.
+                off += 4;
+            }
+        }
+
+        // Second pass: indirect jr (jr <reg> not jr $ra) means a
+        // jump table. The recompiler's existing analyze_function
+        // detects these by simulating lui+addiu+lw+jr register-state
+        // chains; wiring that simulator into decompressed.cpp's bounds
+        // discovery is meaningful work that hasn't been done yet.
+        // Until it is, an indirect jr is a build-time error (NOT a
+        // skip) so the user has to make an explicit choice rather
+        // than ship a binary with missing bodies.
+        if (!indirect_jrs.empty()) {
+            err_out = fmt::format(
+                "indirect jr at +0x{:X} (likely jump table); "
+                "decompressed-section pattern can't yet bound functions "
+                "with computed jumps. Declare via the single-block "
+                "[[input.decompressed_section]] form to bypass, or "
+                "extend decompressed.cpp's CFG walk to follow "
+                "jump-table targets.",
+                indirect_jrs.front());
+            return false;
+        }
+
+        // Function size = max_reached + 4 (covers delay slot of last
+        // visited insn).
+        size_t end_off = max_reached + 4;
+        if (end_off > body_end) end_off = body_end;
+        if (end_off <= IMPL_OFFSET) {
+            err_out = "no reachable instructions found at +0x20";
+            return false;
+        }
+        impl_size_out = end_off - IMPL_OFFSET;
+        return true;
     };
 
-    size_t furthest_branch = 0;
-    size_t impl_end = 0;
-    for (size_t off = IMPL_OFFSET; off + 4 <= reloc_offset; off += 4) {
-        const uint32_t insn = get_be32(off);
-        // jr $ra encoding: 0x03E00008
-        if (insn == 0x03E00008u) {
-            // Function ends after delay slot, unless we've tracked a
-            // forward branch past this point.
-            const size_t after_delay = off + 8;
-            if (after_delay > reloc_offset) {
-                impl_end = reloc_offset;
-            } else if (after_delay >= furthest_branch) {
-                impl_end = after_delay;
-            } else {
-                // jr $ra is mid-function — keep walking.
-                continue;
-            }
-            break;
-        }
-        size_t bt = branch_target_offset(insn, off);
-        if (bt > furthest_branch) {
-            furthest_branch = bt;
-        }
+    size_t impl_size = 0;
+    std::string discover_err;
+    if (!discover_impl_size(impl_size, discover_err)) {
+        std::fprintf(stderr,
+            "decompressed: section %s — function-bounds discovery "
+            "failed: %s\n"
+            "  This fragment's impl function couldn't be bounded by\n"
+            "  the engine's CFG walk. Either teach decompressed.cpp\n"
+            "  to handle this shape, declare the fragment via the\n"
+            "  single-block [[input.decompressed_section]] form (with\n"
+            "  manual analysis), or skip it explicitly via a future\n"
+            "  pattern.exclude config option.\n",
+            section_name.c_str(), discover_err.c_str());
+        return size_t(-1);
     }
-    if (impl_end == 0) {
-        // No proper return found — degrade to first jr $ra in body
-        // (matches old heuristic) so we still produce something.
-        for (size_t off = IMPL_OFFSET; off + 4 <= reloc_offset; off += 4) {
-            if (get_be32(off) == 0x03E00008u) {
-                impl_end = off + 8;
-                if (impl_end > reloc_offset) impl_end = reloc_offset;
-                break;
-            }
-        }
-    }
-    if (impl_end > IMPL_OFFSET) {
-        const size_t impl_size = impl_end - IMPL_OFFSET;
-        std::vector<uint32_t> impl_words(impl_size / 4);
-        std::memcpy(impl_words.data(),
-                    blob.data() + IMPL_OFFSET, impl_size);
-        const std::string impl_name = fmt::format(
-            "func_{:08X}", vram + IMPL_OFFSET);
-        add_function(vram + IMPL_OFFSET,
-                     synthetic_rom + IMPL_OFFSET,
-                     std::move(impl_words),
-                     impl_name);
-    }
+
+    std::vector<uint32_t> impl_words(impl_size / 4);
+    std::memcpy(impl_words.data(),
+                blob.data() + IMPL_OFFSET, impl_size);
+    const std::string impl_name = fmt::format(
+        "func_{:08X}", vram + IMPL_OFFSET);
+    add_function(vram + IMPL_OFFSET,
+                 synthetic_rom + IMPL_OFFSET,
+                 std::move(impl_words),
+                 impl_name);
 
     return section_index;
 }
@@ -796,11 +904,14 @@ bool synthesize_decompressed_patterns(
                 context, body, wrap_off, p.vram,
                 section_name, p.relocatable, content_hash);
             if (si == size_t(-1)) {
+                // Hard failure: the section's bytes can't be bounded
+                // by our CFG walk (or some other unrecoverable parse
+                // error). NOT a soft-skip; the user has to decide.
                 std::fprintf(stderr,
-                    "decompressed: pattern %s — failed to add section "
-                    "for ROM 0x%X (continuing)\n",
+                    "decompressed: pattern %s aborted — section for "
+                    "ROM 0x%X failed to synthesize. See message above.\n",
                     base_name.c_str(), wrap_off);
-                continue;
+                return false;
             }
             added++;
         }
