@@ -113,6 +113,16 @@ namespace N64Recomp {
         // recomp_overlays.inl's SectionTableEntry.content_hash. Computed
         // as FNV-1a-64 of the first 0x40 bytes of the section's body.
         uint64_t content_hash = 0;
+        // Original game-side fragment id for pattern variants whose
+        // section.ram_addr was reassigned to a synthetic per-variant
+        // identity (e.g. a pattern variant for stadium_models keeps
+        // original_pattern_id=0xEF even though its ram_addr is in the
+        // synthetic-vram pool). Allows the runtime
+        // register_runtime_fragment to know "this synthetic-pool section
+        // is a candidate for game id X" without having to derive it from
+        // ram_addr (which no longer encodes the original id).
+        // 0xFFFFFFFF means "not a pattern variant" (no override applies).
+        uint32_t original_pattern_id = 0xFFFFFFFFu;
     };
 
     struct ReferenceSection {

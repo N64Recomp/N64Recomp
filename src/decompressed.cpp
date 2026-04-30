@@ -480,8 +480,23 @@ size_t add_decompressed_section(Context& context,
                                 uint32_t vram,
                                 const std::string& section_name,
                                 bool relocatable,
-                                uint64_t content_hash)
+                                uint64_t content_hash,
+                                uint32_t override_link_ram_addr = 0,
+                                uint32_t original_pattern_id = 0xFFFFFFFFu)
 {
+    // `vram` is the BYTES-ENCODED vram — what the body's R_MIPS_HI16/LO16
+    // / R_MIPS_32 / J/JAL targets are encoded relative to. The CFG walker
+    // and reloc parser need this value (otherwise jump-table entries
+    // resolve to the wrong section, etc.).
+    //
+    // `override_link_ram_addr` (if non-zero) is the section's LINK
+    // IDENTITY — what gets stored in section.ram_addr and used at
+    // runtime as section_addresses[N]'s initial value. For pattern
+    // variants we want this DIFFERENT from `vram` so multiple variants
+    // can have unique link identities while sharing the canonical
+    // bytes-encoded vram.
+    const uint32_t link_ram_addr =
+        (override_link_ram_addr != 0) ? override_link_ram_addr : vram;
     if (blob.size() < 0x20) {
         std::fprintf(stderr,
             "decompressed: section %s blob smaller than FRAGMENT header\n",
@@ -544,13 +559,19 @@ size_t add_decompressed_section(Context& context,
 
     Section section{};
     section.rom_addr   = synthetic_rom;
-    section.ram_addr   = vram;
+    // Section identity (link_ram_addr) may differ from the bytes-encoded
+    // vram (`vram`) for pattern variants that get assigned a synthetic
+    // per-variant link identity. The reloc parser stays with the
+    // bytes-encoded vram so target_section_offset values are correct
+    // intra-section byte distances.
+    section.ram_addr   = link_ram_addr;
     section.size       = reloc_offset;
     section.bss_size   = 0;
     section.name       = section_name;
     section.executable = true;
     section.relocatable = relocatable;
     section.content_hash = content_hash;
+    section.original_pattern_id = original_pattern_id;
 
     if (!parse_fragment_relocs(blob, vram, section_index, section)) {
         return size_t(-1);
@@ -816,6 +837,29 @@ bool synthesize_decompressed_patterns(
         std::unordered_map<uint64_t, size_t> seen_hashes;
         size_t added = 0;
         size_t deduped = 0;
+        // Path 2: every unique pattern variant gets its own synthetic
+        // per-variant ram_addr in the 0xC0000000+ sentinel pool. The
+        // bytes-encoded vram (parsing/CFG) stays at p.vram for ALL
+        // variants — only section.ram_addr (the link identity) changes,
+        // so each variant's RELOC_HI16/LO16 macros emit a unique
+        // 0xCXXXXXXX literal at runtime and the synthetic resolver
+        // can translate that literal back to the variant's runtime
+        // RDRAM buffer.
+        //
+        // Pool placement: 0xC0000000 is KSEG2, unused by N64 software,
+        // so the sentinel is "obviously invalid as an N64 vaddr" and
+        // can only be handled by the recomp synthetic resolver. KSEG1
+        // (0xA0000000) was tried first but collides with the engine's
+        // RSP code section at 0xA4000040.
+        //
+        // Stride 0x00100000 = 1 MB per variant. With Stadium's 219
+        // variants, the pool occupies 0xC0000000..0xCDB00000 — well
+        // within the 256-slot capacity (kSyntheticBucketCount on the
+        // runtime side). If the variant count grows past 256 in some
+        // future game, both sides need to bump the pool size.
+        const uint32_t kSyntheticPoolBase = 0xC0000000u;
+        const uint32_t kSyntheticPoolStride = 0x00100000u;
+        size_t probe_variant_idx = 0;
         for (auto& [wrap_off, body] : hits) {
             const size_t window = std::min(HASH_WINDOW, body.size());
             const uint64_t content_hash =
@@ -827,11 +871,29 @@ bool synthesize_decompressed_patterns(
             }
             seen_hashes.emplace(content_hash, wrap_off);
 
+            // Original game-side fragment id derived from the pattern's
+            // canonical bucket. All variants of this pattern share the
+            // same original id (e.g. 0xEF for stadium_models). Stored
+            // on each section so the runtime can filter synthetic
+            // candidates to the matching id and avoid cross-pattern
+            // hash-collision misregistration.
+            const uint32_t orig_id =
+                ((p.vram & 0x0FF00000u) >> 0x14) - 0x10u;
+
+            // Per-variant synthetic link identity. The bytes-encoded
+            // vram (used for parsing/CFG) stays at p.vram — only this
+            // link identity changes per variant.
+            const uint32_t variant_link_addr =
+                kSyntheticPoolBase +
+                uint32_t(probe_variant_idx) * kSyntheticPoolStride;
+            probe_variant_idx++;
+
             const std::string section_name = fmt::format(
                 "{}__rom_{:X}", base_name, wrap_off);
             size_t si = add_decompressed_section(
                 context, body, wrap_off, p.vram,
-                section_name, p.relocatable, content_hash);
+                section_name, p.relocatable, content_hash,
+                variant_link_addr, orig_id);
             if (si == size_t(-1)) {
                 // Hard failure: the section's bytes can't be bounded
                 // by our CFG walk (or some other unrecoverable parse
