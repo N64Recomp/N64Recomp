@@ -168,6 +168,35 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         const auto& reloc = section.relocs[reloc_index];
         reloc_section = reloc.target_section;
 
+        // BSS-targeted relocs (e.g. .fragment34_bss) need to be
+        // remapped to the parent code section BEFORE the relocatable
+        // check below — bss reference sections are not themselves
+        // marked relocatable, but their parent text sections are.
+        // Without this remap, a HI16/LO16 pair targeting a bss
+        // counterpart of a relocatable text section is silently
+        // dropped (target_relocatable=false) and the lui/addiu emit
+        // as link-time literals. At runtime, when the parent text
+        // section is loaded at a non-canonical address, those
+        // literal addresses miss the section's actual location.
+        // Producer/consumer asymmetry (e.g. fragment62 writes
+        // D_8140E720 via literal link addr, fragment34 reads via
+        // RELOC against runtime base) → near-NULL deref.
+        //
+        // The reloc's target_section_offset is RELATIVE to the bss
+        // section's link vram. After remapping to the parent text
+        // section, we must add (bss_vram - parent_vram) so the
+        // offset stays relative to the new (parent) base — bss
+        // typically starts at parent + parent_text_size.
+        uint32_t bss_remap_offset_adjustment = 0;
+        auto find_bss_it = context.bss_section_to_section.find(reloc_section);
+        if (find_bss_it != context.bss_section_to_section.end()) {
+            const auto& bss_section = context.sections[reloc_section];
+            const auto& parent_section = context.sections[find_bss_it->second];
+            bss_remap_offset_adjustment =
+                uint32_t(bss_section.ram_addr) - uint32_t(parent_section.ram_addr);
+            reloc_section = find_bss_it->second;
+        }
+
         // Check if the relocation references a relocatable section.
         bool target_relocatable = false;
         if (!reloc.reference_symbol && reloc_section != N64Recomp::SectionAbsolute) {
@@ -179,7 +208,7 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         if (target_relocatable || reloc.reference_symbol) {
             // Record the reloc's data.
             reloc_type = reloc.type;
-            reloc_target_section_offset = reloc.target_section_offset;
+            reloc_target_section_offset = reloc.target_section_offset + bss_remap_offset_adjustment;
             // Ignore all relocs that aren't MIPS_HI16, MIPS_LO16 or MIPS_26.
             if (reloc_type == N64Recomp::RelocType::R_MIPS_HI16 || reloc_type == N64Recomp::RelocType::R_MIPS_LO16 || reloc_type == N64Recomp::RelocType::R_MIPS_26) {
                 if (reloc.reference_symbol) {
@@ -198,11 +227,8 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
                 }
             }
 
-            // Repoint bss relocations at their non-bss counterpart section.
-            auto find_bss_it = context.bss_section_to_section.find(reloc_section);
-            if (find_bss_it != context.bss_section_to_section.end()) {
-                reloc_section = find_bss_it->second;
-            }
+            // (bss → parent remap moved above the target_relocatable
+            // check; this block was its original home.)
         }
     }
 
