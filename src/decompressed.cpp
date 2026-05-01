@@ -1,5 +1,6 @@
 #include "decompressed.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -238,6 +239,25 @@ bool parse_fragment_relocs(const std::vector<uint8_t>& bytes,
             section_out.has_mips32_relocs = true;
         }
     }
+
+    // The recompiler walks instructions linearly and advances
+    // reloc_index only forward (recompilation.cpp: while
+    // section.relocs[reloc_index].address < vram). It REQUIRES the
+    // relocs to be sorted by address — out-of-order entries are
+    // skipped silently and emitted as literal immediates.
+    //
+    // Stadium's raw reloc table is ordered by HI16+LO16 pair
+    // adjacency, NOT by instruction address. For example, in
+    // stadium_models sub-fragment 4 (variant 384), the table holds:
+    //   [HI16 @ off 0x50][HI16 @ off 0x30][LO16 @ off 0x60]
+    // Pairing has already baked target_section_offset above (the
+    // HI16 at 0x30 pairs with the LO16 at 0x60 via raw-list
+    // adjacency, which is independent of address). Now sort by
+    // address so the recompiler's linear walk hits every entry.
+    std::sort(section_out.relocs.begin(), section_out.relocs.end(),
+              [](const Reloc& a, const Reloc& b) {
+                  return a.address < b.address;
+              });
 
     return true;
 }
