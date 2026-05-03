@@ -197,6 +197,45 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             reloc_section = find_bss_it->second;
         }
 
+        // SectionAbsolute → relocatable-section remap. When splat marks
+        // a symbol as undefined (e.g. D_8140DD78 = 0x8140DD78 lives in
+        // undefined_syms_auto.ld), the elf parser writes
+        // target_section = SectionAbsolute and target_section_offset =
+        // the symbol's literal vram. Without remapping, the HI16/LO16
+        // emit path below treats it as a non-relocatable reference and
+        // bakes in the link-time literal. At runtime, when the symbol's
+        // containing fragment is loaded at a non-canonical address, the
+        // access misses by the relocation delta — same bug pattern as
+        // the BSS-remap case (producer/consumer asymmetry: properly
+        // resolved peers get RELOC, this one gets a literal).
+        //
+        // Walk the registered relocatable sections; if the absolute
+        // value falls inside one, redirect the reloc to that section.
+        // The downstream relocatable check then treats it correctly.
+        if (reloc_section == N64Recomp::SectionAbsolute && !reloc.reference_symbol) {
+            const uint32_t abs_value = uint32_t(reloc.target_section_offset);
+            for (size_t si = 0; si < context.sections.size(); si++) {
+                const auto& s = context.sections[si];
+                if (!s.relocatable) continue;
+                const uint32_t s_start = uint32_t(s.ram_addr);
+                const uint32_t s_end = s_start + uint32_t(s.size);
+                if (abs_value >= s_start && abs_value < s_end) {
+                    reloc_section = uint32_t(si);
+                    // The downstream code computes
+                    //   reloc_target_section_offset =
+                    //     reloc.target_section_offset + bss_remap_offset_adjustment;
+                    // For ABS, reloc.target_section_offset is the literal
+                    // vram (e.g. 0x8140DD78). To get the offset within
+                    // the new section base s_start, subtract s_start by
+                    // adding -s_start into the same adjustment slot
+                    // (bss/abs paths are mutually exclusive — bss_remap
+                    // is 0 here because target wasn't a bss section).
+                    bss_remap_offset_adjustment = uint32_t(0) - s_start;
+                    break;
+                }
+            }
+        }
+
         // Check if the relocation references a relocatable section.
         bool target_relocatable = false;
         if (!reloc.reference_symbol && reloc_section != N64Recomp::SectionAbsolute) {
