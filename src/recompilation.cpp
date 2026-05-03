@@ -538,6 +538,12 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
         break;
     // Branches
     case InstrId::cpu_jal:
+        // MIPS link side-effect: $ra := PC+8, written before the delay slot
+        // executes. Required for handwritten code that computes addresses
+        // from $ra (e.g. Stadium audio synth's `addiu $t3, $ra, OFFSET`
+        // PC-arithmetic trick).
+        print_indent();
+        fmt::print(output_file, "ctx->r31 = 0x{:08X}u;\n", instr_vram + 8);
         if (!print_func_call_by_address(instr.getBranchVramGeneric())) {
             return false;
         }
@@ -548,6 +554,9 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             fmt::print(stderr, "Invalid return address reg for jalr: f{}\n", rd);
             return false;
         }
+        // MIPS link side-effect: $ra := PC+8 (see cpu_jal comment).
+        print_indent();
+        fmt::print(output_file, "ctx->r31 = 0x{:08X}u;\n", instr_vram + 8);
         needs_link_branch = true;
         print_func_call_by_register(rs);
         break;
@@ -773,6 +782,18 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
 
     auto find_conditional_branch_it = conditional_branch_ops.find(instr_id);
     if (find_conditional_branch_it != conditional_branch_ops.end()) {
+        // MIPS link side-effect for bltzal/bgezal/bltzall/bgezall: $ra := PC+8
+        // is committed unconditionally, regardless of whether the branch is
+        // taken. Emit the write BEFORE the if-block so it runs in both
+        // branch-taken and branch-not-taken paths. Required for handwritten
+        // code (e.g. Stadium audio synth) that uses bltzal $zero,X as a
+        // PC-arithmetic primitive: the branch is always-not-taken (since
+        // $zero is never < 0), but $ra still gets loaded so that the
+        // following `addiu $t3, $ra, OFFSET` can compute a function pointer.
+        if (find_conditional_branch_it->second.link) {
+            print_indent();
+            fmt::print(output_file, "ctx->r31 = 0x{:08X}u;\n", instr_vram + 8);
+        }
         print_indent();
         // TODO combining the branch condition and branch target into one generator call would allow better optimization in the runtime's JIT generator.
         // This would require splitting into a conditional jump method and conditional function call method.
