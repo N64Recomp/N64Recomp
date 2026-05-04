@@ -11,6 +11,7 @@ tests
 
 # Linux build output
 build/
+build-*/
 *.o
 
 # Windows build output
