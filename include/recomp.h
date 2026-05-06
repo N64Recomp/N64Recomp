@@ -468,6 +468,16 @@ void recomp_syscall_handler(uint8_t* rdram, recomp_context* ctx, int32_t instruc
 
 void pause_self(uint8_t *rdram);
 
+/* Runtime fragment registrar — invoked from a Memmap_RelocateFragment
+ * hook (see Stadium's game.toml). Translates Stadium's encoded fragment
+ * id to the matching section in the recompiled section_table and
+ * registers all of that section's FuncEntry rows in func_map at
+ * (fragment_ptr + offset). Also runs the trampoline scanner over the
+ * fragment's textbin region. Implemented in
+ * librecomp/src/overlays.cpp. */
+void recomp_register_runtime_fragment(uint8_t *rdram, uint32_t id,
+                                       int32_t fragment_ptr);
+
 #ifdef __cplusplus
 }
 #endif

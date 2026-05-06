@@ -297,8 +297,16 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
             }
             else {
                 uint32_t target_section = func.section_index;
-                // If this instruction has a reloc and the target section is a normal section, use the section of the reloc when searching for a matching target function. 
-                if (has_reloc && reloc_section < 65500) {
+                // Only override target_section when the reloc points at a real
+                // section. SectionAbsolute / SectionImport / SectionEvent are
+                // special sentinels (negative when interpreted signed) and
+                // would index context.sections out of bounds — observed when
+                // marking Stadium's .fragment1 relocatable, which surfaces
+                // R_MIPS_26 relocs whose ELF symbol lives in SHN_ABS (the
+                // absolute address is already encoded in the JAL immediate,
+                // so the in-section function lookup against the caller's
+                // section is the right fallback).
+                if (has_reloc && reloc_section < context.sections.size()) {
                     target_section = reloc_section;
                 }
                 JalResolutionResult jal_result = resolve_jal(context, target_section, target_func_vram, matched_func_index);

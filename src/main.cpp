@@ -792,7 +792,12 @@ int main(int argc, char** argv) {
             // Determine the end of this static function
             uint32_t cur_func_end = static_cast<uint32_t>(section.size + section.ram_addr);
 
-            // Search for the closest function 
+            // Search for the closest function. The bounds check must come
+            // first — the previous order read section_funcs[size] before
+            // exiting, which is OOB and segfaults for static funcs whose
+            // address lies past the last known function in the section
+            // (observed in Stadium's .fragment1 once it was marked
+            // relocatable, which exposes more CreateStatic targets).
             size_t closest_func_index = 0;
             while (closest_func_index < section_funcs.size() && section_funcs[closest_func_index] < static_func_addr) {
                 closest_func_index++;
@@ -951,6 +956,18 @@ int main(int argc, char** argv) {
                     for (const N64Recomp::Reloc& reloc : section_relocs) {
                         bool emit_reloc = false;
                         uint16_t target_section = reloc.target_section;
+                        // Skip relocs whose type the runtime doesn't understand
+                        // (e.g. R_MIPS_PC16, R_MIPS_GOT16) — these come through
+                        // the ELF parser as raw cast values and would index
+                        // reloc_names out of bounds, producing a NUL byte in
+                        // the .type field of the emitted RelocEntry. Stadium's
+                        // .rel.fragment* sections include R_MIPS_PC16 (type
+                        // 10) for branches; the recompiler resolves those
+                        // statically already, so dropping them here is safe.
+                        size_t type_idx = static_cast<size_t>(reloc.type);
+                        if (type_idx >= reloc_names.size()) {
+                            continue;
+                        }
                         // In reference symbol mode, only emit relocations into the table that point to
                         // non-absolute reference symbols, events, or manual patch symbols.
                         if (reference_symbol_mode) {
