@@ -593,16 +593,11 @@ void write_indirect_jumps(std::ofstream& output_file, const BranchTargets& branc
 }
 
 void write_overlay_swap_return(std::ofstream& output_file) {
+    // GPRs / dma_*/jump_target / rsp are emitted as C++ references into
+    // *ctx (see create_function), so writes through the local names
+    // already land in ctx — no explicit store-back needed here.
     fmt::print(output_file,
         "do_overlay_swap:\n"
-        "                    ctx->r1 = r1;   ctx->r2 = r2;   ctx->r3 = r3;   ctx->r4 = r4;   ctx->r5 = r5;   ctx->r6 = r6;   ctx->r7 = r7;\n"
-        "    ctx->r8 = r8;   ctx->r9 = r9;   ctx->r10 = r10; ctx->r11 = r11; ctx->r12 = r12; ctx->r13 = r13; ctx->r14 = r14; ctx->r15 = r15;\n"
-        "    ctx->r16 = r16; ctx->r17 = r17; ctx->r18 = r18; ctx->r19 = r19; ctx->r20 = r20; ctx->r21 = r21; ctx->r22 = r22; ctx->r23 = r23;\n"
-        "    ctx->r24 = r24; ctx->r25 = r25; ctx->r26 = r26; ctx->r27 = r27; ctx->r28 = r28; ctx->r29 = r29; ctx->r30 = r30; ctx->r31 = r31;\n"
-        "    ctx->dma_mem_address = dma_mem_address;\n"
-        "    ctx->dma_dram_address = dma_dram_address;\n"
-        "    ctx->jump_target = jump_target;\n"
-        "    ctx->rsp = rsp;\n"
         "    return RspExitReason::SwapOverlay;\n");
 }
 
@@ -950,10 +945,14 @@ void create_overlay_swap_function(const std::string& function_name, std::ofstrea
     }
     fmt::print(output_file, "}};\n\n");
 
-    // Main function
+    // Main function — owns a static thread_local RspContext so GPRs
+    // persist across run_task calls (matches real-hardware semantics:
+    // rspboot only resets $1/$2/$3/$4/$7; everything else inherits
+    // from the previous task). See create_function() for the same
+    // pattern in the no-overlay case.
     fmt::print(output_file,
         "RspExitReason {}(uint8_t* rdram, uint32_t ucode_addr) {{\n"
-        "    RspContext ctx{{}};\n",
+        "    static thread_local RspContext ctx{{}};\n",
         config.output_function_name);
     
     std::string slots_init_str = "";
@@ -1011,59 +1010,76 @@ void create_function(const std::string& function_name, std::ofstream& output_fil
     }
     
     // Write function
-    if (is_permutation) {
+    //
+    // Two emit shapes — both take RspContext* now:
+    //
+    //   is_permutation = true   : called by the overlay-swap wrapper
+    //                             with a persistent ctx; resume targets
+    //                             may be jumped to.
+    //
+    //   is_permutation = false  : the no-overlay case (e.g. Stadium's
+    //                             aspMain). We emit an _impl function
+    //                             taking ctx, plus a legacy-ABI wrapper
+    //                             (rdram, ucode_addr) that owns a
+    //                             static thread_local RspContext so
+    //                             GPRs persist across run_task calls
+    //                             (matches real-hardware semantics:
+    //                             rspboot only writes $1/$2/$3/$4/$7;
+    //                             everything else is whatever the prior
+    //                             task left).
+    //
+    // GPRs / dma_* / jump_target / rsp are emitted as C++ references
+    // into *ctx, so writes through the local names auto-persist with
+    // no manual store-back. Exit paths (return / SwapOverlay /
+    // UnhandledJumpTarget / etc.) all benefit.
+    std::string impl_function_name = is_permutation
+        ? function_name                      // permutation/initial: name as given
+        : (function_name + "_impl");         // no-overlay: wrap with _impl
+
+    fmt::print(output_file,
+        "RspExitReason {}(uint8_t* rdram, RspContext* ctx) {{\n"
+        "    uint32_t&                 r1 = ctx->r1;   uint32_t&  r2 = ctx->r2;   uint32_t&  r3 = ctx->r3;   uint32_t&  r4 = ctx->r4;   uint32_t&  r5 = ctx->r5;   uint32_t&  r6 = ctx->r6;   uint32_t&  r7 = ctx->r7;\n"
+        "    uint32_t&  r8 = ctx->r8;  uint32_t&  r9 = ctx->r9;   uint32_t& r10 = ctx->r10; uint32_t& r11 = ctx->r11; uint32_t& r12 = ctx->r12; uint32_t& r13 = ctx->r13; uint32_t& r14 = ctx->r14; uint32_t& r15 = ctx->r15;\n"
+        "    uint32_t& r16 = ctx->r16; uint32_t& r17 = ctx->r17; uint32_t& r18 = ctx->r18; uint32_t& r19 = ctx->r19; uint32_t& r20 = ctx->r20; uint32_t& r21 = ctx->r21; uint32_t& r22 = ctx->r22; uint32_t& r23 = ctx->r23;\n"
+        "    uint32_t& r24 = ctx->r24; uint32_t& r25 = ctx->r25; uint32_t& r26 = ctx->r26; uint32_t& r27 = ctx->r27; uint32_t& r28 = ctx->r28; uint32_t& r29 = ctx->r29; uint32_t& r30 = ctx->r30; uint32_t& r31 = ctx->r31;\n"
+        "    uint32_t& dma_mem_address = ctx->dma_mem_address; uint32_t& dma_dram_address = ctx->dma_dram_address; uint32_t& jump_target = ctx->jump_target;\n"
+        "    const char * debug_file = NULL; int debug_line = 0;\n"
+        "    RSP& rsp = ctx->rsp;\n", impl_function_name);
+
+    // Permutation-only: handle resume targets when re-entering after a
+    // SwapOverlay round-trip. is_initial=true means "first call into
+    // the ucode for this task" so there's no prior resume to honor.
+    if (is_permutation && !is_initial) {
         fmt::print(output_file,
-            "RspExitReason {}(uint8_t* rdram, RspContext* ctx) {{\n"
-            "    uint32_t                 r1 = ctx->r1,   r2 = ctx->r2,   r3 = ctx->r3,   r4 = ctx->r4,   r5 = ctx->r5,   r6 = ctx->r6,   r7 = ctx->r7;\n"
-            "    uint32_t  r8 = ctx->r8,  r9 = ctx->r9,   r10 = ctx->r10, r11 = ctx->r11, r12 = ctx->r12, r13 = ctx->r13, r14 = ctx->r14, r15 = ctx->r15;\n"
-            "    uint32_t r16 = ctx->r16, r17 = ctx->r17, r18 = ctx->r18, r19 = ctx->r19, r20 = ctx->r20, r21 = ctx->r21, r22 = ctx->r22, r23 = ctx->r23;\n"
-            "    uint32_t r24 = ctx->r24, r25 = ctx->r25, r26 = ctx->r26, r27 = ctx->r27, r28 = ctx->r28, r29 = ctx->r29, r30 = ctx->r30, r31 = ctx->r31;\n"
-            "    uint32_t dma_mem_address = ctx->dma_mem_address, dma_dram_address = ctx->dma_dram_address, jump_target = ctx->jump_target;\n"
-            "    const char * debug_file = NULL; int debug_line = 0;\n"
-            "    RSP rsp = ctx->rsp;\n", function_name);
+            "    if (ctx->resume_delay) {{\n"
+            "        switch (ctx->resume_address) {{\n");
 
-        // Write jumps to resume targets
-        if (!is_initial) {
-            fmt::print(output_file,
-                "    if (ctx->resume_delay) {{\n"
-                "        switch (ctx->resume_address) {{\n");
-            
-            for (uint32_t address : resume_targets.delay_targets) {
-                fmt::print(output_file, "            case 0x{0:04X}: goto R_{0:04X}_delay;\n", 
-                    address);
-            }
-            
-            fmt::print(output_file,
-                "        }}\n"
-                "    }} else {{\n"
-                "        switch (ctx->resume_address) {{\n");
-            
-            for (uint32_t address : resume_targets.non_delay_targets) {
-                fmt::print(output_file, "            case 0x{0:04X}: goto R_{0:04X};\n", 
-                    address);
-            }
-
-            fmt::print(output_file,
-                "        }}\n"
-                "    }}\n"
-                "    printf(\"Unhandled resume target 0x%04X (delay slot: %d) in microcode {}\\n\", ctx->resume_address, ctx->resume_delay);\n"
-                "    return RspExitReason::UnhandledResumeTarget;\n",
-                config.output_function_name);
+        for (uint32_t address : resume_targets.delay_targets) {
+            fmt::print(output_file, "            case 0x{0:04X}: goto R_{0:04X}_delay;\n",
+                address);
         }
 
-        fmt::print(output_file, "    r1 = 0xFC0;\n");
-    } else {
         fmt::print(output_file,
-            "RspExitReason {}(uint8_t* rdram, [[maybe_unused]] uint32_t ucode_addr) {{\n"
-            "    uint32_t           r1 = 0,  r2 = 0,  r3 = 0,  r4 = 0,  r5 = 0,  r6 = 0,  r7 = 0;\n"
-            "    uint32_t  r8 = 0,  r9 = 0, r10 = 0, r11 = 0, r12 = 0, r13 = 0, r14 = 0, r15 = 0;\n"
-            "    uint32_t r16 = 0, r17 = 0, r18 = 0, r19 = 0, r20 = 0, r21 = 0, r22 = 0, r23 = 0;\n"
-            "    uint32_t r24 = 0, r25 = 0, r26 = 0, r27 = 0, r28 = 0, r29 = 0, r30 = 0, r31 = 0;\n"
-            "    uint32_t dma_mem_address = 0, dma_dram_address = 0, jump_target = 0;\n"
-            "    const char * debug_file = NULL; int debug_line = 0;\n"
-            "    RSP rsp{{}};\n"
-            "    r1 = 0xFC0;\n", function_name);
+            "        }}\n"
+            "    }} else {{\n"
+            "        switch (ctx->resume_address) {{\n");
+
+        for (uint32_t address : resume_targets.non_delay_targets) {
+            fmt::print(output_file, "            case 0x{0:04X}: goto R_{0:04X};\n",
+                address);
+        }
+
+        fmt::print(output_file,
+            "        }}\n"
+            "    }}\n"
+            "    printf(\"Unhandled resume target 0x%04X (delay slot: %d) in microcode {}\\n\", ctx->resume_address, ctx->resume_delay);\n"
+            "    return RspExitReason::UnhandledResumeTarget;\n",
+            config.output_function_name);
     }
+
+    // rspboot semantics: $1 is reset to 0xFC0 at every entry. All other
+    // GPRs persist from the previous task (already in *ctx via refs).
+    fmt::print(output_file, "    r1 = 0xFC0;\n");
     // Write each instruction
     for (size_t instr_index = 0; instr_index < instrs.size(); instr_index++) {
         process_instruction(instr_index, instrs, output_file, branch_targets, config.unsupported_instructions, resume_targets, is_permutation, false, false);
@@ -1080,8 +1096,26 @@ void create_function(const std::string& function_name, std::ofstream& output_fil
         write_overlay_swap_return(output_file);
     }
 
-    // End the file
+    // End the impl function
     fmt::print(output_file, "}}\n");
+
+    // For the no-overlay case, also emit a legacy-ABI wrapper so the
+    // runtime (which calls via the RspUcodeFunc typedef in rsp.hpp,
+    // signature `(rdram, ucode_addr)`) can keep calling unchanged.
+    // The wrapper owns a static thread_local RspContext so GPRs
+    // persist across run_task calls. Per-ucode storage is correct for
+    // the common pattern (same ucode invoked repeatedly); games that
+    // depend on cross-ucode GPR leak would need a runtime-managed
+    // shared context — separate librecomp change, not this engine fix.
+    if (!is_permutation) {
+        fmt::print(output_file,
+            "\n"
+            "RspExitReason {0}(uint8_t* rdram, [[maybe_unused]] uint32_t ucode_addr) {{\n"
+            "    static thread_local RspContext persistent_ctx{{}};\n"
+            "    return {0}_impl(rdram, &persistent_ctx);\n"
+            "}}\n",
+            function_name);
+    }
 }
 
 int main(int argc, const char** argv) {
