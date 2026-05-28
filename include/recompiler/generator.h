@@ -58,6 +58,7 @@ namespace N64Recomp {
         virtual void emit_muldiv(InstrId instr_id, int reg1, int reg2) const = 0;
         virtual void emit_syscall(uint32_t instr_vram) const = 0;
         virtual void emit_do_break(uint32_t instr_vram) const = 0;
+        virtual void emit_trap(const TrapOp& op, const InstructionContext& ctx, uint32_t instr_vram) const = 0;
         virtual void emit_pause_self() const = 0;
         virtual void emit_trigger_event(uint32_t event_index) const = 0;
         virtual void emit_comment(const std::string& comment) const = 0;
@@ -95,6 +96,7 @@ namespace N64Recomp {
         void emit_muldiv(InstrId instr_id, int reg1, int reg2) const final;
         void emit_syscall(uint32_t instr_vram) const final;
         void emit_do_break(uint32_t instr_vram) const final;
+        void emit_trap(const TrapOp& op, const InstructionContext& ctx, uint32_t instr_vram) const final;
         void emit_pause_self() const final;
         void emit_trigger_event(uint32_t event_index) const final;
         void emit_comment(const std::string& comment) const final;
