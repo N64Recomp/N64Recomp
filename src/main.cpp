@@ -945,11 +945,13 @@ int main(int argc, char** argv) {
                 std::string section_funcs_array_name = fmt::format("section_{}_{}_funcs", section_index, section_name_trimmed);
                 std::string section_relocs_array_name = section_relocs.empty() ? "nullptr" : fmt::format("section_{}_{}_relocs", section_index, section_name_trimmed);
                 std::string section_relocs_array_size = section_relocs.empty() ? "0" : fmt::format("ARRLEN({})", section_relocs_array_name);
+                std::string section_got_ram_addr = !section.got_ram_addr.has_value() ? "std::nullopt" : fmt::format("0x{:08X}", section.got_ram_addr.value());
 
                 // Write the section's table entry.
-                section_load_table += fmt::format("    {{ .rom_addr = 0x{0:08X}, .ram_addr = 0x{1:08X}, .size = 0x{2:08X}, .funcs = {3}, .num_funcs = ARRLEN({3}), .relocs = {4}, .num_relocs = {5}, .index = {6} }},\n",
+                section_load_table += fmt::format("    {{ .rom_addr = 0x{0:08X}, .ram_addr = 0x{1:08X}, .size = 0x{2:08X}, .funcs = {3}, .num_funcs = ARRLEN({3}), .relocs = {4}, .num_relocs = {5}, .index = {6}, .got_ram_addr = {7} }},\n",
                                                   section.rom_addr, section.ram_addr, section.size, section_funcs_array_name,
-                                                  section_relocs_array_name, section_relocs_array_size, section_index);
+                                                  section_relocs_array_name, section_relocs_array_size, section_index,
+                                                  section_got_ram_addr);
 
                 // Write the section's functions.
                 fmt::print(overlay_file, "static FuncEntry {}[] = {{\n", section_funcs_array_name);
