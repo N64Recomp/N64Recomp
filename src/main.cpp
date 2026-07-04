@@ -158,6 +158,17 @@ std::vector<std::string> reloc_names {
     "R_MIPS_GPREL16",
 };
 
+// reloc_names only covers the basic o32 relocation types (0..7). A relocatable/PIC input can carry higher
+// types (GOT16, CALL16, GPREL32, ...) whose numeric value indexes past the end of reloc_names. Indexing the
+// vector directly is then an out-of-bounds read (undefined behavior) — harmless on some libstdc++ builds,
+// but on the Windows STL it returns a garbage std::string whose enormous size makes fmt's format buffer
+// throw std::bad_alloc mid-write, killing the recompiler after it has written most of its output. Treat any
+// out-of-range type as R_MIPS_NONE (which is also how scripts/fix-recompiled.sh normalizes these entries).
+static const std::string& reloc_type_name(N64Recomp::RelocType type) {
+    size_t idx = static_cast<size_t>(type);
+    return idx < reloc_names.size() ? reloc_names[idx] : reloc_names[0];
+}
+
 void dump_context(const N64Recomp::Context& context, const std::unordered_map<uint16_t, std::vector<N64Recomp::DataSymbol>>& data_syms, const std::filesystem::path& func_path, const std::filesystem::path& data_path) {
     std::ofstream func_context_file {func_path};
     std::ofstream data_context_file {data_path};
@@ -211,7 +222,7 @@ void dump_context(const N64Recomp::Context& context, const std::unordered_map<ui
                 fmt::print(func_context_file, "relocs = [\n");
                 for (const N64Recomp::Reloc& reloc : sorted_relocs) {
                     fmt::print(func_context_file, "    {{ type = \"{}\", vram = 0x{:08X}, target_vram = 0x{:08X} }},\n",
-                        reloc_names[static_cast<int>(reloc.type)], reloc.address, reloc.target_section_offset + section.ram_addr);
+                        reloc_type_name(reloc.type), reloc.address, reloc.target_section_offset + section.ram_addr);
                 }
                 fmt::print(func_context_file, "]\n\n");
             }
@@ -996,7 +1007,7 @@ int main(int argc, char** argv) {
                                 target_section_offset = reloc.target_section_offset;
                             }
                             fmt::print(overlay_file, "    {{ .offset = 0x{:08X}, .target_section_offset = 0x{:08X}, .target_section = {}, .type = {} }}, \n",
-                                reloc.address - section.ram_addr, target_section_offset, reloc.target_section, reloc_names[static_cast<size_t>(reloc.type)] );
+                                reloc.address - section.ram_addr, target_section_offset, reloc.target_section, reloc_type_name(reloc.type) );
                         }
                     }
 
