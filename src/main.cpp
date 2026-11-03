@@ -549,7 +549,8 @@ int main(int argc, char** argv) {
         func->name = func->name + "_recomp";
     }
 
-    // Propogate the trace mode parameter.
+    // Propagate config params.
+    context.cross_relocatable_section_function_calls = config.cross_relocatable_section_function_calls;
     context.trace_mode = config.trace_mode;
 
     // Apply any single-instruction patches.

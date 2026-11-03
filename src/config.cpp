@@ -417,6 +417,15 @@ N64Recomp::Config::Config(const char* path) {
             use_mdebug = false;
         }
 
+        // Whether function calls across relocatable sections is allowed (optional)
+        std::optional<bool> cross_relocatable_section_function_calls_opt = input_data["cross_relocatable_section_function_calls"].value<bool>();
+        if (cross_relocatable_section_function_calls_opt.has_value()) {
+            cross_relocatable_section_function_calls = cross_relocatable_section_function_calls_opt.value();
+        }
+        else {
+            cross_relocatable_section_function_calls = false;
+        }
+
         // Symbols to ignore when parsing mdebug (option, defaults to empty)
         toml::node_view mdebug_mappings_data = input_data["mdebug_file_mappings"];
         if (mdebug_mappings_data.is_array()) {
