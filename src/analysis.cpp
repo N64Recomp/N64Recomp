@@ -28,6 +28,7 @@ struct RegState {
     uint8_t loaded_addend_reg;
     bool valid_loaded;
     bool valid_got_loaded; // valid load through the GOT
+    uint32_t addu_gp_vram;
 
     RegState() = default;
 
@@ -50,6 +51,8 @@ struct RegState {
 
         valid_loaded = false;
         valid_got_loaded = false;
+
+        addu_gp_vram = 0;
     }
 };
 
@@ -121,6 +124,7 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const N64Recom
             int valid_got_loaded_reg = reg_states[rs].valid_got_loaded ? rs : rt;
 
             temp = reg_states[valid_got_loaded_reg];
+            temp.addu_gp_vram = instr.getVram();
         }
         // Exactly one of the two addend register states should have a valid lui at this time
         else if (reg_states[rs].valid_lui != reg_states[rt].valid_lui) {
@@ -232,6 +236,7 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const N64Recom
                 0,
                 reg_states[rs].loaded_lw_vram,
                 reg_states[rs].loaded_addu_vram,
+                reg_states[rs].addu_gp_vram,
                 instr.getVram(),
                 0, // section index gets filled in later
                 std::nullopt,
@@ -244,6 +249,7 @@ bool analyze_instruction(const rabbitizer::InstructionCpu& instr, const N64Recom
                 0,
                 reg_states[rs].loaded_lw_vram,
                 reg_states[rs].loaded_addu_vram,
+                reg_states[rs].addu_gp_vram,
                 instr.getVram(),
                 0, // section index gets filled in later
                 reg_states[rs].prev_got_offset,
