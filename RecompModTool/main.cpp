@@ -1007,14 +1007,15 @@ N64Recomp::Context build_mod_context(const N64Recomp::Context& input_context, bo
     return ret;
 }
 
-bool create_mod_zip(const std::filesystem::path& output_dir, const ModConfig& config) {
+bool create_mod_zip(const std::filesystem::path& output_dir, const ModConfig& config, bool store_only) {
     std::filesystem::path output_path = output_dir / (config.inputs.mod_filename + ".nrm");
 
 #ifdef _WIN32
     std::filesystem::path temp_zip_path = output_path;
     temp_zip_path.replace_extension(".zip");
-    std::string command_string = fmt::format("powershell -command Compress-Archive -Force -CompressionLevel Optimal -DestinationPath '{}' -Path '{}','{}','{}'",
-        temp_zip_path.string(), (output_dir / symbol_filename).string(), (output_dir / binary_filename).string(), (output_dir / manifest_filename).string());
+    std::string compression_level = store_only ? "NoCompression" : "Optimal";
+    std::string command_string = fmt::format("powershell -command Compress-Archive -Force -CompressionLevel {} -DestinationPath '{}' -Path '{}','{}','{}'",
+        compression_level, temp_zip_path.string(), (output_dir / symbol_filename).string(), (output_dir / binary_filename).string(), (output_dir / manifest_filename).string());
 
     for (const auto& cur_file : config.inputs.additional_files) {
         command_string += fmt::format(",'{}'", cur_file.string());
@@ -1069,7 +1070,7 @@ bool create_mod_zip(const std::filesystem::path& output_dir, const ModConfig& co
 
     add_arg("zip"); // The program name (argv[0]).
     add_arg("-q"); // Quiet mode.
-    add_arg("-9"); // Maximum compression level.
+    add_arg(store_only ? "-0" : "-9"); // Store only or maximum compression level.
     add_arg("-MM"); // Error if any files aren't found.
     add_arg("-j"); // Junk the paths (store just as the provided filename).
     add_arg("-T"); // Test zip integrity.
@@ -1126,13 +1127,28 @@ bool create_mod_zip(const std::filesystem::path& output_dir, const ModConfig& co
 }
 
 int main(int argc, const char** argv) {
-    if (argc != 3) {
-        fmt::print("Usage: {} [mod toml] [output folder]\n", argv[0]);
+    bool store_only = false;
+    int positional_start = 1;
+
+    // Parse optional flags.
+    for (int i = 1; i < argc; i++) {
+        std::string_view arg{argv[i]};
+        if (arg == "--store-only") {
+            store_only = true;
+            positional_start = i + 1;
+        }
+        else {
+            break;
+        }
+    }
+
+    if (argc - positional_start != 2) {
+        fmt::print("Usage: {} [--store-only] [mod toml] [output folder]\n", argv[0]);
         return EXIT_SUCCESS;
     }
 
     bool config_good;
-    std::filesystem::path output_dir{ argv[2] };
+    std::filesystem::path output_dir{ argv[positional_start + 1] };
 
     if (!std::filesystem::exists(output_dir)) {
         fmt::print(stderr, "Specified output folder does not exist!\n");
@@ -1144,10 +1160,10 @@ int main(int argc, const char** argv) {
         return EXIT_FAILURE;
     }
 
-    ModConfig config = parse_mod_config(argv[1], config_good);
+    ModConfig config = parse_mod_config(argv[positional_start], config_good);
 
     if (!config_good) {
-        fmt::print(stderr, "Failed to read mod config file: {}\n", argv[1]);
+        fmt::print(stderr, "Failed to read mod config file: {}\n", argv[positional_start]);
         return EXIT_FAILURE;
     }
 
@@ -1239,7 +1255,7 @@ int main(int argc, const char** argv) {
     write_manifest(output_manifest_path, config.manifest);
 
     // Create the zip.
-    if (!create_mod_zip(output_dir, config)) {
+    if (!create_mod_zip(output_dir, config, store_only)) {
         fmt::print(stderr, "Failed to create mod file.\n");
         return EXIT_FAILURE;
     }
