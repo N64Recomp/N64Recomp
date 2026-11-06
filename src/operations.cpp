@@ -191,4 +191,19 @@ namespace N64Recomp {
         { InstrId::cpu_sdc1, { StoreOpType::SDC1, Operand::FtU64 }},
         { InstrId::cpu_swc1, { StoreOpType::SWC1, Operand::FtU32L }},
     };
+
+    const std::unordered_map<InstrId, TrapOp> trap_ops {
+        { InstrId::cpu_tge,     { BinaryOpType::GreaterEq, {{ UnaryOpType::ToS64, UnaryOpType::ToS64 }, { Operand::Rs, Operand::Rt     }}}},
+        { InstrId::cpu_tgeu,    { BinaryOpType::GreaterEq, {{ UnaryOpType::ToU64, UnaryOpType::ToU64 }, { Operand::Rs, Operand::Rt     }}}},
+        { InstrId::cpu_tlt,     { BinaryOpType::Less,      {{ UnaryOpType::ToS64, UnaryOpType::ToS64 }, { Operand::Rs, Operand::Rt     }}}},
+        { InstrId::cpu_tltu,    { BinaryOpType::Less,      {{ UnaryOpType::ToU64, UnaryOpType::ToU64 }, { Operand::Rs, Operand::Rt     }}}},
+        { InstrId::cpu_teq,     { BinaryOpType::Equal,     {{ UnaryOpType::None,  UnaryOpType::None  }, { Operand::Rs, Operand::Rt     }}}},
+        { InstrId::cpu_tne,     { BinaryOpType::NotEqual,  {{ UnaryOpType::None,  UnaryOpType::None  }, { Operand::Rs, Operand::Rt     }}}},
+        { InstrId::cpu_tgei,    { BinaryOpType::GreaterEq, {{ UnaryOpType::ToS64, UnaryOpType::ToS64 }, { Operand::Rs, Operand::ImmS16 }}}},
+        { InstrId::cpu_tgeiu,   { BinaryOpType::GreaterEq, {{ UnaryOpType::ToU64, UnaryOpType::ToU64 }, { Operand::Rs, Operand::ImmS16 }}}},
+        { InstrId::cpu_tlti,    { BinaryOpType::Less,      {{ UnaryOpType::ToS64, UnaryOpType::ToS64 }, { Operand::Rs, Operand::ImmS16 }}}},
+        { InstrId::cpu_tltiu,   { BinaryOpType::Less,      {{ UnaryOpType::ToU64, UnaryOpType::ToU64 }, { Operand::Rs, Operand::ImmS16 }}}},
+        { InstrId::cpu_teqi,    { BinaryOpType::Equal,     {{ UnaryOpType::None,  UnaryOpType::None  }, { Operand::Rs, Operand::ImmS16 }}}},
+        { InstrId::cpu_tnei,    { BinaryOpType::NotEqual,  {{ UnaryOpType::None,  UnaryOpType::None  }, { Operand::Rs, Operand::ImmS16 }}}},
+    };
 }
